@@ -1,12 +1,14 @@
 ---
 abstract: 'Experimental 4th generation Win32 Perl distribution builder'
 author:
-  - 'Adam Kennedy <adamk@cpan.org>'
+  - 'Curtis Jewell <csjewell@cpan.org>'
 build_requires:
   ExtUtils::MakeMaker: 6.11
   Test::More: 0.47
+  Test::Output: 0.11
+  Test::UseAllModules: 0.09
 distribution_type: module
-generated_by: 'Module::Install version 0.77'
+generated_by: 'Module::Install version 0.79'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -15,15 +17,19 @@ module_name: Perl::Dist::WiX
 name: Perl-Dist-WiX
 no_index:
   directory:
-    - share
-    - share
     - inc
+    - share
     - t
 requires:
+  Data::UUID: 1.149
+  Exception::Class: 1.22
   File::ShareDir: 1.00
-  Moose: 0.58
-  Perl::Dist: 1.04
+  List::MoreUtils: 0.07
+  Module::CoreList: 2.17
+  Object::InsideOut: 3.53
+  Perl::Dist: 1.12
+  Readonly: 1.03
   perl: 5.8.0
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.01_01
+version: 0.013_004

@@ -1,66 +1,143 @@
 package Perl::Dist::WiX::Environment;
 
-# Represents an <Environment> tag within the Windows Installer XML Schema
+####################################################################
+# Perl::Dist::WiX::Environment - Fragment & Component that contains
+#  <Environment> tags
+#
+# Copyright 2009 Curtis Jewell
+#
+# License is the same as perl. See Wix.pm for details.
+#
+#<<<
+use     5.006;
+use     strict;
+use     warnings;
+use     vars              qw( $VERSION       );
+use     Object::InsideOut qw(
+    Perl::Dist::WiX::Base::Fragment
+    Perl::Dist::WiX::Base::Component
+    Storable
+);
+use     Params::Util      qw( _IDENTIFIER    );
+require Perl::Dist::WiX::EnvironmentEntry;
 
-use 5.008;
-use Moose;
-use Moose::Util::TypeConstraints;
-
-use vars qw{$VERSION};
-BEGIN {
-	$VERSION = '0.01_01';
-}
-
-
-
-
+use version; $VERSION = qv('0.13_04');
+#>>>
+#####################################################################
+# Accessors:
 
 #####################################################################
-# WiX <File> Attributes
+# Constructor for Environment
+#
+# Parameters: [pairs]
 
-has id => (
-	is       => 'ro',
-	isa      => 'Str',
-	required => 1,
-);
+sub _pre_init : PreInit {
+	my ( $self, $args ) = @_;
 
-has action => (
-	is       => 'ro',
-	isa      => enum([qw{ create set remove }]),
-	required => 1,
-);
+	# Apply defaults
+	$args->{id} ||= 'Environment';
 
-has name => (
-	is       => 'ro',
-	isa      => 'Str',
-	required => 1,
-);
+	return;
+}
 
-has part => (
-	is       => 'ro',
-	isa      => enum([qw{ all first last }]),
-	required => 1,
-);
+sub _init : Init {
+	my $self = shift;
 
-has permanent => (
-	is       => 'ro',
-	isa      => 'Bool',
-	required => 1,
-	default  => 0,
-);
+	# Check parameters.
 
-has system => (
-	is       => 'ro',
-	isa      => 'Bool',
-	required => 1,
-	default  => 0,
-);
+	unless ( _IDENTIFIER( $self->get_component_id() ) ) {
+		PDWiX->throw('Missing or invalid id parameter');
+	}
 
-has value => (
-	is       => 'ro',
-	isa      => 'String',
-);
+	# Make a GUID for as_string to use.
+	$self->create_guid_from_id();
 
-__PACKAGE__->meta->make_immutable;
+	return $self;
+} ## end sub _init :
+
+#####################################################################
+# Main Methods
+
+sub search_file {
+	return undef;
+}
+
+sub check_duplicates {
+	return undef;
+}
+
+########################################
+# add_entry(...)
+# Parameters:
+#   Passed to EnvironmentEntry->new.
+# Returns:
+#   Object being called. (chainable)
+
+sub add_entry {
+	my $self = shift;
+
+	my $i = scalar @{ $self->get_entries };
+	$self->get_entries->[$i] = Perl::Dist::WiX::EnvironmentEntry->new(@_);
+
+	return $self;
+}
+
+########################################
+# get_component_array
+# Parameters:
+#   None
+# Returns:
+#   Id attached to the contained component.
+
+sub get_component_array {
+	my $self = shift;
+
+	return $self->get_component_id;
+}
+
+########################################
+# as_string
+# Parameters:
+#   None.
+# Returns:
+#   String containing <Fragment> and <Component> tags defined by this object
+#   and <Environment> tags defined by objects contained in this object.
+
+sub as_string {
+	my ($self) = shift;
+
+	# getting the number of entries.
+	my $count = scalar @{ $self->get_entries(); };
+	return q{} if ( $count == 0 );
+
+	my $string;
+	my $s;
+	my $id = $self->get_component_id();
+
+	$string = <<"EOF";
+<?xml version='1.0' encoding='windows-1252'?>
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+  <Fragment Id='Fr_$id'>
+    <DirectoryRef Id='TARGETDIR'>
+EOF
+
+	$string .= $self->indent( 6, $self->as_start_string() );
+	$string .= "\n";
+
+	foreach my $i ( 0 .. $count - 1 ) {
+		$s = $self->get_entries->[$i]->as_string;
+		$string .= $self->indent( 6, $s );
+		$string .= "\n";
+	}
+
+	$string .= <<'EOF';
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>
+EOF
+
+	return $string;
+} ## end sub as_string
 
 1;

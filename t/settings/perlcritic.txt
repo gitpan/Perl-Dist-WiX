@@ -1,0 +1,38 @@
+verbose=%f:%l:%c:\n %p: %m\n
+
+[CodeLayout::RequireTidyCode]
+perltidyrc = t\settings\perltidy.txt
+
+[ControlStructures::ProhibitPostfixControls]
+allow = if unless
+
+[TestingAndDebugging::RequireUseStrict]
+severity = 5
+
+[TestingAndDebugging::RequireUseWarnings]
+severity = 5
+
+[RegularExpressions::RequireExtendedFormatting]
+minimum_regex_length_to_complain_about = 7
+
+[InputOutput::RequireCheckedSyscalls]
+functions = :builtins
+exclude_functions = print
+
+[Variables::ProhibitPackageVars]
+add_packages = Module::CoreList
+
+# Exclusions
+[-ValuesAndExpressions::ProhibitMagicNumbers]
+[-CodeLayout::ProhibitHardTabs]
+[-ControlStructures::ProhibitUnlessBlocks]
+[-Miscellanea::RequireRcsKeywords]
+[-Subroutines::RequireArgUnpacking]
+[-Subroutines::ProhibitExplicitReturnUndef]
+[-Documentation::RequirePodAtEnd]
+[-Documentation::RequirePodSections]
+[-ValuesAndExpressions::ProhibitCommaSeparatedStatements]
+[-ValuesAndExpressions::ProhibitLongChainsOfMethodCalls]
+
+# For now
+[-ControlStructures::ProhibitNegativeExpressionsInUnlessAndUntilConditions]

@@ -3,27 +3,831 @@ NAME
     builder
 
 DESCRIPTION
-    This package is currently mostly just a placeholder for the eventual
-    home namespace of a future upgrade to Perl::Dist based on Windows
+    This package is the experimental upgrade to Perl::Dist based on Windows
     Install XML technology, instead of Inno Setup.
 
 METHODS
-  dist_dir
-    Provides a shortcut to location the shared files directory.
+  new
+    The new method creates a new Perl Distribution build as an object.
+
+    Each object is used to create a single distribution, and then should be
+    discarded.
+
+    Although there are about 30 potential constructor arguments that can be
+    provided, most of them are automatically resolved and exist for
+    overloading puposes only, or they revert to sensible defaults and
+    generally never need to be modified.
+
+    The following is an example of the most likely attributes that will be
+    specified.
+
+      my $build = Perl::Dist::WiX->new(
+          image_dir => 'C:\vanilla',
+          temp_dir  => 'C:\tmp\vp',
+              msi_directory_tree_additions => [ qw(
+            c\bin\program
+            perl\lib\Acme
+          )],
+          cpan      => URI->new(('file://C|/minicpan/')),
+      );
+
+    Attributes that are required to be set are marked as *(required)* below.
+    They may often be set by subclasses.
+
+    *   image_dir *(required)*
+
+        Perl::Dist::WiX distributions can only be installed to fixed paths
+        as of yet.
+
+        To facilitate a correctly working CPAN setup, the files that will
+        ultimately end up in the installer must also be assembled under the
+        same path on the author's machine.
+
+        The "image_dir" method specifies the location of the Perl install,
+        both on the author's and end-user's host.
+
+        Please note that this directory will be automatically deleted if it
+        already exists at object creation time. Trying to build a Perl
+        distribution on the SAME distribution can thus have devastating
+        results.
+
+    *   temp_dir
+
+        Perl::Dist::WiX needs a series of temporary directories while it is
+        running the build, including places to cache downloaded files,
+        somewhere to expand tarballs to build things, and somewhere to put
+        debugging output and the final installer zip and exe files.
+
+        The "temp_dir" param specifies the root path for where these
+        temporary directories should be created.
+
+        For convenience it is best to make these short paths with simple
+        names, near the root.
+
+        This parameter defaults to a subdirectory of $ENV{TEMP} if not
+        specified.
+
+    *   force
+
+        The "force" parameter determines if perl and perl modules are tested
+        upon installation. If this parameter is true, then no testing is
+        done.
+
+    *   trace
+
+        The "trace" parameter sets the level of tracing that is output.
+
+        Setting this parameter to 0 prints out only MAJOR stuff and errors.
+
+        Setting this parameter to 2 or above will print out the level as the
+        first thing on the line.
+
+        Setting this parameter to 3 or above will print out the filename and
+        line number after the trace level on those lines that require a
+        trace level of 3 or above to print.
+
+        Setting this parameter to 5 or above will print out the filename and
+        line number on every line.
+
+        Default is 1 if not set.
+
+    *   perl_version
+
+        The "perl_version" parameter specifies what version of perl is
+        downloaded and built. Legal values for this parameter are '588',
+        '589', and '5100' (for 5.8.8, 5.8.9, and 5.10.0, respectively.)
+
+        This parameter defaults to '5100' if not specified.
+
+    *   cpan
+
+        The "cpan" param provides a path to a CPAN or minicpan mirror that
+        the installer can use to fetch any needed files during the build
+        process.
+
+        The param should be a URI object to the root of the CPAN repository,
+        including trailing slash.
+
+        If you are online and no "cpan" param is provided, the value will
+        default to the <http://cpan.strawberryperl.com> repository as a
+        convenience.
+
+    *   portable
+
+        The optional boolean "portable" param is used to indicate that the
+        distribution is intended for installation on a portable storable
+        device.
+
+    *   zip
+
+        The optional boolean "zip" param is used to indicate that a zip
+        distribution package should be created.
+
+    *   msi
+
+        The optional boolean "msi" param is used to indicate that a Windows
+        Installer distribution package (otherwise known as an msi file)
+        should be created.
+
+    *   exe
+
+        The optional boolean "exe" param is deprecated.
+
+    *   checkpoint_after
+
+        Stops the installation at the stage that has this number.
+
+    *   checkpoint_before
+
+        Starts a saved installation at the stage that has this number.
+
+    *   app_id *(required)*
+
+        The "app_id" parameter provides the base identifier of the
+        distribution that is used in constructing filenames. This must be a
+        legal Perl identifier (no spaces, for example) and is required.
+
+    *   app_name *(required)*
+
+        The "app_name" parameter provides the name of the distribution. This
+        is required.
+
+    *   app_publisher *(required)*
+
+        The "app_publisher" parameter provides the publisher of the
+        distribution.
+
+    *   app_publisher_url *(required)*
+
+        The "app_publisher_url" parameter provides the URL of the publisher
+        of the distribution.
+
+    *   default_group_name
+
+        The name for the Start menu group this program installs its
+        shortcuts to. Defaults to app_name if none is provided.
+
+    *   msi_debug
+
+        The optional boolean "msi_debug" parameter is used to indicate that
+        a debugging MSI (one that creates a log in $ENV{TEMP}) will be
+        created if "msi" is also true.
+
+    *   build_number *(required)*
+
+        The required integer "build_number" parameter is used to set the
+        build number portion of the distribution's version number, and is
+        used in constructing filenames.
+
+    *   beta_number
+
+        The optional integer "beta_number" parameter is used to set the beta
+        number portion of the distribution's version number (if this is a
+        beta distribution), and is used in constructing filenames.
+
+        It defaults to 0 if not set, which will construct distributions
+        without a beta number.
+
+    *   msi_license_file
+
+        The optional "msi_license_file" parameter specifies the location of
+        an .rtf or .txt file to be displayed at the point where the MSI asks
+        you to accept a license.
+
+        Perl::Dist::WiX provides a default one if none is supplied here.
+
+    *   msi_banner_top
+
+        The optional "msi_banner_top" parameter specifies the location of a
+        493x58 .bmp file that is used on the top of most of the dialogs in
+        the MSI file.
+
+        WiX will use its default if no file is supplied here.
+
+    *   msi_banner_side
+
+        The optional "msi_banner_side" parameter specifies the location of a
+        493x312 .bmp file that is used in the introductory dialog in the MSI
+        file.
+
+        WiX will use its default if no file is supplied here.
+
+    *   msi_help_url
+
+        The optional "msi_help_url" parameter specifies the URL that
+        Add/Remove Programs directs you to for support when you click the
+        "Click here for support information." text.
+
+    *   msi_readme_file
+
+        The optional "msi_readme_file" parameter specifies a .txt or .rtf
+        file or a URL (TODO: check) that is linked in Add/Remove Programs in
+        the "Click here for support information." text.
+
+    *   msi_product_icon
+
+        The optional "msi_product_icon" parameter specifies the icon that is
+        used in Add/Remove Programs for this MSI file.
+
+    *   msi_directory_tree_additions
+
+        The optional "msi_directory_tree_additions" parameter is a reference
+        to an array of directories under image_dir (i.e. perl\lib\Module, as
+        opposed to C:\distribution\perl\lib\module) that need to be in the
+        initial directory tree because they are used by more than one
+        fragment.
+
+        If upon running the distribution module, you see LGHT0091 or
+        LGHT0130 errors at the end that refer to directories, add the
+        applicable directories to this parameter.
+
+    The "new" constructor returns a Perl::Dist object, which you should then
+    call "run" on to generate the distribution.
+
+  Accessors
+        $id = $dist->bin_candle;
+
+    Accessors will return a specified portion of the distribution state.
+
+    If it can also be set as a parameter to "new", it is marked as *(also
+    "new" parameter)* below.
+
+   binary_root
+    *(also "new" parameter)*
+
+    The "binary_root" accessor returns the URL (as a string, not including
+    the filename) where the distribution will be uploaded.
+
+    Defaults to 'http://strawberryperl.com/package'.
+
+   modules_dir
+    *(also "new" parameter)*
+
+    The directory where the modules for the distribution will be downloaded
+    to.
+
+    Defaults to "download_dir" . '\modules'.
+
+   license_dir
+    *(also "new" parameter)*
+
+    The subdirectory of image_dir where the licenses for the different
+    portions of the distribution will be copied to.
+
+    Defaults to "image_dir" . '\licenses'.
+
+   build_dir
+    *(also "new" parameter)*
+
+    The directory where the source files for the distribution will be
+    extracted and built from.
+
+    Defaults to "temp_dir" . '\build'.
+
+   checkpoint_dir
+    *(also "new" parameter)*
+
+    The directory where Perl::Dist::WiX will store its checkpoints.
+
+    Defaults to "temp_dir" . '\checkpoint'.
+
+   bin_perl, bin_make, bin_pexports, bin_dlltool
+    The location of perl.exe, dmake.exe, pexports.exe, and dlltool.exe.
+
+    These only are available (not undef) once the appropriate packages are
+    installed.
+
+   env_path
+    An arrayref storing the different directories under "image_dir" that
+    need to be added to the PATH.
+
+   debug_stdout, debug_stderr
+    The files where STDOUT and STDERR is redirected to to receive the output
+    of make and perl.
+
+    Defaults to "output_dir" . '\debug.out' and "output_dir" . '\debug.err'
+
+   perl_version_corelist
+    A hash containing the versions of the core modules in the version of
+    perl being distributed. Retrieved from Module::Corelist.
+
+   output_file
+    The list of distributions created as an array reference.
+
+   filters
+    Provides an array reference of files and directories that will not be
+    installed.
+
+    Initialized in "new".
+
+   dist_dir
+    Provides a shortcut to the location of the shared files directory.
 
     Returns a directory as a string or dies on error.
+
+   offline
+    The Perl::Dist module has limited ability to build offline, if all
+    packages have already been downloaded and cached.
+
+    The connectedness of the Perl::Dist object is checked automatically be
+    default using LWP::Online. It can be overidden by providing an offline
+    param to the constructor.
+
+    The "offline" accessor returns true if no connection to "the internet"
+    is available and the object will run in offline mode, or false
+    otherwise.
+
+   download_dir
+    *(also "new" parameter)*
+
+    The "download_dir" accessor returns the path to the directory that
+    packages of various types will be downloaded and cached to.
+
+    An explicit value can be provided via a "download_dir" param to the
+    constructor. Otherwise the value is derived from "temp_dir".
+
+   image_dir
+    *(also "new" parameter)*
+
+    The "image_dir" accessor returns the path to the built distribution
+    image. That is, the directory in which the build C/Perl code and modules
+    will be installed on the build server.
+
+    At the present time, this is also the path to which Perl will be
+    installed on the user's machine via the "source_dir" accessor, which is
+    an alias to the Perl::Dist::WiX::Installer method "source_dir".
+    (although theoretically they can be different, this is likely to break
+    the user's Perl install)
+
+   perl_version
+    The "perl_version" accessor returns the shorthand perl version as a
+    string (consisting of the three-part version with dots removed).
+
+    Thus Perl 5.8.8 will be "588" and Perl 5.10.0 will return "5100".
+
+   perl_version_literal
+    The "perl_version_literal" method returns the literal numeric Perl
+    version for the distribution.
+
+    For Perl 5.8.8 this will be '5.008008', Perl 5.8.9 will be '5.008009',
+    and for Perl 5.10.0 this will be '5.010000'.
+
+   perl_version_human
+    The "perl_version_human" method returns the "marketing" form of the Perl
+    version.
+
+    This will be either '5.8.8', '5.8.9' or '5.10.0'.
+
+  run
+    The "run" method is the main method for the class.
+
+    It does a complete build of a product, spitting out an installer.
+
+    Returns true, or throws an exception on error.
+
+    This method may take an hour or more to run.
+
+  Routines used by "run"
+   install_custom
+    The "install_custom" method is an empty install stub provided to allow
+    sub-classed distributions to add vastly different additional packages on
+    top of Strawberry Perl.
+
+    For example, this class is used by the Parrot distribution builder
+    (which needs to sit on a full Strawberry install).
+
+    Notably, the "install_custom" method comes AFTER "remove_waste", so that
+    the file deletion logic in "remove_waste" won't accidntally delete files
+    that may result in a vastly more damaging effect on the custom software.
+
+    Returns true, or throws an error on exception.
+
+   install_c_toolchain
+    The "install_c_toolchain" method is used by "run" to install various
+    binary packages to provide a working C development environment.
+
+    By default, the C toolchain consists of dmake, gcc (C/C++), binutils,
+    pexports, the mingw runtime environment, and the win32api C package.
+
+    Although dmake is the "standard" make for Perl::Dist distributions, it
+    will also install the mingw version of GNU make for use with those
+    modules that require it.
+
+   install_c_libraries
+    The "install_c_libraries" method is an empty install stub provided to
+    allow sub-classed distributions to add vastly different additional
+    packages on top of Strawberry Perl.
+
+    Returns true, or throws an error on exception.
+
+   install_perl_* (* = 588, 589, or 5100)
+        $self->install_perl_5100;
+
+    The "install_perl_*" method provides a simplified way to install Perl
+    into the distribution.
+
+    It takes care of calling "install_perl_*_bin" with the standard params,
+    and then calls "install_perl_toolchain" to set up the CPAN toolchain.
+
+    Returns true, or throws an exception on error.
+
+   install_perl_*_bin
+      $self->install_perl_5100_bin(
+          name       => 'perl',
+          dist       => 'RGARCIA/perl-5.10.0.tar.gz',
+          unpack_to  => 'perl',
+          license    => {
+              'perl-5.10.0/Readme'   => 'perl/Readme',
+              'perl-5.10.0/Artistic' => 'perl/Artistic',
+              'perl-5.10.0/Copying'  => 'perl/Copying',
+          },
+          install_to => 'perl',
+      );
+
+    The "install_perl_*_bin" method takes care of the detailed process of
+    building the Perl binary and installing it into the distribution.
+
+    A short summary of the process would be that it downloads or otherwise
+    fetches the named package, unpacks it, copies out any license files from
+    the source code, then tweaks the Win32 makefile to point to the specific
+    build directory, and then runs make/make test/make install. It also
+    registers some environment variables for addition to the Inno Setup
+    script.
+
+    It is normally called directly by "install_perl_*" rather than directly
+    from the API, but is documented for completeness.
+
+    It takes a number of parameters that are sufficiently detailed above.
+
+    Returns true (after 20 minutes or so) or throws an exception on error.
+
+   install_dmake
+      $dist->install_dmake
+
+    The "install_dmake" method installs the dmake make tool into the
+    distribution, and is typically installed during "C toolchain" build
+    phase.
+
+    It provides the approproate arguments to "install_binary" and then
+    validates that the binary was installed correctly.
+
+    Returns true or throws an exception on error.
+
+   install_gcc
+      $dist->install_gcc
+
+    The "install_gcc" method installs the GNU C Compiler into the
+    distribution, and is typically installed during "C toolchain" build
+    phase.
+
+    It provides the appropriate arguments to several "install_binary" calls.
+    The default "install_gcc" method installs two binary packages, the core
+    compiler 'gcc-core' and the C++ compiler 'gcc-c++'.
+
+    Returns true or throws an exception on error.
+
+   install_binutils
+      $dist->install_binutils
+
+    The "install_binutils" method installs the "GNU binutils" package into
+    the distribution.
+
+    The most important of these is "dlltool.exe", which is used to extract
+    static library files from .dll files. This is needed by some libraries
+    to let the Perl interfaces build against them correctly.
+
+    Returns true or throws an exception on error.
+
+   install_pexports
+      $dist->install_pexports
+
+    The "install_pexports" method installs the "MinGW pexports" package into
+    the distribution.
+
+    This is needed by some libraries to let the Perl interfaces build
+    against them correctly.
+
+    Returns true or throws an exception on error.
+
+   install_mingw_runtime
+      $dist->install_mingw_runtime
+
+    The "install_mingw_runtime" method installs the MinGW runtime package
+    into the distribution, which is basically the MinGW version of libc and
+    some other very low level libs.
+
+    Returns true or throws an exception on error.
+
+   install_zlib
+      $dist->install_zlib
+
+    The "install_zlib" method installs the GNU zlib compression library into
+    the distribution, and is typically installed during "C toolchain" build
+    phase.
+
+    It provides the appropriate arguments to a "install_library" call that
+    will extract the standard zlib win32 package, and generate the
+    additional files that Perl needs.
+
+    Returns true or throws an exception on error.
+
+   install_win32api
+      $dist->install_win32api
+
+    The "install_win32api" method installs "MinGW win32api" layer, to allow
+    C code to compile against native Win32 APIs.
+
+    Returns true or throws an exception on error.
+
+   install_mingw_make
+      $dist->install_mingw_make
+
+    The "install_mingw_make" method installs the MinGW build of the GNU make
+    build tool.
+
+    While GNU make is not used by Perl itself, some C libraries can't be
+    built using the normal "dmake" tool and explicitly need GNU make. So we
+    install it as mingw-make and certain Alien:: modules will use it by that
+    name.
+
+    Returns true or throws an exception on error.
+
+   install_libiconv
+      $dist->install_libiconv
+
+    The "install_libiconv" method installs the "GNU libiconv" library, which
+    is used for various character encoding tasks, and is needed for other
+    libraries such as "libxml".
+
+    Returns true or throws an exception on error.
+
+   install_libxml
+      $dist->install_libxml
+
+    The "install_libxml" method installs the "Gnome libxml" library, which
+    is a fast, reliable, XML parsing library, and the new standard library
+    for XML parsing.
+
+    Returns true or throws an exception on error.
+
+   install_expat
+      $dist->install_expat
+
+    The "install_expat" method installs the "Expat" XML library, which was
+    the first popular C XML parser. Many Perl XML libraries are based on
+    Expat.
+
+    Returns true or throws an exception on error.
+
+   install_gmp
+      $dist->install_gmp
+
+    The "install_gmp" method installs the "GNU Multiple Precision Arithmetic
+    Library", which is used for fast and robust bignum support.
+
+    Returns true or throws an exception on error.
+
+   install_pari
+      $dist->install_pari
+
+    The "install_pari" method install (via a PAR package) libpari and the
+    Math::Pari module into the distribution.
+
+    This method should only be called at during the install_modules phase.
+
+  General installation methods
+   install_binary
+      $self->install_binary(
+          name => 'gmp',
+      );
+
+    The "install_binary" method is used by library-specific methods to
+    install pre-compiled and un-modified tar.gz or zip archives into the
+    distribution.
+
+    Returns true or throws an exception on error.
+
+   install_library
+      $self->install_binary(
+          name => 'gmp',
+      );
+
+    The "install_binary" method is used by library-specific methods to
+    install pre-compiled and un-modified tar.gz or zip archives into the
+    distribution.
+
+    Returns true or throws an exception on error.
+
+   install_distribution
+      $self->install_distribution(
+          name              => 'ADAMK/File-HomeDir-0.69.tar.gz,
+          force             => 1,
+          automated_testing => 1,
+          makefilepl_param  => [
+              'LIBDIR=' . File::Spec->catdir(
+                  $self->image_dir, 'c', 'lib',
+              ),
+          ],
+      );
+
+    The "install_distribution" method is used to install a single CPAN or
+    non-CPAN distribution directly, without installing any of the
+    dependencies for that distribution.
+
+    It is used primarily during CPAN bootstrapping, to allow the
+    installation of the toolchain modules, with the distribution install
+    order precomputed or hard-coded.
+
+    It takes a compulsory 'name' param, which should be the AUTHOR/file path
+    within the CPAN mirror.
+
+    The optional 'force' param allows the installation of distributions with
+    spuriously failing test suites.
+
+    The optional 'automated_testing' param allows for installation with the
+    "AUTOMATED_TESTING" environment flag enabled, which is used to either
+    run more-intensive testing, or to convince certain Makefile.PL that
+    insists on prompting that there is no human around and they REALLY need
+    to just go with the default options.
+
+    The optional 'makefilepl_param' param should be a reference to an array
+    of additional params that should be passwd to the "perl Makefile.PL".
+    This can help with distributions that insist on taking additional
+    options via Makefile.PL.
+
+    Returns true or throws an exception on error.
+
+   install_module
+      $self->install_module(
+          name => 'DBI',
+      );
+
+    The "install_module" method is a high level installation method that can
+    be used during the "install_perl_modules" phase, once the CPAN toolchain
+    has been been initialized.
+
+    It makes the installation call using the CPAN client directly, allowing
+    the CPAN client to both do the installation and fulfill all of the
+    dependencies for the module, identically to if it was installed from the
+    CPAN shell via an "install Module::Name" command.
+
+    The compulsory 'name' param should be the class name of the module to be
+    installed.
+
+    The optional 'force' param can be used to force the install of module.
+    This does not, however, force the installation of the dependencies of
+    the module.
+
+    The optional 'packlist' param sshould be 0 if a .packlist file is not
+    installed with the module.
+
+    Returns true or throws an exception on error.
+
+   install_modules
+      $self->install_modules( qw{
+          Foo::Bar
+          This::That
+          One::Two
+      } );
+
+    The "install_modules" method is a convenience shorthand that makes it
+    trivial to install a series of modules via "install_module".
+
+    As a convenience, it does not support any additional params to the
+    underlying "install_module" call other than the name.
+
+   install_par
+    The "install_par" method extends the available installation options to
+    allow for the install of pre-compiled modules and pre-compiled C
+    libraries via "PAR" packages.
+
+    The compulsory 'name' param should be a simple identifying name, and
+    does not have any functional use.
+
+    The compulsory 'uri' param should be a URL string to the PAR package.
+
+    Returns true on success or throws an exception on error.
+
+   install_file
+      # Overwrite the CPAN::Config
+      $self->install_file(
+          share      => 'Perl-Dist CPAN_Config.pm',
+          install_to => 'perl/lib/CPAN/Config.pm',
+      );
+      
+  # Install a custom icon file
+      $self->install_file(
+          name       => 'Strawberry Perl Website Icon',
+          url        => 'http://strawberryperl.com/favicon.ico',
+          install_to => 'Strawberry Perl Website.ico',
+      );
+
+    The "install_file" method is used to install a single specific file from
+    various sources into the distribution.
+
+    It is generally used to overwrite modules with distribution-specific
+    customisations, or to install licenses, README files, or other
+    miscellaneous data files which don't need to be compiled or modified.
+
+    It takes a variety of different params.
+
+    The optional 'name' param provides an optional plain name for the file.
+    It does not have any functional purpose or meaning for this method.
+
+    One of several alternative source methods must be provided.
+
+    The 'url' method is used to provide a fully-resolved path to the source
+    file and should be a fully-resolved URL.
+
+    The 'file' method is used to provide a local path to the source file on
+    the local system, and should be a fully-resolved filesystem path.
+
+    The 'share' method is used to provide a path to a file installed as part
+    of a CPAN distribution, and accessed via File::ShareDir.
+
+    It should be a string containing two space-seperated value, the first of
+    which is the distribution name, and the second is the path within the
+    share dir of that distribution.
+
+    The final compulsory method is the 'install_to' method, which provides
+    either a destination file path, or alternatively a path to an existing
+    directory that the file be installed below, using its source file name.
+
+    Returns true or throws an exception on error.
+
+   install_launcher
+      $self->install_launcher(
+          name => 'CPAN Client',
+          bin  => 'cpan',
+      );
+
+    The "install_launcher" method is used to describe a binary program
+    launcher that will be added to the Windows "Start" menu when the
+    distribution is installed.
+
+    It takes two compulsory param.
+
+    The compulsory 'name' param is the name of the launcher, and the text
+    that label will be displayed in the start menu (Currently this only
+    supports ASCII, and is not language-aware in any way).
+
+    The compulsory 'bin' param should be the name of a .bat script launcher
+    in the Perl bin directory. The program itself MUST be installed before
+    trying to add the launcher.
+
+    Returns true or throws an exception on error.
+
+   install_website
+      $self->install_website(
+          name       => 'Strawberry Perl Website',
+          url        => 'http://strawberryperl.com/',
+          icon_file  => 'Strawberry Perl Website.ico',
+          icon_index => 1,
+      );
+
+    The "install_website" param is used to install a "Start" menu entry that
+    will load a website using the default system browser.
+
+    The compulsory 'name' param should be the name of the website, and will
+    be the labelled displayed in the "Start" menu.
+
+    The compulsory 'url' param is the fully resolved URL for the website.
+
+    The optional 'icon_file' param should be the path to a file that
+    contains the icon for the website.
+
+    The optional 'icon_index' param should be the icon index within the icon
+    file. This param is optional even if the 'icon_file' param has been
+    provided, by default the first icon in the file will be used.
+
+    Returns true on success, or throws an exception on error.
+
+  write_zip
+    The "write_zip" method is used to generate a standalone .zip file
+    containing the entire distribution, for situations in which a full
+    installer executable is not wanted (such as for "Portable Perl" type
+    installations).
+
+    The executable file is written to the output directory, and the location
+    of the file is printed to STDOUT.
+
+    Returns true or throws an exception or error.
 
 SUPPORT
     No support of any kind is provided for this module
 
-AUTHOR
+AUTHORS
+    Curtis Jewell <csjewell@cpan.org>
+
     Adam Kennedy <adamk@cpan.org>
 
 SEE ALSO
     Perl::Dist, Perl::Dist::Inno, <http://ali.as/>
 
 COPYRIGHT
-    Copyright 2008 Adam Kennedy.
+    Copyright 2009 Curtis Jewell.
+
+    Copyright 2008-2009 Adam Kennedy.
 
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
