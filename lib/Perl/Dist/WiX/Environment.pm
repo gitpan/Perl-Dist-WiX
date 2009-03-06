@@ -21,7 +21,7 @@ use     Object::InsideOut qw(
 use     Params::Util      qw( _IDENTIFIER    );
 require Perl::Dist::WiX::EnvironmentEntry;
 
-use version; $VERSION = qv('0.14');
+use version; $VERSION = qv('0.15');
 #>>>
 #####################################################################
 # Accessors:
@@ -44,9 +44,11 @@ sub _init : Init {
 	my $self = shift;
 
 	# Check parameters.
-
 	unless ( _IDENTIFIER( $self->get_component_id() ) ) {
-		PDWiX->throw('Missing or invalid id parameter');
+		PDWiX::Parameter->throw(
+			parameter => 'id',
+			where     => '::Environment->new'
+		);
 	}
 
 	# Make a GUID for as_string to use.

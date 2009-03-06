@@ -18,7 +18,7 @@ use     Params::Util          qw( _IDENTIFIER _STRING            );
 use     File::Spec::Functions qw( catdir                         );
 require Perl::Dist::WiX::Directory;
 
-use version; $VERSION = qv('0.14');
+use version; $VERSION = qv('0.15');
 #>>>
 #####################################################################
 # Accessors:
@@ -68,7 +68,10 @@ sub search_dir {
 		    "\$self: $self\n$params_ref: $params_ref\n"
 		  . "path_to_find: $params_ref->{path_to_find}\n" );
 	my $path_to_find = _STRING( $params_ref->{path_to_find} )
-	  || PDWiX->throw('No path to find.');
+	  || PDWiX::Parameter->throw(
+		parameter => 'path_to_find',
+		where     => '::DirectoryTree->search_dir'
+	  );
 	my $descend = $params_ref->{descend} || 1;
 	my $exact   = $params_ref->{exact}   || 0;
 
@@ -176,6 +179,8 @@ sub initialize_tree {
 		  perl\lib\Digest
 		  perl\lib\ExtUtils
 		  perl\lib\File
+		  perl\lib\Filter
+		  perl\lib\Filter\Util
 		  perl\lib\IO
 		  perl\lib\IO\Compress
 		  perl\lib\IO\Uncompress
@@ -206,6 +211,8 @@ sub initialize_tree {
 		  perl\lib\auto\ExtUtils
 		  perl\lib\auto\File
 		  perl\lib\auto\Filter
+		  perl\lib\auto\Filter\Util
+		  perl\lib\auto\Filter\Util\Call
 		  perl\lib\auto\IO
 		  perl\lib\auto\IO\Compress
 		  perl\lib\auto\Math
@@ -219,6 +226,7 @@ sub initialize_tree {
 		  perl\lib\auto\Test
 		  perl\lib\auto\Test\Harness
 		  perl\lib\auto\Text
+		  perl\lib\auto\Thread
 		  perl\lib\auto\threads
 		  perl\lib\auto\threads\shared
 		  perl\lib\auto\Time
@@ -251,11 +259,17 @@ sub add_root_directory {
 	my ( $self, $id, $dir ) = @_;
 
 	unless ( defined _IDENTIFIER($id) ) {
-		PDWiX->throw('Missing or invalid id parameter');
+		PDWiX::Parameter->throw(
+			parameter => 'id',
+			where     => '::DirectoryTree->add_root_directory'
+		);
 	}
 
 	unless ( defined _STRING($dir) ) {
-		PDWiX->throw('Missing or invalid dir parameter');
+		PDWiX::Parameter->throw(
+			parameter => 'dir',
+			where     => '::DirectoryTree->add_root_directory'
+		);
 	}
 
 	my $path = $self->app_dir;

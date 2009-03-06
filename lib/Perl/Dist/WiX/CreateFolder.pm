@@ -20,7 +20,7 @@ use Object::InsideOut qw(
 );
 use Params::Util      qw( _STRING  );
 
-use version; $VERSION = qv('0.14');
+use version; $VERSION = qv('0.15');
 #>>>
 #####################################################################
 # Accessors:
@@ -39,7 +39,10 @@ sub _pre_init : PreInit {
 	unless ( defined $args->{guid} ) {
 		my $id = $args->{id};
 		unless ( defined _STRING($id) ) {
-			PDWiX->throw('Invalid or missing id parameter.');
+			PDWiX::Parameter->throw(
+				parameter => 'id',
+				where     => '::CreateFolder->new'
+			);
 		}
 		$args->{guid} = $self->generate_guid("Create$id");
 	}

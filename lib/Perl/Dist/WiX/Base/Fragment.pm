@@ -17,9 +17,9 @@ use warnings;
 use vars              qw( $VERSION                               );
 use Readonly          qw( Readonly                               );
 use Object::InsideOut qw( Perl::Dist::WiX::Misc :Public Storable );
-use Params::Util      qw( _CLASSISA _STRING                      );
+use Params::Util      qw( _INSTANCE _STRING                      );
 
-use version; $VERSION = qv('0.14');
+use version; $VERSION = qv('0.15');
 
 Readonly my $COMPONENT_CLASS => 'Perl::Dist::WiX::Base::Component';
 
@@ -49,10 +49,16 @@ sub _init : Init {
 	my $self = shift;
 
 	unless ( _STRING( $self->get_directory_id ) ) {
-		PDWiX->throw('Invalid directory parameter');
+		PDWiX::Parameter->throw(
+			parameter => 'directory',
+			where     => '::Base::Fragment->new'
+		);
 	}
 	unless ( _STRING( $self->get_fragment_id ) ) {
-		PDWiX->throw('Missing or invalid id parameter');
+		PDWiX::Parameter->throw(
+			parameter => 'id',
+			where     => '::Base::Fragment->new'
+		);
 	}
 
 	# Initialize components arrayref.
@@ -76,8 +82,11 @@ sub add_component {
 	my ( $self, $component ) = @_;
 
 	# Check parameters.
-	unless ( _CLASSISA( ref $component, $COMPONENT_CLASS ) ) {
-		PDWiX->throw('Not adding a valid component');
+	unless ( _INSTANCE( $component, $COMPONENT_CLASS ) ) {
+		PDWiX::Parameter->throw(
+			parameter => 'component',
+			where     => '::Base::Fragment->add_component'
+		);
 	}
 
 	# Adding component to the list.

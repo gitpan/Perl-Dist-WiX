@@ -62,6 +62,7 @@ t/50_dist_new.t
 t/80_pod.t
 t/81_perlcritic.t
 t/82_version.t
+t/83_minimumversion.t
 t/90_perl_588.t
 t/91_perl_589.t
 t/92_perl_5100.t

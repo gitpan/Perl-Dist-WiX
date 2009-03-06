@@ -23,7 +23,7 @@ use     List::MoreUtils       qw( any                         );
 use     Data::UUID            qw( NameSpace_DNS               );
 require Devel::StackTrace;
 
-use version; $VERSION = qv('0.14');
+use version; $VERSION = qv('0.15');
 
 #>>>
 
@@ -35,6 +35,8 @@ use Exception::Class (
 	'PDWiX::Parameter' => {
 		'description' =>
 		  'Perl::Dist::WiX error: Parameter missing or invalid',
+		'isa'    => 'PDWiX',
+		'fields' => [ 'parameter', 'where' ],
 	},
 );
 
@@ -53,6 +55,25 @@ sub PDWiX::full_message { ## no critic 'Capitalization'
 	return $misc->_trace_line( 0, $string, 0, $tracelevel,
 		$self->trace->frame(0) );
 } ## end sub PDWiX::full_message
+
+sub PDWiX::Parameter::full_message { ## no critic 'Capitalization'
+	my $self = shift;
+
+	my $string =
+	    $self->description() . ': '
+	  . $self->parameter()
+	  . ' in Perl::Dist::WiX'
+	  . $self->where() . "\n";
+	my $misc       = Perl::Dist::WiX::Misc->new();
+	my $tracelevel = $misc->get_trace() % 100;
+
+	# Add trace to it. (We automatically dump trace for parameter errors.)
+	$string .= "\n" . $self->trace() . "\n";
+
+	return $misc->_trace_line( 0, $string, 0, $tracelevel,
+		$self->trace->frame(0) );
+} ## end sub PDWiX::Parameter::full_message
+
 
 #####################################################################
 # Attributes
@@ -150,13 +171,16 @@ sub set_trace {
 	my ( $self, $tracelevel ) = @_;
 
 	unless ( defined _NONNEGINT($tracelevel) ) {
-		PDWiX->throw('Missing or invalid tracelevel parameter.');
+		PDWiX::Parameter->throw(
+			parameter => 'tracelevel',
+			where     => '::Misc->set_trace'
+		);
 	}
 
 	$tracestate = $tracelevel;
 
 	return $self;
-}
+} ## end sub set_trace
 
 ########################################
 # indent($spaces, $string)
@@ -171,10 +195,16 @@ sub indent {
 
 	# Check parameters.
 	unless ( _STRING($string) ) {
-		PDWiX->throw('Missing or invalid string parameter.');
+		PDWiX::Parameter->throw(
+			parameter => 'string',
+			where     => '::Misc->indent'
+		);
 	}
 	unless ( defined _NONNEGINT($num) ) {
-		PDWiX->throw('Missing or invalid num parameter.');
+		PDWiX::Parameter->throw(
+			parameter => 'num',
+			where     => '::Misc->indent'
+		);
 	}
 
 	# Indent string.
@@ -205,13 +235,19 @@ sub trace_line {
 
 	# Check parameters and object state.
 	unless ( defined _NONNEGINT($tracelevel) ) {
-		PDWiX->throw('Missing or invalid tracelevel');
+		PDWiX::Parameter->throw(
+			parameter => 'tracelevel',
+			where     => '::Misc->trace_line'
+		);
 	}
 	unless ( defined _NONNEGINT($tracestate) ) {
 		$tracestate_status = 0;
 	}
 	unless ( defined _STRING($text) ) {
-		PDWiX->throw('Missing or invalid text');
+		PDWiX::Parameter->throw(
+			parameter => 'text',
+			where     => '::Misc->trace_line'
+		);
 	}
 
 	my $tracestate_test = 0;

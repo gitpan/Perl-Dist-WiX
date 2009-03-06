@@ -19,7 +19,7 @@ use     Params::Util      qw( _IDENTIFIER _STRING                      );
 require Perl::Dist::WiX::Registry::Key;
 require Perl::Dist::WiX::Registry::Entry;
 
-use version; $VERSION = qv('0.14');
+use version; $VERSION = qv('0.15');
 
 #>>>
 #####################################################################
@@ -93,10 +93,16 @@ sub add_key {
 
 	# Check parameters.
 	unless ( _IDENTIFIER( $params{id} ) ) {
-		PDWiX->throw('Missing or invalid id');
+		PDWiX::Parameter->throw(
+			parameter => 'id',
+			where     => '::Registry->id'
+		);
 	}
 	unless ( _STRING( $params{key} ) ) {
-		PDWiX->throw('Missing or invalid key');
+		PDWiX::Parameter->throw(
+			parameter => 'key',
+			where     => '::Registry->id'
+		);
 	}
 
 	# Set defaults.

@@ -16,7 +16,7 @@ use Object::InsideOut     qw( Perl::Dist::WiX::Base::Entry Storable );
 use Params::Util          qw( _IDENTIFIER _STRING                   );
 use File::Spec::Functions qw( splitpath                             );
 
-use version; $VERSION = qv('0.14');
+use version; $VERSION = qv('0.15');
 #>>>
 #####################################################################
 # Accessors:
@@ -40,7 +40,10 @@ sub _pre_init : PreInit {
 
 	# Check params
 	unless ( _STRING( $args->{name} ) ) {
-		PDWiX->throw('Missing or invalid name param');
+		PDWiX::Parameter->throw(
+			parameter => 'name',
+			where     => '::Files::Entry->new'
+		);
 	}
 
 	# Create an ID and GUID.
