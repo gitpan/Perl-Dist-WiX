@@ -33,6 +33,7 @@ lib/Perl/Dist/WiX/Registry/Entry.pm
 lib/Perl/Dist/WiX/Registry/Key.pm
 lib/Perl/Dist/WiX/StartMenu.pm
 lib/Perl/Dist/WiX/StartMenuComponent.pm
+LICENSE
 Makefile.PL
 MANIFEST			This list of files
 META.yml
@@ -82,3 +83,4 @@ t/test10/excluded/file2.txt
 t/test10/file1.txt
 t/test10/file2.txt
 t/test10/file3.txt
+TODO

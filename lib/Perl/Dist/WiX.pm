@@ -22,11 +22,13 @@ use     warnings;
 use     vars                  qw( $VERSION                   );
 use     base                  qw( Perl::Dist::WiX::Installer );
 use     Archive::Zip          qw( :ERROR_CODES               );
-use     List::MoreUtils       qw( any                        );
+use     English               qw( -no_match_vars             );
+use     List::MoreUtils       qw( any none                   );
 use     Params::Util          qw( _HASH _STRING _INSTANCE    );
+use     Readonly              qw( Readonly                   );
+use		Storable              qw( retrieve                   );
 use     File::Spec::Functions
   qw( catdir catfile catpath tmpdir splitpath rel2abs curdir );
-use     English               qw( -no_match_vars             );
 use     Archive::Tar     1.42 qw();
 use     File::Remove          qw();
 use     File::pushd           qw();
@@ -38,15 +40,16 @@ use     IO::String            qw();
 use     IO::Handle            qw();
 use     LWP::UserAgent        qw();
 use     LWP::Online           qw();
+use     Module::CoreList 2.17 qw();
 use     PAR::Dist             qw();
 use     Probe::Perl           qw();
 use     SelectSaver           qw();
 use     Template              qw();
-use     Module::CoreList 2.17 qw();
+use     Win32                 qw();
 require Perl::Dist::WiX::Filelist;
 require Perl::Dist::WiX::StartMenuComponent;
 
-use version; $VERSION = qv('0.150');
+use version; $VERSION = qv('0.160');
 
 use Object::Tiny qw(
   perl_version
@@ -95,6 +98,28 @@ use Perl::Dist::Asset::Website      1.12 ();
 use Perl::Dist::Asset::Launcher     1.12 ();
 use Perl::Dist::Util::Toolchain     1.12 ();
 #>>>
+
+Readonly my %MODULE_FIX => (
+	'CGI.pm'               => 'CGI',
+	'Fatal'                => 'autodie',
+	'Filter::Util::Call'   => 'Filter',
+	'Locale::Maketext'     => 'Locale-Maketext',
+	'Pod::Man'             => 'Pod',
+	'Text::Tabs'           => 'Text',
+	'PathTools'            => 'Cwd',
+	'TermReadKey'          => 'Term::ReadKey',
+	'Term::ReadLine::Perl' => 'Term::ReadLine',
+	'libwww::perl'         => 'LWP',
+	'Scalar::List::Utils'  => 'List::Util',
+	'libnet'               => 'Net',
+);
+
+Readonly my @MODULE_DELAY => qw(
+  CPANPLUS::Dist::Build
+  File::Fetch
+  Thread::Queue
+);
+
 
 #####################################################################
 # Constructor
@@ -402,6 +427,13 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 			parameter => ' image_dir : attempting to commit suicide ',
 			where     => '->new'
 		) if ( $our_perl_location eq $perl_location );
+
+		PDWiX::Parameter->throw(
+			parameter =>
+			  ' image_dir : cannot contain two consecutive slashes ',
+			where => '->new'
+		) if ( $params{image_dir} =~ m{\\\\}ms );
+
 		$class->remake_path( $params{image_dir} );
 	} ## end if ( defined $params{image_dir...
 	unless ( defined $params{perl_version} ) {
@@ -1177,6 +1209,8 @@ sub install_perl_toolchain {
 		PDWiX->throw('Failed to generate toolchain distributions');
 	}
 
+	my ( $core, $module_id );
+
 	# Install the toolchain dists
 	foreach my $dist ( @{ $toolchain->{dists} } ) {
 		my $automated_testing = 0;
@@ -1208,62 +1242,220 @@ sub install_perl_toolchain {
 			# so testing cannot be automated.
 			$automated_testing = 1;
 		}
+
+		$module_id = $self->_name_to_module($dist);
+		$core =
+		  exists $Module::CoreList::version{ $self->perl_version_literal }
+		  {$module_id} ? 1 : 0;
 		$self->install_distribution(
 			name              => $dist,
+			mod_name          => $self->_module_fix($module_id),
 			force             => $force,
 			automated_testing => $automated_testing,
 			release_testing   => $release_testing,
-			packlist =>
-			  $self->_need_packlist( $self->_name_to_module($dist) ) );
+			$core ? ( makefilepl_param => ['INSTALLDIRS=perl'] ) : (),
+		);
 	} ## end foreach my $dist ( @{ $toolchain...
 
 	return 1;
 } ## end sub install_perl_toolchain
 
+sub install_cpan_upgrades {
+	my $self = shift;
+	unless ( $self->bin_perl ) {
+		PDWiX->throw(
+			'Cannot install CPAN modules yet, perl is not installed');
+	}
+
+	# Generate the CPAN installation script
+	my $cpan_string = <<'END_PERL';
+print "Loading CPAN...\\n";
+use CPAN;
+CPAN::HandleConfig->load unless \$CPAN::Config_loaded++;
+print "Loading Storable...\\n";
+use Storable qw(nstore);
+
+    my ($module, %seen, %need, @toget);
+	
+    my @modulelist = CPAN::Shell->expand('Module', '/./');
+
+	# Schwartzian transform from CPAN.pm.
+    my @expand;
+	@expand = map {
+		$_->[1]
+	} sort {
+		$b->[0] <=> $a->[0]
+		||
+		$a->[1]{ID} cmp $b->[1]{ID},
+	} map {
+		[$_->_is_representative_module,
+		 $_
+		]
+	} @modulelist;
+
+	MODULE: for $module (@expand) {
+        my $file = $module->cpan_file;
+		
+		# If there's no file to download, skip it.
+        next MODULE unless defined $file;
+
+        $file =~ s!^./../!!;
+        my $latest  = $module->cpan_version;
+        my $inst_file = $module->inst_file;
+        my $have;
+        my $next_MODULE;
+        eval { # version.pm involved!
+            if ($inst_file) {
+				$have = $module->inst_version;
+				local $^W = 0;
+				++$next_MODULE unless CPAN::Version->vgt($latest, $have);
+				# to be pedantic we should probably say:
+				#    && !($have eq "undef" && $latest ne "undef" && $latest gt "");
+				# to catch the case where CPAN has a version 0 and we have a version undef
+            } else {
+               ++$next_MODULE;
+            }
+        };
+
+        next MODULE if $next_MODULE;
+		
+        if ($@) {
+            next MODULE;
+        }
+		
+        $seen{$file} ||= 0;
+		next MODULE if $seen{$file}++;
+		
+		push @toget, $module;
+		
+        $need{$module->id}++;
+    }
+
+    unless (%need) {
+        print "All modules are up to date\n";
+    }
+	
+	nstore \@toget, 'cpan.info';
+    print "Completed collecting information on all modules\n";
+
+    exit 0;
+END_PERL
+
+	# Dump the CPAN script to a temp file and execute
+	$self->trace_line( 1, "Running upgrade of all modules\n" );
+	my $cpan_file = catfile( $self->build_dir, 'cpan_string.pl' );
+  SCOPE: {
+		my $CPAN_FILE;
+		open $CPAN_FILE, '>', $cpan_file or PDWiX->throw("open: $!");
+		print {$CPAN_FILE} $cpan_string or PDWiX->throw("print: $!");
+		close $CPAN_FILE or PDWiX->throw("close: $!");
+	}
+	$self->_run3( $self->bin_perl, $cpan_file )
+	  or PDWiX->throw('perl failed');
+	PDWiX->throw('Failure detected during cpan upgrade, stopping')
+	  if $CHILD_ERROR;
+
+	my $cpan_info = catfile( rel2abs( curdir() ), 'cpan.info' );
+	my $module_info = retrieve $cpan_info;
+	my $force;
+
+	require CPAN;
+	my @delayed_modules;
+	for my $module ( @{$module_info} ) {
+		$force = 0;
+
+		next if $self->_skip_upgrade($module);
+
+		# Test-Harness-Straps only has a Build.PL, so
+		# can't use install_distribution.
+		if ( $module->cpan_file =~ m{/Test-Harness-Straps-\d}msx ) {
+			$self->install_module( name => 'Test::Harness::Straps' );
+			next;
+		}
+
+		if (    ( $module->cpan_file =~ m{/Module-Install-/d}msx )
+			and ( $module->cpan_version > 0.79 ) )
+		{
+			$self->install_modules(qw( File::Remove YAML::Tiny ));
+			next;
+		}
+
+		if ( $self->_delay_upgrade($module) ) {
+
+			# Delay these module until last.
+			unshift @delayed_modules, $module;
+			next;
+		}
+
+		$self->_install_cpan_module( $module, $force );
+	} ## end for my $module ( @{$module_info...
+
+	for my $module (@delayed_modules) {
+		$self->_install_cpan_module( $module, 0 );
+	}
+
+	return 1;
+} ## end sub install_cpan_upgrades
+
+sub _install_cpan_module {
+	my ( $self, $module, $force ) = @_;
+
+	my $core =
+	  exists $Module::CoreList::version{ $self->perl_version_literal }
+	  { $module->id } ? 1 : 0;
+	my $module_file = substr $module->cpan_file, 5;
+	my $module_id = $self->_module_fix( $module->id );
+	$self->install_distribution(
+		name     => $module_file,
+		mod_name => $module_id,
+		$core ? ( makefilepl_param => ['INSTALLDIRS=perl'] ) : (),
+		(        $self->force
+			  or $force
+		  ) ? ( force => 1 ) : (),
+	);
+
+	return 1;
+} ## end sub _install_cpan_module
+
+sub _skip_upgrade {
+	my ( $self, $module ) = @_;
+
+	# DON'T try to install Perl.
+	return 1 if $module->cpan_file =~ m{/perl-5\.}msx;
+
+	# DON'T try to install Net::Ping, it seems to require
+	# a web server available on 127.0.0.1 to pass tests.
+	return 1 if $module->id eq 'Net::Ping';
+
+	# If the ID is CGI::Carp, there's a bug in the index.
+	return 1 if $module->id eq 'CGI::Carp';
+
+	return 0;
+} ## end sub _skip_upgrade
+
+sub _delay_upgrade {
+	my ( $self, $module ) = @_;
+
+	return ( any { $module->id eq $_ } @MODULE_DELAY ) ? 1 : 0;
+}
+
 sub _need_packlist {
 	my ( $self, $module ) = @_;
 
 	my @mods = qw(
-	  ExtUtils::MakeMaker
-	  File::Path
-	  ExtUtils::Command
-	  Win32API::File
-	  ExtUtils::Install
-	  ExtUtils::Manifest
-	  Test::Harness
-	  Test::Simple
-	  ExtUtils::CBuilder
-	  ExtUtils::ParseXS
-	  version
-	  IO::Compress::Base
-	  Compress::Raw::Zlib
-	  Compress::Raw::Bzip2
-	  IO::Compress::Zlib
-	  IO::Compress::Bzip2
-	  Compress::Zlib
-	  Compress::Bzip2
-	  IO::Zlib
-	  File::Temp
-	  Win32API::Registry
-	  Win32::TieRegistry
-	  File::HomeDir
-	  File::Which
-	  Archive::Zip
-	  IO::String
-	  YAML
-	  Digest::SHA1
-	  Digest::SHA
-	  Module::Build
-	  CPAN
-	  Text::Glob
-	  HTML::Tagset
-	  HTML::Parser
 	);
 
-	return any { $module eq $_ } @mods;
-} ## end sub _need_packlist
+	return ( none { $module eq $_ } @mods ) ? 1 : 0;
+}
 
-sub install_cpan_upgrades {
+sub _module_fix {
+	my ( $self, $module ) = @_;
+
+	return ( exists $MODULE_FIX{$module} ) ? $MODULE_FIX{$module} : $module;
+
+}
+
+sub install_cpan_upgrades_old {
 	my $self = shift;
 	unless ( $self->bin_perl ) {
 		PDWiX->throw(
@@ -1322,7 +1514,7 @@ END_PERL
 	$self->insert_fragment( 'upgraded_modules', $fl->files );
 
 	return 1;
-} ## end sub install_cpan_upgrades
+} ## end sub install_cpan_upgrades_old
 
 # No additional modules by default
 sub install_perl_modules {
@@ -1953,7 +2145,31 @@ sub install_perl_5100_bin {
 		$self->trace_line( 1, "Building perl...\n" );
 		$self->_make;
 
-		unless ( $perl->force ) {
+		my $long_build =
+		  Win32::GetLongPathName( rel2abs( $self->build_dir ) );
+
+		if ( ( not $perl->force ) && ( $long_build =~ /\s/ms ) ) {
+			$self->trace_line( 0, <<"EOF");
+***********************************************************
+* Perl 5.10.0 cannot be tested at this point.
+* Because the build directory
+* $long_build
+* contains spaces when it becomes a long name,
+* testing the CPANPLUS module fails in 
+* lib/CPANPLUS/t/15_CPANPLUS-Shell.t
+* 
+* You may wish to build perl within a directory
+* that does not contain spaces by setting the build_dir
+* (or temp_dir, which sets the build_dir indirectly if
+* build_dir is not specified) parameter to new to a 
+* directory that does not contain spaces.
+*
+* -- csjewell\@cpan.org
+***********************************************************
+EOF
+		} ## end if ( ( not $perl->force...
+
+		unless ( ( $perl->force ) or ( $long_build =~ /\s/ms ) ) {
 			local $ENV{PERL_SKIP_TTY_TEST} = 1;
 			$self->trace_line( 1, "Testing perl...\n" );
 			$self->_make('test');
@@ -1974,7 +2190,6 @@ sub install_perl_5100_bin {
 
 	return 1;
 } ## end sub install_perl_5100_bin
-
 
 
 #####################################################################
@@ -2621,6 +2836,9 @@ array of additional params that should be passwd to the
 C<perl Makefile.PL>. This can help with distributions that insist
 on taking additional options via Makefile.PL.
 
+Distributions that do not have a Makefile.PL cannot be installed via
+this routine.
+
 Returns true or throws an exception on error.
 
 =cut
@@ -2635,13 +2853,16 @@ sub install_distribution {
 	my $name = $dist->name;
 
 # If we don't have a packlist file, get an initial filelist to subtract from.
-	my $module = $self->_name_to_module($name);
+	my $module = $dist->{mod_name} || $self->_name_to_module($name);
 	my $packlist_flag = defined $dist->{packlist} ? $dist->{packlist} : 1;
 	my $filelist_sub;
 
 	if ( not $packlist_flag ) {
 		$filelist_sub = Perl::Dist::WiX::Filelist->new->readdir(
 			catdir( $self->image_dir, 'perl' ) );
+		$self->trace_line( 5,
+			    "***** Module being installed $module"
+			  . " requires packlist => 0 *****\n" );
 	}
 
 	# Download the file
@@ -2662,7 +2883,11 @@ sub install_distribution {
 	}
 	$self->_extract( $tgz => $self->build_dir );
 	unless ( -d $unpack_to ) {
-		PDWiX->throw("Failed to extract $unpack_to");
+		PDWiX->throw("Failed to extract $unpack_to\n");
+	}
+
+	unless ( -r catfile( $unpack_to, 'Makefile.PL' ) ) {
+		PDWiX->throw("Could not find Makefile.PL in $unpack_to\n");
 	}
 
 	# Build the module
@@ -2708,6 +2933,7 @@ sub install_distribution {
 	}
 	my $mod_id = $module;
 	$mod_id =~ s{::}{_}msg;
+	$mod_id =~ s{-}{_}msg;
 
 	# Insert fragment.
 	$self->insert_fragment( $mod_id, $filelist->files );
@@ -2874,6 +3100,9 @@ END_PERL
 	if ( not $packlist_flag ) {
 		$filelist_sub = Perl::Dist::WiX::Filelist->new->readdir(
 			catdir( $self->image_dir, 'perl' ) );
+		$self->trace_line( 5,
+			    "***** Module being installed $name"
+			  . " requires packlist => 0 *****\n" );
 	}
 
 	# Dump the CPAN script to a temp file and execute
@@ -2977,7 +3206,8 @@ sub install_par {
 	my $io = IO::String->new($output);
 	my $packlist;
 
-	{                                  # When $saved goes out of context, STDOUT will be restored.
+	# When $saved goes out of context, STDOUT will be restored.
+	{
 		my $saved = SelectSaver->new($io);
 
 		# Create Asset::Par object.
@@ -3634,6 +3864,11 @@ sub _run3 {
 		next if -f catfile( $p, 'dmake.exe' );
 		next if -f catfile( $p, 'perl.exe' );
 
+		# Strip any path that contains either unzip or gzip.exe.
+		# These two programs cause perl to fail its own tests.
+		next if -f catfile( $p, 'unzip.exe' );
+		next if -f catfile( $p, 'gzip.exe' );
+
 		push @keep, $p;
 	} ## end foreach my $p (@path)
 
@@ -3642,6 +3877,8 @@ sub _run3 {
 	local $ENV{INCLUDE}  = undef;
 	local $ENV{PERL5LIB} = undef;
 	local $ENV{PATH}     = $self->get_env_path . q{;} . join q{;}, @keep;
+
+	$self->trace_line( 3, "Path during _run3: $ENV{PATH}\n" );
 
 	# Execute the child process
 	return IPC::Run3::run3( [@_], \undef, $self->debug_stdout,
@@ -3670,7 +3907,8 @@ sub _extract {
 	if ( $from =~ m{\.zip\z}ms ) {
 		my $zip = Archive::Zip->new($from);
 
-# I can't just do an extractTree here, as I'm trying to keep track of what got extracted.
+# I can't just do an extractTree here, as I'm trying to
+# keep track of what got extracted.
 		my @members = $zip->members();
 
 		foreach my $member (@members) {
@@ -3870,7 +4108,17 @@ __END__
 
 =head1 SUPPORT
 
-No support of any kind is provided for this module
+Bugs should be reported via: 
+
+1) 
+L<The CPAN bug tracker|http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Perl-Dist-WiX>
+if you have an account there.
+
+2) Email to 
+L<bug-Perl-Dist-WiX at rt.cpan.org|mailto:bug-Perl-Dist-WiX@rt.cpan.org> 
+if you do not.
+
+For other issues, contact the topmost author.
 
 =head1 AUTHORS
 

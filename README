@@ -655,6 +655,9 @@ METHODS
     This can help with distributions that insist on taking additional
     options via Makefile.PL.
 
+    Distributions that do not have a Makefile.PL cannot be installed via
+    this routine.
+
     Returns true or throws an exception on error.
 
    install_module
@@ -814,7 +817,13 @@ METHODS
     Returns true or throws an exception or error.
 
 SUPPORT
-    No support of any kind is provided for this module
+    Bugs should be reported via:
+
+    1) The CPAN bug tracker if you have an account there.
+
+    2) Email to bug-Perl-Dist-WiX at rt.cpan.org if you do not.
+
+    For other issues, contact the topmost author.
 
 AUTHORS
     Curtis Jewell <csjewell@cpan.org>
