@@ -38,6 +38,7 @@ Makefile.PL
 MANIFEST			This list of files
 META.yml
 README
+releaserc
 share/cpan.ico
 share/License.rtf
 share/Main.wxs.tt
@@ -64,6 +65,7 @@ t/80_pod.t
 t/81_perlcritic.t
 t/82_version.t
 t/83_minimumversion.t
+t/84_prereq.t
 t/90_perl_588.t
 t/91_perl_589.t
 t/92_perl_5100.t
