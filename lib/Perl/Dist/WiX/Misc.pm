@@ -23,7 +23,7 @@ use     List::MoreUtils       qw( any                         );
 use     Data::UUID            qw( NameSpace_DNS               );
 require Devel::StackTrace;
 
-use version; $VERSION = qv('0.160');
+use version; $VERSION = version->new('0.169')->numify;
 
 #>>>
 
@@ -38,12 +38,22 @@ use Exception::Class (
 		'isa'    => 'PDWiX',
 		'fields' => [ 'parameter', 'where' ],
 	},
+	'PDWiX::Caught' => {
+		'description' =>
+		  'Error caught by Perl::Dist::WiX from other module',
+		'isa'    => 'PDWiX',
+		'fields' => [ 'message', 'info' ],
+	},
 );
 
 sub PDWiX::full_message { ## no critic 'Capitalization'
 	my $self = shift;
 
-	my $string     = $self->description() . ': ' . $self->message() . "\n";
+	my $string =
+	    $self->description() . ': '
+	  . $self->message() . "\n"
+	  . 'Time error caught: '
+	  . localtime() . "\n";
 	my $misc       = Perl::Dist::WiX::Misc->new();
 	my $tracelevel = $misc->get_trace() % 100;
 
@@ -63,7 +73,9 @@ sub PDWiX::Parameter::full_message { ## no critic 'Capitalization'
 	    $self->description() . ': '
 	  . $self->parameter()
 	  . ' in Perl::Dist::WiX'
-	  . $self->where() . "\n";
+	  . $self->where() . "\n"
+	  . 'Time error caught: '
+	  . localtime() . "\n";
 	my $misc       = Perl::Dist::WiX::Misc->new();
 	my $tracelevel = $misc->get_trace() % 100;
 
@@ -74,6 +86,26 @@ sub PDWiX::Parameter::full_message { ## no critic 'Capitalization'
 		$self->trace->frame(0) );
 } ## end sub PDWiX::Parameter::full_message
 
+sub PDWiX::Caught::full_message { ## no critic 'Capitalization'
+	my $self = shift;
+
+	my $string =
+	    $self->description() . ': '
+	  . $self->message() . "\n"
+	  . $self->info() . "\n"
+	  . 'Time error caught: '
+	  . localtime() . "\n";
+	my $misc       = Perl::Dist::WiX::Misc->new();
+	my $tracelevel = $misc->get_trace() % 100;
+
+	# Add trace to it if tracelevel high enough.
+	if ( $tracelevel > 1 ) {
+		$string .= "\n" . $self->trace() . "\n";
+	}
+
+	return $misc->_trace_line( 0, $string, 0, $tracelevel,
+		$self->trace->frame(0) );
+} ## end sub PDWiX::Caught::full_message
 
 #####################################################################
 # Attributes
@@ -213,8 +245,8 @@ sub indent {
 	chomp $answer;
 #<<<
 		$answer =~ s{\n}                   # match a newline 
-                    {\n$spaces}gxms;       # and add spaces after it.
-		                                   # (i.e. the beginning of the line.)
+					{\n$spaces}gxms;       # and add spaces after it.
+										   # (i.e. the beginning of the line.)
 #>>>
 	return $answer;
 } ## end sub indent
@@ -305,11 +337,11 @@ sub _trace_line : Private { ## no critic 'ProhibitManyArgs'
 				$start .= "[$file $line] ";
 			} ## end if ( ( $tracelevel > 2...
 #<<<
-            $text =~ s{\n}              # Replace a newline
-                      {\n$start}gxms;   ## with a newline and the start string.
-            $text =~ s{\n\Q$start\E\z}  # Replace the newline and start
-                                        # string at the end
-                      {\n}gxms;         # with just the newline.
+			$text =~ s{\n}              # Replace a newline
+					  {\n$start}gxms;   ## with a newline and the start string.
+			$text =~ s{\n\Q$start\E\z}  # Replace the newline and start
+										# string at the end
+					  {\n}gxms;         # with just the newline.
 #>>>
 		} ## end if ( not $no_display )
 

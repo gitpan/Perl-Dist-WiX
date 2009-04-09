@@ -6,12 +6,44 @@ package Perl::Dist::WiX;
 
 Perl::Dist::WiX - Experimental 4th generation Win32 Perl distribution builder
 
+=head1 VERSION
+
+This document describes Perl::Dist::WiX version 0.169.
+
 =head1 DESCRIPTION
 
 This package is the experimental upgrade to Perl::Dist based on Windows 
 Install XML technology, instead of Inno Setup.
 
-=head1 METHODS
+Perl distributions built with this module have the option of being created
+as Windows Installer databases (otherwise known as .msi files)
+
+=head1 SYNOPSIS
+
+	# Sets up a distribution with the following options
+	my $distribution = Perl::Dist::WiX->new(
+		msi               => 1,
+		trace             => 1,
+		build_number      => 1,
+		cpan              => URI->new(('file://C|/minicpan/')),
+		image_dir         => 'C:\myperl',
+		download_dir      => 'C:\cpandl',
+		output_dir        => 'C:\myperl_build',
+		temp_dir          => 'C:\temp',
+		app_id            => 'myperl',
+		app_name          => 'My Perl',
+		app_publisher     => 'My Perl Distribution Project',
+		app_publisher_url => 'http:/myperl.invalid/',
+		msi_directory_tree_additions => [ qw(
+		  c\bin\program
+		  perl\lib\Acme
+		)],
+	);
+
+	# Creates the distribution
+	$bb->run();
+
+=head1 INTERFACE
 
 =cut
 
@@ -26,7 +58,7 @@ use     English               qw( -no_match_vars             );
 use     List::MoreUtils       qw( any none                   );
 use     Params::Util          qw( _HASH _STRING _INSTANCE    );
 use     Readonly              qw( Readonly                   );
-use		Storable              qw( retrieve                   );
+use	    Storable              qw( retrieve                   );
 use     File::Spec::Functions
   qw( catdir catfile catpath tmpdir splitpath rel2abs curdir );
 use     Archive::Tar     1.42 qw();
@@ -49,7 +81,7 @@ use     Win32                 qw();
 require Perl::Dist::WiX::Filelist;
 require Perl::Dist::WiX::StartMenuComponent;
 
-use version; $VERSION = version->new('0.162')->numify;
+use version; $VERSION = version->new('0.169')->numify;
 
 use Object::Tiny qw(
   perl_version
@@ -112,6 +144,7 @@ Readonly my %MODULE_FIX => (
 	'libwww::perl'         => 'LWP',
 	'Scalar::List::Utils'  => 'List::Util',
 	'libnet'               => 'Net',
+	'encoding'             => 'Encode',
 );
 
 Readonly my @MODULE_DELAY => qw(
@@ -138,18 +171,10 @@ provided, most of them are automatically resolved and exist for overloading
 puposes only, or they revert to sensible defaults and generally never need
 to be modified.
 
-The following is an example of the most likely attributes that will be
-specified.
+This routine may take a few minutes to run.
 
-  my $build = Perl::Dist::WiX->new(
-      image_dir => 'C:\vanilla',
-      temp_dir  => 'C:\tmp\vp',
-	  msi_directory_tree_additions => [ qw(
-        c\bin\program
-        perl\lib\Acme
-      )],
-      cpan      => URI->new(('file://C|/minicpan/')),
-  );
+An example of the most likely attributes that will be specified is in the 
+SYNOPSIS.
 
 Attributes that are required to be set are marked as I<(required)> 
 below.  They may often be set by subclasses.
@@ -201,7 +226,8 @@ The C<trace> parameter sets the level of tracing that is output.
 Setting this parameter to 0 prints out only MAJOR stuff and errors.
 
 Setting this parameter to 2 or above will print out the level as the 
-first thing on the line.
+first thing on the line, and when an error occurs and an exception 
+object is printed, a stack trace will be printed as well.
 
 Setting this parameter to 3 or above will print out the filename and 
 line number after the trace level on those lines that require a trace 
@@ -237,7 +263,7 @@ convenience.
 
 The optional boolean C<portable> param is used to indicate that the
 distribution is intended for installation on a portable storable
-device.
+device. This creates a distribution in zip format.
 
 =item * zip
 
@@ -252,7 +278,7 @@ be created.
 
 =item * exe
 
-The optional boolean C<exe> param is deprecated.
+The optional boolean C<exe> param is unused at the moment.
 
 =item * checkpoint_after
 
@@ -292,8 +318,9 @@ installs its shortcuts to.  Defaults to app_name if none is provided.
 =item * msi_debug
 
 The optional boolean C<msi_debug> parameter is used to indicate that
-a debugging MSI (one that creates a log in $ENV{TEMP}) will be created if 
-C<msi> is also true.
+a debugging MSI (one that creates a log in $ENV{TEMP} upon execution
+in Windows Installer 4.0 or above) will be created if C<msi> is also 
+true.
 
 =item * build_number I<(required)>
 
@@ -363,7 +390,7 @@ directories to this parameter.
 
 =back
 
-The C<new> constructor returns a B<Perl::Dist> object, which you
+The C<new> constructor returns a B<Perl::Dist::WiX> object, which you
 should then call C<run> on to generate the distribution.
 
 =cut
@@ -408,7 +435,7 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	unless ( defined $params{fragment_dir} ) {
 		$params{fragment_dir} =        # To store the WiX fragments in.
 		  catdir( $params{output_dir}, 'fragments' );
-		File::Path::mkpath( $params{fragment_dir} );
+		$class->remake_path( $params{fragment_dir} );
 	}
 	if ( defined $params{image_dir} ) {
 		my $perl_location = lc Probe::Perl->find_perl_interpreter();
@@ -607,22 +634,22 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	# Initialize filters.
 	my @filters_array;
 #<<<
-    push @filters_array,
-               $self->temp_dir . q{\\},
-      catdir ( $self->image_dir, qw{ perl man         } ) . q{\\},
-      catdir ( $self->image_dir, qw{ perl html        } ) . q{\\},
-      catdir ( $self->image_dir, qw{ c    man         } ) . q{\\},
-      catdir ( $self->image_dir, qw{ c    doc         } ) . q{\\},
-      catdir ( $self->image_dir, qw{ c    info        } ) . q{\\},
-      catdir ( $self->image_dir, qw{ c    contrib     } ) . q{\\},
-      catdir ( $self->image_dir, qw{ c    html        } ) . q{\\},
-      catdir ( $self->image_dir, qw{ c    examples    } ) . q{\\},
-      catdir ( $self->image_dir, qw{ c    manifest    } ) . q{\\},
-      catdir ( $self->image_dir, qw{ cpan sources     } ) . q{\\},
-      catdir ( $self->image_dir, qw{ cpan build       } ) . q{\\},
-      catfile( $self->image_dir, qw{ c    COPYING     } ),
-      catfile( $self->image_dir, qw{ c    COPYING.LIB } ),
-      ;
+	push @filters_array,
+			   $self->temp_dir . q{\\},
+	  catdir ( $self->image_dir, qw{ perl man         } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ perl html        } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ c    man         } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ c    doc         } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ c    info        } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ c    contrib     } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ c    html        } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ c    examples    } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ c    manifest    } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ cpan sources     } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ cpan build       } ) . q{\\},
+	  catfile( $self->image_dir, qw{ c    COPYING     } ),
+	  catfile( $self->image_dir, qw{ c    COPYING.LIB } ),
+	  ;
 #>>>
 
 	$self->{filters} = \@filters_array;
@@ -683,7 +710,7 @@ sub binary_url {
 
 =head2 Accessors
 
-    $id = $dist->bin_candle; 
+	$id = $dist->bin_candle; 
 
 Accessors will return a specified portion of the distribution state.
 
@@ -772,13 +799,24 @@ Initialized in C<new>.
 
 Provides a shortcut to the location of the shared files directory.
 
-Returns a directory as a string or dies on error.
+Returns a directory as a string or throws an exception on error.
 
 =cut
 
 sub dist_dir {
-	return File::ShareDir::dist_dir('Perl-Dist-WiX');
-}
+	my $dir;
+
+	unless ( eval { $dir = File::ShareDir::dist_dir('Perl-Dist-WiX'); 1; } )
+	{
+		PDWiX::Caught->throw(
+			message =>
+			  'Could not find distribution directory for Perl::Dist::WiX',
+			info => ( defined $EVAL_ERROR ) ? $EVAL_ERROR : 'Unknown error',
+		);
+	}
+
+	return $dir;
+} ## end sub dist_dir
 
 #####################################################################
 # Documentation for accessors
@@ -1204,9 +1242,16 @@ sub install_perl_toolchain {
 	# Get the regular Perl to generate the list.
 	# Run it in a separate process so we don't hold
 	# any permanent CPAN.pm locks.
-	$toolchain->delegate;
+	unless ( eval { $toolchain->delegate; 1; } ) {
+		PDWiX::Caught->throw(
+			message => 'Delegation error occured',
+			info    => defined($EVAL_ERROR) ? $EVAL_ERROR : 'Unknown error',
+		);
+	}
 	if ( $toolchain->{errstr} ) {
-		PDWiX->throw('Failed to generate toolchain distributions');
+		PDWiX::Caught->throw(
+			message => 'Failed to generate toolchain distributions',
+			info    => $toolchain->{errstr} );
 	}
 
 	my ( $core, $module_id );
@@ -1275,70 +1320,70 @@ CPAN::HandleConfig->load unless \$CPAN::Config_loaded++;
 print "Loading Storable...\\n";
 use Storable qw(nstore);
 
-    my ($module, %seen, %need, @toget);
+my ($module, %seen, %need, @toget);
 	
-    my @modulelist = CPAN::Shell->expand('Module', '/./');
+my @modulelist = CPAN::Shell->expand('Module', '/./');
 
-	# Schwartzian transform from CPAN.pm.
-    my @expand;
-	@expand = map {
-		$_->[1]
-	} sort {
-		$b->[0] <=> $a->[0]
-		||
-		$a->[1]{ID} cmp $b->[1]{ID},
-	} map {
-		[$_->_is_representative_module,
-		 $_
-		]
-	} @modulelist;
+# Schwartzian transform from CPAN.pm.
+my @expand;
+@expand = map {
+	$_->[1]
+} sort {
+	$b->[0] <=> $a->[0]
+	||
+	$a->[1]{ID} cmp $b->[1]{ID},
+} map {
+	[$_->_is_representative_module,
+	 $_
+	]
+} @modulelist;
 
-	MODULE: for $module (@expand) {
-        my $file = $module->cpan_file;
-		
-		# If there's no file to download, skip it.
-        next MODULE unless defined $file;
-
-        $file =~ s!^./../!!;
-        my $latest  = $module->cpan_version;
-        my $inst_file = $module->inst_file;
-        my $have;
-        my $next_MODULE;
-        eval { # version.pm involved!
-            if ($inst_file) {
-				$have = $module->inst_version;
-				local $^W = 0;
-				++$next_MODULE unless CPAN::Version->vgt($latest, $have);
-				# to be pedantic we should probably say:
-				#    && !($have eq "undef" && $latest ne "undef" && $latest gt "");
-				# to catch the case where CPAN has a version 0 and we have a version undef
-            } else {
-               ++$next_MODULE;
-            }
-        };
-
-        next MODULE if $next_MODULE;
-		
-        if ($@) {
-            next MODULE;
-        }
-		
-        $seen{$file} ||= 0;
-		next MODULE if $seen{$file}++;
-		
-		push @toget, $module;
-		
-        $need{$module->id}++;
-    }
-
-    unless (%need) {
-        print "All modules are up to date\n";
-    }
+MODULE: for $module (@expand) {
+	my $file = $module->cpan_file;
 	
-	nstore \@toget, 'cpan.info';
-    print "Completed collecting information on all modules\n";
+	# If there's no file to download, skip it.
+	next MODULE unless defined $file;
 
-    exit 0;
+	$file =~ s!^./../!!;
+	my $latest  = $module->cpan_version;
+	my $inst_file = $module->inst_file;
+	my $have;
+	my $next_MODULE;
+	eval { # version.pm involved!
+		if ($inst_file) {
+			$have = $module->inst_version;
+			local $^W = 0;
+			++$next_MODULE unless CPAN::Version->vgt($latest, $have);
+			# to be pedantic we should probably say:
+			#    && !($have eq "undef" && $latest ne "undef" && $latest gt "");
+			# to catch the case where CPAN has a version 0 and we have a version undef
+		} else {
+		   ++$next_MODULE;
+		}
+	};
+
+	next MODULE if $next_MODULE;
+	
+	if ($@) {
+		next MODULE;
+	}
+	
+	$seen{$file} ||= 0;
+	next MODULE if $seen{$file}++;
+	
+	push @toget, $module;
+	
+	$need{$module->id}++;
+}
+
+unless (%need) {
+	print "All modules are up to date\n";
+}
+	
+nstore \@toget, 'cpan.info';
+print "Completed collecting information on all modules\n";
+
+exit 0;
 END_PERL
 
 	# Dump the CPAN script to a temp file and execute
@@ -1346,12 +1391,14 @@ END_PERL
 	my $cpan_file = catfile( $self->build_dir, 'cpan_string.pl' );
   SCOPE: {
 		my $CPAN_FILE;
-		open $CPAN_FILE, '>', $cpan_file or PDWiX->throw("open: $!");
-		print {$CPAN_FILE} $cpan_string or PDWiX->throw("print: $!");
-		close $CPAN_FILE or PDWiX->throw("close: $!");
+		open $CPAN_FILE, '>', $cpan_file
+		  or PDWiX->throw("CPAN script open failed: $!");
+		print {$CPAN_FILE} $cpan_string
+		  or PDWiX->throw("CPAN script print failed: $!");
+		close $CPAN_FILE or PDWiX->throw("CPAN script close failed: $!");
 	}
 	$self->_run3( $self->bin_perl, $cpan_file )
-	  or PDWiX->throw('perl failed');
+	  or PDWiX->throw('CPAN script execution failed');
 	PDWiX->throw('Failure detected during cpan upgrade, stopping')
 	  if $CHILD_ERROR;
 
@@ -1454,67 +1501,6 @@ sub _module_fix {
 	return ( exists $MODULE_FIX{$module} ) ? $MODULE_FIX{$module} : $module;
 
 }
-
-sub install_cpan_upgrades_old {
-	my $self = shift;
-	unless ( $self->bin_perl ) {
-		PDWiX->throw(
-			'Cannot install CPAN modules yet, perl is not installed');
-	}
-
-	# Check for a 5.10.x
-	if ( $self->perl_version eq '5100' ) {
-
-		# 5.10.x versions need these modules installed BEFORE the upgrade...
-		$self->install_distribution(
-			name             => 'ARANDAL/Pod-Simple-3.07.tar.gz',
-			makefilepl_param => ['INSTALLDIRS=perl']
-		  )->install_distribution(
-			name             => 'MSERGEANT/Time-Piece-1.13.tar.gz',
-			makefilepl_param => ['INSTALLDIRS=perl'] );
-	}
-
-	my $fl2 = Perl::Dist::WiX::Filelist->new->readdir(
-		catdir( $self->image_dir, 'perl' ) );
-
-	# Generate the CPAN installation script
-	my $cpan_string = <<"END_PERL";
-print "Loading CPAN...\\n";
-use CPAN;
-CPAN::HandleConfig->load unless \$CPAN::Config_loaded++;
-print "Upgrading all out of date CPAN modules...\\n";
-print "\\\$ENV{PATH} = '\$ENV{PATH}'\\n";
-CPAN::Shell->upgrade;
-print "Completed upgrade of all modules\\n";
-exit(0);
-END_PERL
-
-	# Dump the CPAN script to a temp file and execute
-	$self->trace_line( 1, "Running upgrade of all modules\n" );
-	my $cpan_file = catfile( $self->build_dir, 'cpan_string.pl' );
-  SCOPE: {
-		my $CPAN_FILE;
-		open $CPAN_FILE, '>', $cpan_file or PDWiX->throw("open: $!");
-		print {$CPAN_FILE} $cpan_string or PDWiX->throw("print: $!");
-		close $CPAN_FILE or PDWiX->throw("close: $!");
-	}
-	local $ENV{PERL_MM_USE_DEFAULT} = 1;
-	local $ENV{AUTOMATED_TESTING}   = q{};
-	local $ENV{RELEASE_TESTING}     = q{};
-	$self->_run3( $self->bin_perl, $cpan_file )
-	  or PDWiX->throw('perl failed');
-	PDWiX->throw('Failure detected during cpan upgrade, stopping')
-	  if $CHILD_ERROR;
-
-	my $fl = Perl::Dist::WiX::Filelist->new->readdir(
-		catdir( $self->image_dir, 'perl' ) );
-
-	$fl->subtract($fl2)->filter( $self->filters );
-
-	$self->insert_fragment( 'upgraded_modules', $fl->files );
-
-	return 1;
-} ## end sub install_cpan_upgrades_old
 
 # No additional modules by default
 sub install_perl_modules {
@@ -1658,7 +1644,7 @@ sub remove_file {
 
 =head3 install_perl_* (* = 588, 589, or 5100)
 
-    $self->install_perl_5100;
+	$self->install_perl_5100;
 
 The C<install_perl_*> method provides a simplified way to install
 Perl into the distribution.
@@ -1673,17 +1659,17 @@ Returns true, or throws an exception on error.
 
 =head3 install_perl_*_bin
 
-  $self->install_perl_5100_bin(
-      name       => 'perl',
-      dist       => 'RGARCIA/perl-5.10.0.tar.gz',
-      unpack_to  => 'perl',
-      license    => {
-          'perl-5.10.0/Readme'   => 'perl/Readme',
-          'perl-5.10.0/Artistic' => 'perl/Artistic',
-          'perl-5.10.0/Copying'  => 'perl/Copying',
-      },
-      install_to => 'perl',
-  );
+	$self->install_perl_5100_bin(
+	  name       => 'perl',
+	  dist       => 'RGARCIA/perl-5.10.0.tar.gz',
+	  unpack_to  => 'perl',
+	  license    => {
+		  'perl-5.10.0/Readme'   => 'perl/Readme',
+		  'perl-5.10.0/Artistic' => 'perl/Artistic',
+		  'perl-5.10.0/Copying'  => 'perl/Copying',
+	  },
+	  install_to => 'perl',
+	);
 
 The C<install_perl_*_bin> method takes care of the detailed process
 of building the Perl binary and installing it into the
@@ -1716,10 +1702,16 @@ sub install_perl_588 {
 	  Perl::Dist::Util::Toolchain->new(
 		perl_version => $self->perl_version_literal, )
 	  or PDWiX->throw('Failed to resolve toolchain modules');
-	$toolchain->delegate;
-
+	unless ( eval { $toolchain->delegate; 1; } ) {
+		PDWiX::Caught->throw(
+			message => 'Delegation error occured',
+			info    => defined($EVAL_ERROR) ? $EVAL_ERROR : 'Unknown error',
+		);
+	}
 	if ( $toolchain->{errstr} ) {
-		PDWiX->throw('Failed to generate toolchain distributions');
+		PDWiX::Caught->throw(
+			message => 'Failed to generate toolchain distributions',
+			info    => $toolchain->{errstr} );
 	}
 
 	# Make the perl directory if it hasn't been made alreafy.
@@ -1888,10 +1880,16 @@ sub install_perl_589 {
 	  Perl::Dist::Util::Toolchain->new(
 		perl_version => $self->perl_version_literal, )
 	  or PDWiX->throw('Failed to resolve toolchain modules');
-	$toolchain->delegate;
-
+	unless ( eval { $toolchain->delegate; 1; } ) {
+		PDWiX::Caught->throw(
+			message => 'Delegation error occured',
+			info    => defined($EVAL_ERROR) ? $EVAL_ERROR : 'Unknown error',
+		);
+	}
 	if ( $toolchain->{errstr} ) {
-		PDWiX->throw('Failed to generate toolchain distributions');
+		PDWiX::Caught->throw(
+			message => 'Failed to generate toolchain distributions',
+			info    => $toolchain->{errstr} );
 	}
 
 	# Make the perl directory if it hasn't been made alreafy.
@@ -2035,10 +2033,16 @@ sub install_perl_5100 {
 	  Perl::Dist::Util::Toolchain->new(
 		perl_version => $self->perl_version_literal, )
 	  or PDWiX->throw('Failed to resolve toolchain modules');
-	$toolchain->delegate;
-
+	unless ( eval { $toolchain->delegate; 1; } ) {
+		PDWiX::Caught->throw(
+			message => 'Delegation error occured',
+			info    => defined($EVAL_ERROR) ? $EVAL_ERROR : 'Unknown error',
+		);
+	}
 	if ( $toolchain->{errstr} ) {
-		PDWiX->throw('Failed to generate toolchain distributions');
+		PDWiX::Caught->throw(
+			message => 'Failed to generate toolchain distributions',
+			info    => $toolchain->{errstr} );
 	}
 
 	# Make the perl directory if it hasn't been made alreafy.
@@ -2090,7 +2094,6 @@ sub install_perl_5100_bin {
 		@_,
 	);
 	unless ( $self->bin_make ) {
-		PDWiX->throw('Cannot build Perl yet, no bin_make defined');
 	}
 	$self->trace_line( 0, 'Preparing ' . $perl->name . "\n" );
 
@@ -2645,9 +2648,9 @@ sub install_pari {
 
 =head3 install_binary
 
-  $self->install_binary(
-      name => 'gmp',
-  );
+	$self->install_binary(
+		name => 'gmp',
+	);
 
 The C<install_binary> method is used by library-specific methods to
 install pre-compiled and un-modified tar.gz or zip archives into
@@ -2684,7 +2687,7 @@ sub install_binary {
 		my $tgt = catdir( $self->image_dir, $binary->install_to );
 		@files = $self->_extract( $tgz, $tgt );
 	} else {
-		PDWiX->throw( q{didn't expect install_to to be a }
+		PDWiX->throw( q{Didn't expect install_to to be a }
 			  . ref $binary->install_to );
 	}
 
@@ -2704,8 +2707,8 @@ sub install_binary {
 
 =head3 install_library
 
-  $self->install_binary(
-      name => 'gmp',
+  $self->install_library(
+	  name => 'gmp',
   );
 
 The C<install_binary> method is used by library-specific methods to
@@ -2776,7 +2779,7 @@ sub install_library {
 	my @sorted_files = sort { $a cmp $b } @files;
 	my $filelist =
 	  Perl::Dist::WiX::Filelist->new->load_array(@sorted_files)
-	  ->filter( $self->filters );
+	  ->filter( $self->filters )->filter( [$unpack_to] );
 
 	return $filelist;
 } ## end sub install_library
@@ -2800,16 +2803,16 @@ sub _copy_filesref {
 
 =head3 install_distribution
 
-  $self->install_distribution(
-      name              => 'ADAMK/File-HomeDir-0.69.tar.gz,
-      force             => 1,
-      automated_testing => 1,
-      makefilepl_param  => [
-          'LIBDIR=' . File::Spec->catdir(
-              $self->image_dir, 'c', 'lib',
-          ),
-      ],
-  );
+	$self->install_distribution(
+	  name              => 'ADAMK/File-HomeDir-0.69.tar.gz,
+	  force             => 1,
+	  automated_testing => 1,
+	  makefilepl_param  => [
+		  'LIBDIR=' . File::Spec->catdir(
+			  $self->image_dir, 'c', 'lib',
+		  ),
+	  ],
+	);
 
 The C<install_distribution> method is used to install a single
 CPAN or non-CPAN distribution directly, without installing any of the
@@ -2941,16 +2944,172 @@ sub install_distribution {
 	return $self;
 } ## end sub install_distribution
 
+=pod
+
+=head3 install_distribution_from_file
+
+	$self->install_distribution_from_file(
+	  file              => 'c:\distdir\File-HomeDir-0.69.tar.gz',
+	  force             => 1,
+	  automated_testing => 1,
+	  makefilepl_param  => [
+		  'LIBDIR=' . File::Spec->catdir(
+			  $self->image_dir, 'c', 'lib',
+		  ),
+	  ],
+	);
+
+The C<install_distribution_from_file> method is used to install a single
+CPAN or non-CPAN distribution directly, without installing any of the
+dependencies for that distribution, from disk.
+
+It takes a compulsory 'file' param, which should be the location of the
+distribution on disk.
+
+The optional 'force' param allows the installation of distributions
+with spuriously failing test suites.
+
+The optional 'automated_testing' param allows for installation
+with the C<AUTOMATED_TESTING> environment flag enabled, which is
+used to either run more-intensive testing, or to convince certain
+Makefile.PL that insists on prompting that there is no human around
+and they REALLY need to just go with the default options.
+
+The optional 'makefilepl_param' param should be a reference to an
+array of additional params that should be passwd to the
+C<perl Makefile.PL>. This can help with distributions that insist
+on taking additional options via Makefile.PL.
+
+Distributions that do not have a Makefile.PL cannot be installed via
+this routine.
+
+Returns true or throws an exception on error.
+
+=cut
+
+sub install_distribution_from_file {
+	my $self = shift;
+	my $dist = {
+		automated_testing => 0,
+		release_testing   => 0,
+		packlist          => 1,
+		force             => $self->force,
+		@_,
+	};
+	my $name = $dist->{file};
+
+	unless ( _STRING($name) ) {
+		PDWiX::Parameter->throw(
+			parameter => 'file',
+			where     => '->install_distribution_from_file'
+		);
+	}
+	if ( not -f $name ) {
+		PDWiX::Parameter->throw(
+			parameter => "file: $name does not exist",
+			where     => '->install_distribution_from_file'
+		);
+	}
+
+# If we don't have a packlist file, get an initial filelist to subtract from.
+	my ( undef, undef, $filename ) = splitpath( $name, 0 );
+	my $module = $self->_name_to_module("CSJ/$filename");
+	my $filelist_sub;
+
+	if ( not $dist->{packlist} ) {
+		$filelist_sub = Perl::Dist::WiX::Filelist->new->readdir(
+			catdir( $self->image_dir, 'perl' ) );
+		$self->trace_line( 5,
+			    "***** Module being installed $module"
+			  . " requires packlist => 0 *****\n" );
+	}
+
+
+	# Where will it get extracted to
+	my $dist_path = $filename;
+	$dist_path =~ s{\.tar\.gz}{}msx;   # Take off extensions.
+	$dist_path =~ s{\.zip}{}msx;
+
+#	$dist_path =~ s{.+\/}{}msx;        # Take off directories.
+	my $unpack_to = catdir( $self->build_dir, $dist_path );
+
+	# Extract the tarball
+	if ( -d $unpack_to ) {
+		$self->trace_line( 2, "Removing previous $unpack_to\n" );
+		File::Remove::remove( \1, $unpack_to );
+	}
+	$self->trace_line( 4, "Unpacking to $unpack_to\n" );
+	$self->_extract( $name => $self->build_dir );
+	unless ( -d $unpack_to ) {
+		PDWiX->throw("Failed to extract $unpack_to\n");
+	}
+
+	unless ( -r catfile( $unpack_to, 'Makefile.PL' ) ) {
+		PDWiX->throw("Could not find Makefile.PL in $unpack_to\n");
+	}
+
+	# Build the module
+  SCOPE: {
+		my $wd = $self->_pushd($unpack_to);
+
+		# Enable automated_testing mode if needed
+		# Blame Term::ReadLine::Perl for needing this ugly hack.
+		if ( $dist->{automated_testing} ) {
+			$self->trace_line( 2,
+				"Installing with AUTOMATED_TESTING enabled...\n" );
+		}
+		if ( $dist->{release_testing} ) {
+			$self->trace_line( 2,
+				"Installing with RELEASE_TESTING enabled...\n" );
+		}
+		local $ENV{AUTOMATED_TESTING} = $dist->{automated_testing};
+		local $ENV{RELEASE_TESTING}   = $dist->{release_testing};
+
+		$self->trace_line( 2, "Configuring $name...\n" );
+		$self->_perl( 'Makefile.PL', @{ $dist->{makefilepl_param} } );
+
+		$self->trace_line( 1, "Building $name...\n" );
+		$self->_make;
+
+		unless ( $dist->{force} ) {
+			$self->trace_line( 2, "Testing $name...\n" );
+			$self->_make('test');
+		}
+
+		$self->trace_line( 2, "Installing $name...\n" );
+		$self->_make(qw/install UNINST=1/);
+	} ## end SCOPE:
+
+	# Making final filelist.
+	my $filelist;
+	if ( $dist->{packlist} ) {
+		$filelist = $self->search_packlist($module);
+	} else {
+		$filelist = Perl::Dist::WiX::Filelist->new->readdir(
+			catdir( $self->image_dir, 'perl' ) );
+		$filelist->subtract($filelist_sub)->filter( $self->filters );
+	}
+	my $mod_id = $module;
+	$mod_id =~ s{::}{_}msg;
+	$mod_id =~ s{-}{_}msg;
+
+	# Insert fragment.
+	$self->insert_fragment( $mod_id, $filelist->files );
+
+	return $self;
+} ## end sub install_distribution_from_file
+
 sub _name_to_module {
 	my ( $self, $dist ) = @_;
+	$self->trace_line( 3, "Trying to get module name out of $dist\n" );
 
 #<<<
-    my ( $module ) = $dist =~ m{\A  # Start the string...
-                    [A-Za-z/]*      # With a string of letters and slashes
-                    /               # followed by a forward slash. 
-                    (.*?)           # Then capture all characters, non-greedily 
-                    -\d*[.]         # up to a dash, a sequence of digits, and then a period.
-                    }smx;           # (i.e. starting a version number.
+	my ( $module ) = $dist =~ m{\A  # Start the string...
+					[A-Za-z/]*      # With a string of letters and slashes
+					/               # followed by a forward slash. 
+					(.*?)           # Then capture all characters, non-greedily 
+					-\d*[.]         # up to a dash, a sequence of digits, and then a period.
+					}smx;           # (i.e. starting a version number.
 #>>>
 	$module =~ s{-}{::}msg;
 
@@ -3018,7 +3177,7 @@ EOF
 =head3 install_module
 
   $self->install_module(
-      name => 'DBI',
+	  name => 'DBI',
   );
 
 The C<install_module> method is a high level installation method that can
@@ -3075,11 +3234,11 @@ if ( \$module->uptodate ) {
 	exit(0);
 }
 SCOPE: {
-    my \$dist_file = '$dist_file'; 
-    open( CPAN_FILE, '>', \$dist_file )      or die "open: $!";
-    print CPAN_FILE 
-        \$module->distribution()->pretty_id() or die "print: $!";
-    close( CPAN_FILE )                       or die "close: $!";
+	my \$dist_file = '$dist_file'; 
+	open( CPAN_FILE, '>', \$dist_file )      or die "open: $!";
+	print CPAN_FILE 
+		\$module->distribution()->pretty_id() or die "print: $!";
+	close( CPAN_FILE )                       or die "close: $!";
 }
 
 print "\\\$ENV{PATH} = '\$ENV{PATH}'\\n";
@@ -3110,15 +3269,17 @@ END_PERL
 	my $cpan_file = catfile( $self->build_dir, 'cpan_string.pl' );
   SCOPE: {
 		my $CPAN_FILE;
-		open $CPAN_FILE, '>', $cpan_file or PDWiX->throw("open: $!");
-		print {$CPAN_FILE} $cpan_string or PDWiX->throw("print: $!");
-		close $CPAN_FILE or PDWiX->throw("close: $!");
+		open $CPAN_FILE, '>', $cpan_file
+		  or PDWiX->throw("CPAN script open failed: $!");
+		print {$CPAN_FILE} $cpan_string
+		  or PDWiX->throw("CPAN script print failed: $!");
+		close $CPAN_FILE or PDWiX->throw("CPAN script close failed: $!");
 	}
 	local $ENV{PERL_MM_USE_DEFAULT} = 1;
 	local $ENV{AUTOMATED_TESTING}   = q{};
 	local $ENV{RELEASE_TESTING}     = q{};
 	$self->_run3( $self->bin_perl, $cpan_file )
-	  or PDWiX->throw('perl failed');
+	  or PDWiX->throw('CPAN script execution failed');
 	PDWiX->throw(
 		"Failure detected installing $name, stopping [$CHILD_ERROR]")
 	  if $CHILD_ERROR;
@@ -3128,7 +3289,7 @@ END_PERL
 	my @files;
 	my $fh = IO::File->new( $dist_file, 'r' );
 	if ( not defined $fh ) {
-		PDWiX->throw("File Error: $!");
+		PDWiX->throw("CPAN modules file error: $!");
 	}
 	my $dist_info = <$fh>;
 	$fh->close;
@@ -3159,9 +3320,9 @@ END_PERL
 =head3 install_modules
 
   $self->install_modules( qw{
-      Foo::Bar
-      This::That
-      One::Two
+	  Foo::Bar
+	  This::That
+	  One::Two
   } );
 
 The C<install_modules> method is a convenience shorthand that makes it
@@ -3273,15 +3434,15 @@ sub install_par {
 
   # Overwrite the CPAN::Config
   $self->install_file(
-      share      => 'Perl-Dist CPAN_Config.pm',
-      install_to => 'perl/lib/CPAN/Config.pm',
+	  share      => 'Perl-Dist CPAN_Config.pm',
+	  install_to => 'perl/lib/CPAN/Config.pm',
   );
   
   # Install a custom icon file
   $self->install_file(
-      name       => 'Strawberry Perl Website Icon',
-      url        => 'http://strawberryperl.com/favicon.ico',
-      install_to => 'Strawberry Perl Website.ico',
+	  name       => 'Strawberry Perl Website Icon',
+	  url        => 'http://strawberryperl.com/favicon.ico',
+	  install_to => 'Strawberry Perl Website.ico',
   );
 
 The C<install_file> method is used to install a single specific file from
@@ -3355,8 +3516,8 @@ sub install_file {
 =head3 install_launcher
 
   $self->install_launcher(
-      name => 'CPAN Client',
-      bin  => 'cpan',
+	  name => 'CPAN Client',
+	  bin  => 'cpan',
   );
 
 The C<install_launcher> method is used to describe a binary program
@@ -3393,7 +3554,7 @@ sub install_launcher {
 	}
 
 	my $icon_id = $self->icons->add_icon(
-		catfile( $self->dist_dir, "$launcher->{bin}.ico" ),
+		catfile( $self->dist_dir, $launcher->bin . '.ico' ),
 		$launcher->bin . '.bat' );
 
 	# Add the icon.
@@ -3413,10 +3574,10 @@ sub install_launcher {
 =head3 install_website
 
   $self->install_website(
-      name       => 'Strawberry Perl Website',
-      url        => 'http://strawberryperl.com/',
-      icon_file  => 'Strawberry Perl Website.ico',
-      icon_index => 1,
+	  name       => 'Strawberry Perl Website',
+	  url        => 'http://strawberryperl.com/',
+	  icon_file  => 'Strawberry Perl Website.ico',
+	  icon_index => 1,
   );
 
 The C<install_website> param is used to install a "Start" menu entry
@@ -3656,7 +3817,7 @@ sub image_dir_quotemeta {
 	my $self   = shift;
 	my $string = $self->image_dir;
 	$string =~ s{\\}        # Convert a backslash
-                {\\\\}gmsx; ## to 2 backslashes.
+				{\\\\}gmsx; ## to 2 backslashes.
 	return $string;
 }
 
@@ -3736,7 +3897,7 @@ sub _mirror {
 
 	my $file = $url;
 	$file =~ s{.+\/} # Delete anything before the last forward slash.
-              {}msx; ## (leaves only the filename.)
+			  {}msx; ## (leaves only the filename.)
 	my $target = catfile( $dir, $file );
 	if ( $self->offline and -f $target ) {
 		return $target;
@@ -3794,13 +3955,13 @@ sub _copy {
 
 		# Do the actual copy
 		File::Copy::Recursive::rcopy( $from, $to )
-		  or PDWiX->throw($OS_ERROR);
+		  or PDWiX->throw("Copy error: $OS_ERROR");
 
 		# Set it back to what it was
 		$file->readonly($readonly);
 	} else {
 		File::Copy::Recursive::rcopy( $from, $to )
-		  or PDWiX->throw($OS_ERROR);
+		  or PDWiX->throw("Copy error: $OS_ERROR");
 	}
 	return 1;
 } ## end sub _copy
@@ -3811,7 +3972,7 @@ sub _move {
 	File::Path::mkpath($basedir) unless -e $basedir;
 	$self->trace_line( 2, "Moving $from to $to\n" );
 	File::Copy::Recursive::rmove( $from, $to )
-	  or PDWiX->throw($OS_ERROR);
+	  or PDWiX->throw("Move error: $OS_ERROR");
 
 	return;
 }
@@ -3953,9 +4114,11 @@ sub _extract_filemap {
 
 			foreach my $member (@members) {
 				my $filename = $member->fileName();
+#<<<
 				$filename =~
 				  s{\A\Q$f}    # At the beginning of the string, change $f 
-                              {$dest}msx;   # to $dest.
+				   {$dest}msx; # to $dest.
+#>>>
 				$filename = _convert_name($filename);
 				my $status = $member->extractToFileNamed($filename);
 
@@ -3976,20 +4139,20 @@ sub _extract_filemap {
 				my $canon_tgt = File::Spec::Unix->canonpath($tgt);
 				my $t;
 
+#<<<
 				# say "matching $canon_f vs $canon_tgt";
 				if ($file_only) {
-					next
-					  unless $canon_f =~
-						  m{\A([^/]+[/])?\Q$canon_tgt\E\z}imsx;
+					next unless
+					  $canon_f =~ m{\A([^/]+[/])?\Q$canon_tgt\E\z}imsx;
 					( $t = $canon_f ) =~ s{\A([^/]+[/])?\Q$canon_tgt\E\z}
-                       {$filemap->{$tgt}}imsx;
-
+										  {$filemap->{$tgt}}imsx;
 				} else {
-					next
-					  unless $canon_f =~ m{\A([^/]+[/])?\Q$canon_tgt\E}imsx;
+					next unless
+					  $canon_f =~ m{\A([^/]+[/])?\Q$canon_tgt\E}imsx;
 					( $t = $canon_f ) =~ s{\A([^/]+[/])?\Q$canon_tgt\E}
-                       {$filemap->{$tgt}}imsx;
+										  {$filemap->{$tgt}}imsx;
 				}
+#>>>
 				my $full_t = catfile( $basedir, $t );
 				$self->trace_line( 2, "Extracting $f to $full_t\n" );
 				$tar->extract_file( $f, $full_t );
@@ -4009,7 +4172,7 @@ sub _dll_to_a {
 	my $self   = shift;
 	my %params = @_;
 	unless ( $self->bin_dlltool ) {
-		PDWiX->throw('Required method bin_dlltool is not defined');
+		PDWiX->throw('dlltool has not been installed');
 	}
 
 	my @files;
@@ -4017,30 +4180,46 @@ sub _dll_to_a {
 	# Source file
 	my $source = $params{source};
 	if ( $source and not( $source =~ /\.dll\z/ms ) ) {
-		PDWiX->throw('Missing or invalid source param');
+		PDWiX::Parameter->throw(
+			parameter => 'source',
+			where     => '->_dll_to_a'
+		);
 	}
 
 	# Target .dll file
 	my $dll = $params{dll};
 	unless ( $dll and $dll =~ /\.dll/ms ) {
-		PDWiX->throw('Missing or invalid .dll file');
+		PDWiX::Parameter->throw(
+			parameter => 'dll',
+			where     => '->_dll_to_a'
+		);
 	}
 
 	# Target .def file
 	my $def = $params{def};
 	unless ( $def and $def =~ /\.def\z/ms ) {
-		PDWiX->throw('Missing or invalid .def file');
+		PDWiX::Parameter->throw(
+			parameter => 'def',
+			where     => '->_dll_to_a'
+		);
 	}
 
 	# Target .a file
 	my $_a = $params{a};
 	unless ( $_a and $_a =~ /\.a\z/ms ) {
-		PDWiX->throw('Missing or invalid .a file');
+		PDWiX::Parameter->throw(
+			parameter => 'a',
+			where     => '->_dll_to_a'
+		);
 	}
 
 	# Step 1 - Copy the source .dll to the target if needed
 	unless ( ( $source and -f $source ) or -f $dll ) {
-		PDWiX->throw('Need either a source or dll param');
+		PDWiX::Parameter->throw(
+			parameter => 'source or dll: Need one of '
+			  . 'these two parameters, and the file needs to exist',
+			where => '->_dll_to_a'
+		);
 	}
 	if ($source) {
 		$self->_move( $source => $dll );
@@ -4051,11 +4230,11 @@ sub _dll_to_a {
   SCOPE: {
 		my $bin = $self->bin_pexports;
 		unless ($bin) {
-			PDWiX->throw('Required method bin_pexports is not defined');
+			PDWiX->throw('pexports has not been installed');
 		}
 		my $ok = !system "$bin $dll > $def";
 		unless ( $ok and -f $def ) {
-			PDWiX->throw('Failed to generate .def file');
+			PDWiX->throw('pexports failed to generate .def file');
 		}
 
 		push @files, $def;
@@ -4065,11 +4244,11 @@ sub _dll_to_a {
   SCOPE: {
 		my $bin = $self->bin_dlltool;
 		unless ($bin) {
-			PDWiX->throw('Required method bin_dlltool is not defined');
+			PDWiX->throw('dlltool has not been installed');
 		}
 		my $ok = !system "$bin -dllname $dll --def $def --output-lib $_a";
 		unless ( $ok and -f $_a ) {
-			PDWiX->throw('Failed to generate .a file');
+			PDWiX->throw('dlltool failed to generate .a file');
 		}
 
 		push @files, $_a;
@@ -4095,7 +4274,7 @@ sub remake_path {
 	File::Path::mkpath($dir);
 
 	unless ( -d $dir ) {
-		PDWiX->throw("Failed to make_path for $dir");
+		PDWiX->throw("Failed to remake_path for $dir");
 	}
 	return $dir;
 }
@@ -4106,17 +4285,320 @@ __END__
 
 =pod
 
+=head1 DIAGNOSTICS
+
+Note that most errors are defined as exception objects in the PDWiX,
+PDWiX::Parameter, and PDWiX::Caught classes.  Those errors will start 
+with C<< Perl::Dist::WiX error: >>
+
+Some parameter errors will be caught by Object::InsideOut. (Those errors 
+will be in the OIO class, and are not listed here.)
+
+=head2 C<< Perl::Dist::WiX error: >>
+
+=over 
+
+=item C<< Parameter missing or invalid >>
+
+(Implemented as a PDWiX::Parameter class)
+ 
+The parameter mentioned is either missing (and it is required) or 
+invalid (for example, a string where an integer is required).
+
+Often, but not always, exactly why the parameter is invalid is 
+mentioned, as well.
+
+=item C<< Internal Error: Missing or invalid id >>
+
+A Perl::Dist::WiX::Base::Component has been created with a 
+missing or invalid id parameter.  This should not happen.
+
+=item C<< Internal Error: Calling as_string improperly (most likely, not calling derived method) >>
+
+Perl::Dist::WiX::Base::Component->as_spaces is being called instead of 
+one of its derived methods.
+
+=item C<< Internal Error: Odd number of parameters to add_directories_id >>
+
+The L<Perl::Dist::WiX-E<gt>add_directories_id|/add_directories_id> method takes pairs of directories and 
+the id to use when adding them.  Somehow, these got mismatched.
+
+=item C<< Can't add the directories required >>
+
+The directories that are requested to be added under this directory object
+aren't a subdirectory of the directory being referred to by the directory 
+object, so directory objects cannot be created within this object for them.
+
+=item C<< Internal Error: Parameters not passed in hash reference >>
+
+The method referred to takes all its parameters as a hash reference (i.e. 
+within C<< { } >> brackets) and this was not done.
+
+=item C<< Can't create intermediate directories when creating %s (unsuccessful search for %s) >>
+
+Perl::Dist::WiX::Directory->add_directory could not find a directory 
+object to add the new directory object to. (add_directory can only create
+a directory object immediately under another one.)
+
+=item C<< Complex feature tree not implemented in Perl::Dist::WiX %s. >>
+
+Having more than one feature (and supporting conditional installation
+of features by the user) has not been implemented in Perl::Dist::WiX 
+at this point.
+
+=item C<< Error reading directory %s: %s >>
+
+Something happened when attempting to get a list of files for the 
+directory mentioned.
+
+=item C<< Error reading packlist file %s: %s >>
+
+Something happened when attempting to read the packlist file mentioned.
+
+=item C<< Could not add %s >>
+
+The file to be added to the Perl distribution was completely outside the
+distribution's directories, so a directory object could not be found to 
+refer to.
+
+=item C<< The output_dir directory is not writable >>
+
+The directory specified by the C<output_dir> parameter is not writable by
+the current user.  Specify a different directory, or have your 
+administrator set the directory so it can be written to.
+
+=item C<< %s does not exist or is not readable >>
+
+Trying to use light.exe to compile a file that cannot be read or it
+does not exist (someone may be trying to modify your file system from 
+under you?)
+
+=item C<< Failed to find %s (Probably compilation error in %s) >>
+
+The first file mentioned could not be found.  There was probably a 
+error in compilation of the second file.
+
+=item C<< Could not open file %s for writing [$!] [$^E] >>
+
+Perl::Dist::WiX could not open the file mentioned.  The reason should
+be specified within the brackets.
+
+=item C<< Fragment %s does not exist >>
+
+An attempt to add a file or files to a fragment that had not been 
+created yet has been detected.
+
+=item C<< %s does not support Perl %s >> or C<< Cannot generate perl, missing $s method in %s >>
+
+You are attempting to install a version of the perl interpreter that 
+Perl::Dist::WiX does not support yet.  If this is a new version of 
+the interpreter, or if Perl::Dist::WiX is documented as supporting 
+this version of the interpreter, please report this as a bug.
+
+=item C<< Failed to resolve Module::CoreList hash for %s >>
+
+We could not get a hash of modules from L<Module::Corelist|Module::Corelist> 
+for the version of Perl mentioned.
+
+=item C<< Unknown package %s >>
+
+An improper package name was passed to L<Perl::Dist::WiX-E<gt>binary_url|/binary_url>.
+
+=item C<< Checkpoints require a temp_dir to be set >>
+
+There was no C<temp_dir> parameter set and a checkpoint routine was called.
+
+=item C<< Failed to find checkpoint directory >>
+
+L<Perl::Dist::WiX-E<gt>checkpoint_load|/checkpoint_load> could not find a directory
+C<temp_dir>\checkpoint to load a checkpoint from.
+
+Either a checkpoint was never saved, or the temporary directory is 
+different, or the checkpoint was deleted.
+
+=item C<< Did not provide a toolchain resolver >>
+
+A Perl::Dist::Util::Toolchain object was not passed to 
+Perl::Dist::WiX->install_perl_toolchain, and that method was unable to create one.
+
+=item C<< Cannot install CPAN modules yet, perl is not installed >>
+
+Perl::Dist::WiX->install_cpan_upgrades was called before 
+Perl::Dist::WiX->install_perl.
+
+=item C<< CPAN script %s failed >>
+
+An error happened creating or executing the script to upgrade or install 
+a CPAN module. The error will usually be mentioned on this line, and the 
+debug.err and debug.out files (in the C<output_dir>) can be examined for 
+assistance in determining what happened.
+
+=item C<< Failure detected during cpan upgrade, stopping [%s] >> or C<< Failure detected installing %s, stopping [%s] >>
+
+The script to upgrade or install a CPAN module reported an error.
+The error will usually be mentioned on this line, and the debug.err and 
+debug.out files (in the C<output_dir>) can be examined for assistance in 
+determining what happened.
+
+=item C<< Cannot build Perl yet, dmake has not been installed >>
+
+L<install_dmake|/install_dmake> needs to be ran before L<install_perl|/install_perl>.
+
+=item C<< Can't execute %s >>
+
+We just installed something, but a test to make sure that it is executable 
+did not pass.
+
+=item C<< Didn't expect install_to to be a %s >>
+
+The C<install_to> parameter was the wrong type. It either needs 
+to be a hashref of directory mappings or a directory to install to.
+
+=item C<< Failed to extract %s >>
+
+L<Perl::Dist::WiX-E<gt>install_distribution|/install_distribution> or 
+L<Perl::Dist::WiX-E<gt>install_distribution_from_file|/install_distribution_from_file> 
+could not extract the file referred to. The file may be corrupt.
+
+=item C<< Could not find Makefile.PL in %s >>
+
+This module did not have a Makefile.PL when it was unpacked.
+
+If it has only a Build.PL, it can be installed by 
+L<install_module|/install_module> or L<install_modules|/install_modules>, 
+but not L<install_distribution|/install_distribution>.  Otherwise, there 
+was probably an extraction error.
+
+=item C<< No .packlist found for %s. ... >>	
+
+When this module was being installed, Perl::Dist::WiX was looking for 
+a packlist in order to create a fragment for the module.
+
+The description given with this error tells how to tell Perl::Dist::WiX to 
+create the fragment another way.
+
+=item C<< Template processing failed for $from_tt >>
+
+L<Perl::Dist::WiX-E<gt>patch_file|/patch_file> tried to use the template 
+$from_tt to create a patch, and the patch creation failed.
+
+=item C<< Missing or invalid file $file or $file_tt in pathlist search >>
+
+L<Perl::Dist::WiX-E<gt>patch_file|/patch_file> tried to find a file 
+with these two names to create a patch, and the patch creation failed.
+
+=item C<< Failed to find file $file >>
+
+L<Perl::Dist::WiX-E<gt>patch_file|/patch_file> could not find the file 
+to patch.
+
+=item C<< Failed to create $dir >>
+
+Perl::Dist::WiX tried to create a directory to cache the downloaded 
+modules in, and the creastion failed.
+
+=item C<< No write permissions for L<LWP::UserAgent> cache '$dir' >>
+
+Perl::Dist::WiX created a directory to cache the downloaded 
+modules in, but it can't write to the cache directory.
+
+=item C<< make failed >> or C<< perl failed >>
+
+Trying to execute make or perl failed.
+
+=item C<< make failed (OS error) >> or C<< perl failed (OS error) >>
+
+When make or perl was executed, an error was reported.  Check the debug.out
+and debug.err files for more information. 
+
+=item C<< CPAN modules file error: $! >>
+
+In L<Perl::Dist::WiX-E<gt>install_module|/install_module>, we expected a file to be created
+to verify that CPAN could find the module to be installed.
+When install_module tried to read the file, we got the error reported.  
+
+=item C<< The script %s does not exist >>
+
+Install_launcher could not find a script at this location when 
+creating a shortcut.
+
+=item C<< PATH directory $dir does not exist >>
+
+The directory being added to the PATH does not exist.
+
+=item C<< Directory $path does not exist >>
+
+We tried to find the path to get patches from with L<Perl::Dist::WiX-E<gt>patch_include_path|/patch_include_path>,
+but the path to get the patches from does not exist. 
+
+=item C<< Copy error: %s >>	or C<< Move error: %s >>
+
+There was an error copying or moving a file.
+
+=item C<< Error in archive extraction >>
+
+The archive that was downloaded was corrupt when an extraction 
+attempt was made.
+
+=item C<< Didn't recognize archive type for $archive >>
+
+Perl::Dist::WiX can only install files with a .zip or .tar.gz extension.
+
+=item C<< %s has not been installed >>
+
+The install_* routine that adds this particular package needed to be called 
+before this one, but it wasn't.
+
+=item C<< pexports failed to generate .def file >> or C<< pexports failed to generate .a file >>
+
+pexports or dlltool had an error and was not able to generate the file required.
+
+=item C<< Failed to make_path for %s >> or C<< Failed to remake_path for %s >>
+
+The directory did not exist once made or remade.
+
+=back
+
+=head2 C<< Error caught by Perl::Dist::WiX from other module: >>
+
+These exceptions are members of the PDWiX::Caught class.
+
+The specific problem returned from the other module is reported on the next line.
+
+=over 
+
+=item C<< Unknown delegation error occured >>
+
+This error occurs after "Completed install_c_libraries in %i seconds" if 
+C<< trace => 0 >> or "Pregenerating toolchain..." if C<< trace => 1 >> or 
+greater.
+
+=item C<< Failed to generate toolchain distributions >>
+
+L<Perl::Dist::Util::Toolchain> was not able to find out which modules need
+upgraded in the CPAN toolchain.
+
+=item C<< Template error >>
+
+There was a problem creating or processing the main .wxs template.
+
+=item C<< Could not find distribution directory for Perl::Dist::WiX >>
+
+File::ShareDir could not find the directory that Perl::Dist::WiX uses to 
+store its required data (C<< $Config{sitelib}\auto\share\Perl-Dist-WiX >>)
+
+=back
+
+As other errors are noticed, they will be listed here.
+
 =head1 SUPPORT
 
 Bugs should be reported via: 
 
-1) 
-L<The CPAN bug tracker|http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Perl-Dist-WiX>
+1) The CPAN bug tracker at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Perl-Dist-WiX>
 if you have an account there.
 
-2) Email to 
-L<bug-Perl-Dist-WiX at rt.cpan.org|mailto:bug-Perl-Dist-WiX@rt.cpan.org> 
-if you do not.
+2) Email to E<lt>bug-Perl-Dist-WiX@rt.cpan.orgE<gt> if you do not.
 
 For other issues, contact the topmost author.
 

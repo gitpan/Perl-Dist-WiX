@@ -6,6 +6,10 @@ package Perl::Dist::WiX::Installer;
 
 Perl::Dist::WiX::Installer - WiX-specific routines.
 
+=head1 VERSION
+
+This document describes Perl::Dist::WiX::Installer version 0.169.
+
 =head1 DESCRIPTION
 
 These are the routines that interact with the Windows Installer XML 
@@ -26,7 +30,7 @@ use     vars                     qw( $VERSION                      );
 use     Alien::WiX               qw( :ALL                          );
 use     File::Spec::Functions    qw( catdir catfile rel2abs curdir );
 use     Params::Util
-    qw( _STRING _IDENTIFIER _ARRAY0 _ARRAY                         );
+	qw( _STRING _IDENTIFIER _ARRAY0 _ARRAY                         );
 use     IO::File                 qw();
 use     IPC::Run3                qw();
 use     URI                      qw();
@@ -38,12 +42,12 @@ require Perl::Dist::WiX::FeatureTree;
 require Perl::Dist::WiX::Icons;
 require Perl::Dist::WiX::CreateFolder;
 
-use version; $VERSION = qv('0.160');
+use version; $VERSION = version->new('0.169')->numify;
 #>>>
 
 =head2 Accessors
 
-    $id = $dist->output_dir; 
+	$id = $dist->output_dir; 
 
 Accessors will return a portion of the internal state of the object.
 
@@ -240,11 +244,6 @@ sub new {
 		$self->icons->add_icon( $self->msi_product_icon );
 	}
 
-	# Find the light.exe and candle.exe programs
-	unless ( $ENV{PROGRAMFILES} and -d $ENV{PROGRAMFILES} ) {
-		PDWiX->throw('Failed to find the Program Files directory');
-	}
-
 	return $self;
 } ## end sub new
 
@@ -332,13 +331,20 @@ See L<http://wix.sourceforge.net/manual-wix3/wix_xsd_product.htm?>
 sub msi_product_id {
 	my $self = shift;
 
+	my $product_name =
+	    $self->app_name
+	  . ( $self->portable ? ' Portable ' : q{ } )
+	  . $self->app_publisher_url
+	  . q{ ver. }
+	  . $self->msi_perl_version;
+
 	#... then use it to create a GUID out of the ID.
-	my $guid = $self->{misc}->generate_guid( $self->app_ver_name );
+	my $guid = $self->{misc}->generate_guid($product_name);
 
 	return $guid;
-}
+} ## end sub msi_product_id
 
-=item * msi_product_id
+=item * msi_upgrade_code
 
 Returns the Id for the MSI's <Upgrade> tag.
 
@@ -353,7 +359,7 @@ sub msi_upgrade_code {
 	my $upgrade_ver =
 	    $self->app_name
 	  . ( $self->portable ? ' Portable' : q{} ) . q{ }
-	  . $self->perl_version_human;
+	  . $self->app_publisher_url;
 
 	#... then use it to create a GUID out of the ID.
 	my $guid = $self->{misc}->generate_guid($upgrade_ver);
@@ -419,7 +425,7 @@ sub get_component_array {
 Compiles a .wxs file (specified by $filename) into a .wixobj file 
 (specified by $wixobj.)  Both parameters are required.
 
-    $self = $self->compile_wxs("Perl.wxs", "Perl.wixobj");
+	$self = $self->compile_wxs("Perl.wxs", "Perl.wixobj");
 
 =cut
 
@@ -451,7 +457,15 @@ sub compile_wxs {
 		$filename,
 
 	];
-	my $rv = IPC::Run3::run3( $cmd, \undef, \undef, \undef );
+	my $out;
+	my $rv = IPC::Run3::run3( $cmd, \undef, \$out, \undef );
+
+	unless ( ( -f $wixobj ) and ( not $out =~ /error|warning/msx ) ) {
+		$self->trace_line( 0, $out );
+		PDWiX->throw( "Failed to find $wixobj (probably "
+			  . "compilation error in $filename)" );
+	}
+
 
 	return $rv;
 } ## end sub compile_wxs
@@ -584,7 +598,8 @@ sub write_msi {
 	# Did everything get done correctly?
 	unless ( ( -f $output_msi ) and ( not $out =~ /error|warning/msx ) ) {
 		$self->trace_line( 0, $out );
-		PDWiX->throw("Failed to find $output_msi");
+		PDWiX->throw(
+			"Failed to find $output_msi (probably compilation error)");
 	}
 
 	return $output_msi;
@@ -664,7 +679,7 @@ sub add_file {
 	}
 
 	unless ( defined $self->{fragments}->{ $params{fragment} } ) {
-		PDWiX->throw("Fragment $params{fragment} not defined");
+		PDWiX->throw("Fragment $params{fragment} does not exist");
 	}
 
 	$self->{fragments}->{ $params{fragment} }->add_file( $params{source} );
@@ -764,7 +779,7 @@ sub add_to_fragment {
 Loads the main .wxs file template, using this object, and returns 
 it as a string.
 
-    $wxs = $self->as_string;
+	$wxs = $self->as_string;
 
 =cut
 
@@ -775,16 +790,20 @@ sub as_string {
 			INCLUDE_PATH => $self->dist_dir,
 			EVAL_PERL    => 1,
 		} )
-	  || PDWiX->throw(
-		     $Template::ERROR
-		  or $Template::ERROR
+	  || PDWiX::Caught->throw(
+		message => 'Template error',
+		info    => do {
+			defined $Template::ERROR ? $Template::ERROR : 'Unknown error';
+		},
 	  );
 
 	my $answer;
 	my $vars = { dist => $self };
 
 	$tt->process( 'Main.wxs.tt', $vars, \$answer )
-	  || PDWiX->throw( $tt->error() . "\n" );
+	  || PDWiX::Caught->throw(
+		message => 'Template error',
+		info    => $tt->error() );
 
 	# Combine it all
 	return $answer;
@@ -796,21 +815,23 @@ __END__
 
 =pod
 
+=head1 DIAGNOSTICS
+
+See Perl::Dist::WiX's <DIAGNOSTICS section|Perl::Dist::WiX/DIAGNOSTICS> for 
+details, as all diagnostics from this module are listed there.
+
 =head1 SUPPORT
 
 Bugs should be reported via: 
 
-1) 
-L<The CPAN bug tracker|http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Perl-Dist-WiX>
+1) The CPAN bug tracker at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Perl-Dist-WiX>
 if you have an account there.
 
-2) Email to 
-L<bug-Perl-Dist-WiX at rt.cpan.org|mailto:bug-Perl-Dist-WiX@rt.cpan.org> 
-if you do not.
+2) Email to L<mailto:bug-Perl-Dist-WiX@rt.cpan.org> if you do not.
 
 For other issues, contact the topmost author.
 
-=head1 AUTHOR
+=head1 AUTHORS
 
 Curtis Jewell E<lt>csjewell@cpan.orgE<gt>
 

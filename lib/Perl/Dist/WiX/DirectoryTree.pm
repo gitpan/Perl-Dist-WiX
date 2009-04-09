@@ -18,7 +18,7 @@ use     Params::Util          qw( _IDENTIFIER _STRING            );
 use     File::Spec::Functions qw( catdir                         );
 require Perl::Dist::WiX::Directory;
 
-use version; $VERSION = qv('0.16');
+use version; $VERSION = version->new('0.169')->numify;
 #>>>
 #####################################################################
 # Accessors:
@@ -122,13 +122,13 @@ sub initialize_tree {
 			name    => $self->app_name
 		} );
 #<<<
-    $branch->add_directories_id(
-        'Perl',      'perl',
-        'Toolchain', 'c',
-        'License',   'licenses',
-        'Cpan',      'cpan',
-        'Win32',     'win32',
-    );
+	$branch->add_directories_id(
+		'Perl',      'perl',
+		'Toolchain', 'c',
+		'License',   'licenses',
+		'Cpan',      'cpan',
+		'Win32',     'win32',
+	);
 #>>>
 	$branch->add_directories_init( qw(
 		  c\bin
@@ -174,6 +174,7 @@ sub initialize_tree {
 		  perl\lib
 		  perl\lib\Archive
 		  perl\lib\B
+		  perl\lib\CGI
 		  perl\lib\Compress
 		  perl\lib\CPAN
 		  perl\lib\CPAN\API
@@ -186,6 +187,7 @@ sub initialize_tree {
 		  perl\lib\File
 		  perl\lib\Filter
 		  perl\lib\Filter\Util
+		  perl\lib\Getopt
 		  perl\lib\IO
 		  perl\lib\IO\Compress
 		  perl\lib\IO\Uncompress
@@ -207,6 +209,7 @@ sub initialize_tree {
 		  perl\lib\Thread
 		  perl\lib\Tie
 		  perl\lib\Time
+		  perl\lib\Unicode
 		  perl\lib\autodie
 		  perl\lib\auto
 		  perl\lib\auto\share
@@ -241,6 +244,7 @@ sub initialize_tree {
 		  perl\lib\auto\PerlIO
 		  perl\lib\auto\Pod
 		  perl\lib\auto\POSIX
+		  perl\lib\auto\Term
 		  perl\lib\auto\Test
 		  perl\lib\auto\Test\Harness
 		  perl\lib\auto\Text
@@ -248,22 +252,36 @@ sub initialize_tree {
 		  perl\lib\auto\threads
 		  perl\lib\auto\threads\shared
 		  perl\lib\auto\Time
+		  perl\lib\auto\XS
 		  perl\site
 		  perl\site\lib
+		  perl\site\lib\Archive
 		  perl\site\lib\Compress
+		  perl\site\lib\Compress\Raw
+		  perl\site\lib\Digest
 		  perl\site\lib\File
 		  perl\site\lib\HTML
 		  perl\site\lib\IO
+		  perl\site\lib\IO\Compress
+		  perl\site\lib\IO\Compress\Adapter
+		  perl\site\lib\IO\Uncompress
+		  perl\site\lib\IO\Uncompress\Adapter
 		  perl\site\lib\Term
 		  perl\site\lib\Win32
+		  perl\site\lib\Win32API
 		  perl\site\lib\auto
 		  perl\site\lib\auto\share
+		  perl\site\lib\auto\Archive
 		  perl\site\lib\auto\Compress
+		  perl\site\lib\auto\Compress\Raw
+		  perl\site\lib\auto\Digest
 		  perl\site\lib\auto\File
 		  perl\site\lib\auto\HTML
 		  perl\site\lib\auto\IO
+		  perl\site\lib\auto\IO\Compress
 		  perl\site\lib\auto\Term
 		  perl\site\lib\auto\Win32
+		  perl\site\lib\auto\Win32API
 		  ), @dirs
 	);
 
