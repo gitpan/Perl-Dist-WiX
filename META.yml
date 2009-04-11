@@ -35,7 +35,7 @@ requires:
   List::MoreUtils: 0.07
   Module::CoreList: 2.17
   Object::InsideOut: 3.53
-  Perl::Dist: 1.12
+  Perl::Dist: 1.13
   Process: 0.23
   Readonly: 1.03
   Scalar::Util: 1.19
@@ -49,4 +49,4 @@ resources:
   homepage: http://csjewell.comyr.com/perl/
   license: http://dev.perl.org/licenses/
   repository: http://svn.ali.as/cpan/trunk/Perl-Dist-WiX/
-version: 0.169
+version: 0.170

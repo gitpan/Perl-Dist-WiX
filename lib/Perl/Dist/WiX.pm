@@ -8,7 +8,7 @@ Perl::Dist::WiX - Experimental 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 0.169.
+This document describes Perl::Dist::WiX version 0.170.
 
 =head1 DESCRIPTION
 
@@ -58,7 +58,7 @@ use     English               qw( -no_match_vars             );
 use     List::MoreUtils       qw( any none                   );
 use     Params::Util          qw( _HASH _STRING _INSTANCE    );
 use     Readonly              qw( Readonly                   );
-use	    Storable              qw( retrieve                   );
+use     Storable              qw( retrieve                   );
 use     File::Spec::Functions
   qw( catdir catfile catpath tmpdir splitpath rel2abs curdir );
 use     Archive::Tar     1.42 qw();
@@ -81,7 +81,7 @@ use     Win32                 qw();
 require Perl::Dist::WiX::Filelist;
 require Perl::Dist::WiX::StartMenuComponent;
 
-use version; $VERSION = version->new('0.169')->numify;
+use version; $VERSION = version->new('0.170')->numify;
 
 use Object::Tiny qw(
   perl_version
@@ -423,6 +423,13 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	unless ( defined $params{build_dir} ) {
 		$params{build_dir} = catdir( $params{temp_dir}, 'build' );
 		$class->remake_path( $params{build_dir} );
+	}
+	if ( $params{build_dir} =~ m{\.}ms ) {
+		PDWiX::Parameter->throw(
+			parameter => 'build_dir: Cannot be '
+			  . 'a directory that has a . in the name.',
+			where => '->new'
+		);
 	}
 	unless ( defined $params{output_dir} ) {
 		$params{output_dir} = catdir( $params{temp_dir}, 'output' );
@@ -4174,7 +4181,7 @@ sub _dll_to_a {
 	unless ( $self->bin_dlltool ) {
 		PDWiX->throw('dlltool has not been installed');
 	}
-
+	
 	my @files;
 
 	# Source file
@@ -4221,6 +4228,7 @@ sub _dll_to_a {
 			where => '->_dll_to_a'
 		);
 	}
+	
 	if ($source) {
 		$self->_move( $source => $dll );
 		push @files, $dll;
