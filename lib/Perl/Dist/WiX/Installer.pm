@@ -8,7 +8,7 @@ Perl::Dist::WiX::Installer - WiX-specific routines.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Installer version 0.170.
+This document describes Perl::Dist::WiX::Installer version 0.171.
 
 =head1 DESCRIPTION
 
@@ -41,8 +41,9 @@ require Perl::Dist::WiX::DirectoryTree;
 require Perl::Dist::WiX::FeatureTree;
 require Perl::Dist::WiX::Icons;
 require Perl::Dist::WiX::CreateFolder;
+require Perl::Dist::WiX::RemoveFolder;
 
-use version; $VERSION = version->new('0.170')->numify;
+use version; $VERSION = version->new('0.171')->numify;
 #>>>
 
 =head2 Accessors
@@ -119,6 +120,8 @@ use Object::Tiny qw{
   msi_directory_tree_additions
   sitename
   icons
+  pdw_version
+  pdw_class
 };
 
 sub _check_string_parameter {
@@ -137,6 +140,9 @@ sub _check_string_parameter {
 sub new {
 	my $class = shift;
 	my $self = bless {@_}, $class;
+
+	$self->{pdw_version} = $Perl::Dist::WiX::VERSION;
+	$self->{pdw_class}   = $class;
 
 	$self->{misc} = Perl::Dist::WiX::Misc->new(
 		trace    => $self->{trace},
@@ -171,6 +177,13 @@ sub new {
 	$self->_check_string_parameter( $self->app_publisher, 'app_publisher' );
 	$self->_check_string_parameter( $self->app_publisher_url,
 		'app_publisher_url' );
+
+	if ( $self->app_name =~ m{[\\/:*"<>|]}msx ) {
+		PDWiX::Parameter->throw(
+			parameter => 'app_name: Contains characters invalid ' . 'for Windows file/directory names',
+			where     => '::Installer->new'
+		);
+	}
 
 	unless ( _STRING( $self->sitename ) ) {
 		$self->{sitename} = URI->new( $self->app_publisher_url )->host;
@@ -215,29 +228,25 @@ sub new {
 	$self->{directories} = Perl::Dist::WiX::DirectoryTree->new(
 		app_dir  => $self->image_dir,
 		app_name => $self->app_name,
-		sitename => $self->sitename,
-		trace    => $self->{trace},
 	)->initialize_tree( @{ $self->{msi_directory_tree_additions} } );
 	$self->{fragments} = {};
 	$self->{fragments}->{Icons} =
 	  Perl::Dist::WiX::StartMenu->new( directory => 'D_App_Menu', );
 	$self->{fragments}->{Environment} = Perl::Dist::WiX::Environment->new(
-		sitename => $self->sitename,
 		id       => 'Environment',
-		trace    => $self->{trace},
 	);
 	$self->{fragments}->{Win32Extras} = Perl::Dist::WiX::Files->new(
-		sitename       => $self->sitename,
 		directory_tree => $self->directories,
 		id             => 'Win32Extras',
-		trace          => $self->{trace},
 	);
 	$self->{fragments}->{CreateCpan} = Perl::Dist::WiX::CreateFolder->new(
 		directory => 'Cpan',
 		id        => 'CPANFolder',
-		trace     => $self->{trace},
-		sitename  => $self->sitename,
 	);
+#	$self->{fragments}->{RemovePerl} = Perl::Dist::WiX::RemoveFolder->new(
+#		directory => 'Perl',
+#		id        => 'PerlFolder',
+#	);
 	$self->{icons} = Perl::Dist::WiX::Icons->new( trace => $self->{trace} );
 
 	if ( defined $self->msi_product_icon ) {
@@ -261,6 +270,12 @@ sub trace_line {
 
 sub msi_product_icon_id {
 	my $self = shift;
+
+=item * msi_product_icon_id
+
+Returns the product icon to use in the main template.
+
+=cut
 
 	# Get the icon ID if we can.
 	if ( defined $self->msi_product_icon ) {
@@ -547,6 +562,10 @@ sub write_msi {
 	$content =~ s{\r\n}{\n}msg;        # CRLF -> LF
 	$filename_in =
 	  catfile( $self->fragment_dir, $self->app_name . q{.wxs} );
+	if (-f $filename_in) {
+		# Had a collision. Yell and scream.
+		PDWiX->throw("Could not write out $filename_in: File already exists.");
+	}
 	$filename_out =
 	  catfile( $self->fragment_dir, $self->app_name . q{.wixobj} );
 	$fh = IO::File->new( $filename_in, 'w' );
@@ -787,14 +806,12 @@ sub as_string {
 	my $self = shift;
 
 	my $tt = Template->new( {
-			INCLUDE_PATH => $self->dist_dir,
+			INCLUDE_PATH => [ $self->dist_dir, File::ShareDir::dist_dir('Perl-Dist-WiX'), ],
 			EVAL_PERL    => 1,
 		} )
 	  || PDWiX::Caught->throw(
 		message => 'Template error',
-		info    => do {
-			defined $Template::ERROR ? $Template::ERROR : 'Unknown error';
-		},
+		info    => Template->error(),
 	  );
 
 	my $answer;

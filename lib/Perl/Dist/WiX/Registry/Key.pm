@@ -20,7 +20,7 @@ use     Readonly           qw( Readonly                         );
 use     Params::Util       qw( _IDENTIFIER _STRING              );
 require Perl::Dist::WiX::Registry::Entry;
 
-use version; $VERSION = version->new('0.170')->numify;
+use version; $VERSION = version->new('0.171')->numify;
 
 # Defining at this level so it does not need recreated every time.
 Readonly my @ROOT_OPTIONS => qw(HKMU HKCR HKCU HKLM HKU);
@@ -31,7 +31,7 @@ Readonly my @ROOT_OPTIONS => qw(HKMU HKCR HKCU HKLM HKU);
 #   none.
 # Attributes:
 
-my @root : Field : Arg(Name => 'root', Required => 1);
+my @root : Field : Arg(Name => 'root', Default => 'HKLM');
 my @key : Field : Arg(Name => 'key', Required => 1);
 
 #####################################################################
@@ -56,9 +56,6 @@ sub _pre_init : PreInit {
 	}
 
 	# Apply defaults
-	unless ( defined $args->{root} ) {
-		$args->{root} = 'HKLM';
-	}
 	unless ( defined $args->{guid} ) {
 		$args->{guid} = $self->generate_guid( $args->{id} );
 	}

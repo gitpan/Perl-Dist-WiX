@@ -8,7 +8,7 @@ Perl::Dist::WiX - Experimental 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 0.170.
+This document describes Perl::Dist::WiX version 0.171.
 
 =head1 DESCRIPTION
 
@@ -59,8 +59,9 @@ use     List::MoreUtils       qw( any none                   );
 use     Params::Util          qw( _HASH _STRING _INSTANCE    );
 use     Readonly              qw( Readonly                   );
 use     Storable              qw( retrieve                   );
-use     File::Spec::Functions
-  qw( catdir catfile catpath tmpdir splitpath rel2abs curdir );
+use     File::Spec::Functions qw(
+	catdir catfile catpath tmpdir splitpath rel2abs curdir
+);
 use     Archive::Tar     1.42 qw();
 use     File::Remove          qw();
 use     File::pushd           qw();
@@ -81,7 +82,7 @@ use     Win32                 qw();
 require Perl::Dist::WiX::Filelist;
 require Perl::Dist::WiX::StartMenuComponent;
 
-use version; $VERSION = version->new('0.170')->numify;
+use version; $VERSION = version->new('0.171')->numify;
 
 use Object::Tiny qw(
   perl_version
@@ -447,13 +448,13 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	if ( defined $params{image_dir} ) {
 		my $perl_location = lc Probe::Perl->find_perl_interpreter();
 		if ( 2 < ( $params{trace} % 100 ) ) {
-			print '[WiX.pm 391] [3] '
+			print '[WiX.pm 450] [3] '
 			  . "Currently executing perl: $perl_location\n";
 		}
 		my $our_perl_location =
 		  lc catfile( $params{image_dir}, qw(perl bin perl.exe) );
 		if ( 2 < ( $params{trace} % 100 ) ) {
-			print '[WiX.pm 397] [3] '
+			print '[WiX.pm 456] [3] '
 			  . "Our perl to create:       $our_perl_location\n";
 		}
 
@@ -1321,10 +1322,10 @@ sub install_cpan_upgrades {
 
 	# Generate the CPAN installation script
 	my $cpan_string = <<'END_PERL';
-print "Loading CPAN...\\n";
+print "Loading CPAN...\n";
 use CPAN;
-CPAN::HandleConfig->load unless \$CPAN::Config_loaded++;
-print "Loading Storable...\\n";
+CPAN::HandleConfig->load unless $CPAN::Config_loaded++;
+print "Loading Storable...\n";
 use Storable qw(nstore);
 
 my ($module, %seen, %need, @toget);
@@ -1351,7 +1352,7 @@ MODULE: for $module (@expand) {
 	# If there's no file to download, skip it.
 	next MODULE unless defined $file;
 
-	$file =~ s!^./../!!;
+	$file =~ s{^./../}{};
 	my $latest  = $module->cpan_version;
 	my $inst_file = $module->inst_file;
 	my $have;
@@ -1387,8 +1388,12 @@ unless (%need) {
 	print "All modules are up to date\n";
 }
 	
-nstore \@toget, 'cpan.info';
-print "Completed collecting information on all modules\n";
+END_PERL
+
+	my $cpan_info = catfile( $self->output_dir , 'cpan.info' );
+	$cpan_string .= <<"END_PERL";
+nstore \\\@toget, '$cpan_info';
+print "Completed collecting information on all modules\\n";
 
 exit 0;
 END_PERL
@@ -1409,7 +1414,6 @@ END_PERL
 	PDWiX->throw('Failure detected during cpan upgrade, stopping')
 	  if $CHILD_ERROR;
 
-	my $cpan_info = catfile( rel2abs( curdir() ), 'cpan.info' );
 	my $module_info = retrieve $cpan_info;
 	my $force;
 
@@ -1431,6 +1435,7 @@ END_PERL
 			and ( $module->cpan_version > 0.79 ) )
 		{
 			$self->install_modules(qw( File::Remove YAML::Tiny ));
+			$self->_install_cpan_module( $module, $force );
 			next;
 		}
 
@@ -3676,15 +3681,19 @@ sub write_zip {
 	$self->trace_line( 1, "Generating zip at $file\n" );
 
 	# Create the archive
-	my $zip = Archive::Zip->new;
+	my $zip = Archive::Zip->new();
 
 	# Add the image directory to the root
-	$zip->addTree( $self->image_dir, q{} );
+	$zip->addTree( $self->image_dir(), q{} );
 
-	# Set max compression for all members
-	foreach my $member ( $zip->members ) {
-		next if $member->isDirectory;
+	my @members = $zip->members();
+	# Set max compression for all members, deleting .AAA files.
+	foreach my $member ( @members ) {
+		next if $member->isDirectory();
 		$member->desiredCompressionLevel(9);
+		if ($member->fileName =~ m{\.AAA\z}sm ) {
+			$zip->removeMember($member);
+		}
 	}
 
 	# Write out the file name
@@ -4181,7 +4190,7 @@ sub _dll_to_a {
 	unless ( $self->bin_dlltool ) {
 		PDWiX->throw('dlltool has not been installed');
 	}
-	
+
 	my @files;
 
 	# Source file
@@ -4228,7 +4237,7 @@ sub _dll_to_a {
 			where => '->_dll_to_a'
 		);
 	}
-	
+
 	if ($source) {
 		$self->_move( $source => $dll );
 		push @files, $dll;
@@ -4565,6 +4574,12 @@ pexports or dlltool had an error and was not able to generate the file required.
 
 The directory did not exist once made or remade.
 
+=item C<< Could not write out $filename_in: File already exists. >>
+
+The application name (as defined by the L<app_name|/app_name> parameter) 
+conflicts with one of the other fragments somehow. Please choose a different 
+application name.
+
 =back
 
 =head2 C<< Error caught by Perl::Dist::WiX from other module: >>
@@ -4599,6 +4614,32 @@ store its required data (C<< $Config{sitelib}\auto\share\Perl-Dist-WiX >>)
 
 As other errors are noticed, they will be listed here.
 
+=head2 C<< OIO::Args error: Missing mandatory initializer '%s' for class '%s' >>
+
+This is the Object::InsideOut equivalent of a PDWiX::Parameter error.
+
+=head1 TODO
+
+=over
+
+=item 1.
+
+Need to add custom action to delete leftover files from perl
+installation (0.172)
+
+=item 2.
+
+Handle installing distributions that only contain a Build.PL 
+by executing the Build.PL (instead of throwing an exception)
+in install_distribution. (0.180)
+
+=item 3.
+
+Create a distribution for handling the XML-generating parts 
+of Perl::Dist::WiX and depend on it (0.180? 0.190?)
+   
+=back
+
 =head1 SUPPORT
 
 Bugs should be reported via: 
@@ -4624,7 +4665,7 @@ L<Perl::Dist>, L<Perl::Dist::Inno>, L<http://ali.as/>
 
 Copyright 2009 Curtis Jewell.
 
-Copyright 2008-2009 Adam Kennedy.
+Copyright 2008 - 2009 Adam Kennedy.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.

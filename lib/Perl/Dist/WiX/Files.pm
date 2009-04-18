@@ -24,7 +24,7 @@ use     Readonly              qw( Readonly                 );
 require Perl::Dist::WiX::DirectoryTree;
 require Perl::Dist::WiX::Files::DirectoryRef;
 
-use version; $VERSION = version->new('0.170')->numify;
+use version; $VERSION = version->new('0.171')->numify;
 #>>>
 
 Readonly my $TREE_CLASS => 'Perl::Dist::WiX::DirectoryTree';
@@ -97,6 +97,9 @@ sub add_file {
 			where     => '::Files->new'
 		);
 	}
+
+	# Do not add .AAA files.
+	return undef if ( $file =~ m{\.AAA\z}ms );
 
 	# Get the file path.
 	my ( $vol, $dirs, $filename ) = splitpath($file);

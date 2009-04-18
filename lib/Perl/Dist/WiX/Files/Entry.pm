@@ -16,7 +16,7 @@ use Object::InsideOut     qw( Perl::Dist::WiX::Base::Entry Storable );
 use Params::Util          qw( _IDENTIFIER _STRING                   );
 use File::Spec::Functions qw( splitpath                             );
 
-use version; $VERSION = version->new('0.170')->numify;
+use version; $VERSION = version->new('0.171')->numify;
 #>>>
 #####################################################################
 # Accessors:
@@ -72,14 +72,13 @@ sub as_string {
 
 	if ( $name[$object_id] =~ m{\.AAA\z}sm ) {
 
-		# If the file is a .AAA file, drop it in the original file's place.
+		# If the file is a .AAA file, use the original file instead.
 		my ( undef, undef, $filename ) = splitpath( $name[$object_id] );
 		$filename = substr $filename, 0, -4;
 #<<<
 		$answer =
 			q{<File Id='F_} . $id[$object_id]
-		  . q{' Name='}     . $filename
-		  . q{' Source='}   . $name[$object_id] . q{' />};
+		  . q{' Source='}   . $filename . q{' />};
 #>>>
 	} else {
 
