@@ -1,0 +1,12 @@
+; ClearFolderCA.def: Clear Folder Custom Action for Perl::Dist::WiX
+;
+; Copyright (c) Curtis Jewell 2009.
+;
+; This code is free software; you can redistribute it and/or modify it
+; under the same terms as Perl itself.
+
+LIBRARY	"ClearFolderCA"
+VERSION 0.172
+EXPORTS
+    ClearFolder
+    
