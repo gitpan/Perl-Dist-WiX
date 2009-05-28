@@ -8,7 +8,7 @@ Perl::Dist::WiX::Installer - WiX-specific routines.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Installer version 0.180.
+This document describes Perl::Dist::WiX::Installer version 0.182.
 
 =head1 DESCRIPTION
 
@@ -43,7 +43,7 @@ require Perl::Dist::WiX::Icons;
 require Perl::Dist::WiX::CreateFolder;
 require Perl::Dist::WiX::RemoveFolder;
 
-use version; $VERSION = version->new('0.180')->numify;
+use version; $VERSION = version->new('0.182')->numify;
 #>>>
 
 =head2 Accessors
@@ -611,12 +611,15 @@ sub write_msi {
 		                               # feature for Win9X)
 		'-sice:ICE48',                 # Gets rid of ICE48 warning.
 		                               # (Hard-coded installation location)
+#		'-v',                          # Verbose for the moment.
 		'-out', $output_msi,
 		'-ext', wix_lib_wixui(),
 		$input_wixobj,
 		$input_wixouts,
 	];
 	my $rv = IPC::Run3::run3( $cmd, \undef, \$out, \undef );
+
+	$self->trace_line( 1, $out );
 
 	# Did everything get done correctly?
 	unless ( ( -f $output_msi ) and ( not $out =~ /error|warning/msx ) ) {

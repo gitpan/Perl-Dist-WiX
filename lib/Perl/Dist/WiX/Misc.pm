@@ -5,7 +5,7 @@ package Perl::Dist::WiX::Misc;
 #
 # Copyright 2009 Curtis Jewell
 #
-# License is the same as perl. See Wix.pm for details.
+# License is the same as perl. See WiX.pm for details.
 #
 # NOTE: This is a base class with miscellaneous routines.  It is
 # meant to be subclassed, as opposed to creating objects of this
@@ -23,7 +23,7 @@ use     List::MoreUtils       qw( any                         );
 use     Data::UUID            qw( NameSpace_DNS               );
 require Devel::StackTrace;
 
-use version; $VERSION = version->new('0.180')->numify;
+use version; $VERSION = version->new('0.182')->numify;
 
 #>>>
 

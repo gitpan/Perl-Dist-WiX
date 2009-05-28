@@ -1,9 +1,15 @@
-use inc::Module::Install 0.83;
+use inc::Module::Install 0.91;
 
 die "OS unsupported\n" unless win32;
 
+if (author_context) {
+	require Pod::Readme;
+	my $readme = Pod::Readme->new();
+	$readme->parse_from_file('lib/Perl/Dist/WiX.pm', 'README');
+}
+
 all_from       'lib/Perl/Dist/WiX.pm';
-requires       'perl'                 => '5.006';
+# perl_version   '5.006';
 requires       'version'              => '0.76';
 requires       'Alien::WiX'           => '0.300000';
 requires       'Data::Dump::Streamer' => '2.08';
@@ -15,7 +21,7 @@ requires       'IO::String'           => '1.08';
 requires       'List::MoreUtils'      => '0.07';
 requires       'Module::CoreList'     => '2.17';
 requires       'Object::InsideOut'    => '3.53';
-requires       'Perl::Dist'           => '1.13';
+requires       'Perl::Dist'           => '1.14';
 requires       'Process'              => '0.26';
 requires       'Readonly'             => '1.03';
 requires       'Scalar::Util'         => '1.19'; # Remove when 5.008 is minimum perl version.

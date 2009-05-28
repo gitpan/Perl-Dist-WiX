@@ -2,13 +2,23 @@ package Perl::Dist::WiX;
 
 =pod
 
+=begin readme text
+
+Perl-Dist-WiX version 0.182
+
+=end readme
+
+=for readme stop
+
 =head1 NAME
 
 Perl::Dist::WiX - Experimental 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 0.180.
+This document describes Perl::Dist::WiX version 0.182.
+
+=for readme continue
 
 =head1 DESCRIPTION
 
@@ -17,6 +27,21 @@ Install XML technology, instead of Inno Setup.
 
 Perl distributions built with this module have the option of being created
 as Windows Installer databases (otherwise known as .msi files)
+
+=begin readme
+
+=head1 INSTALLATION
+
+To install this module, run the following commands:
+
+	perl Makefile.PL
+	make
+	make test
+	make install
+
+=end readme
+
+=for readme stop
 
 =head1 SYNOPSIS
 
@@ -82,7 +107,7 @@ use     Win32                 qw();
 require Perl::Dist::WiX::Filelist;
 require Perl::Dist::WiX::StartMenuComponent;
 
-use version; $VERSION = version->new('0.180')->numify;
+use version; $VERSION = version->new('0.182')->numify;
 
 use Object::Tiny qw(
   perl_version
@@ -3089,7 +3114,6 @@ sub install_distribution_from_file {
 			  . " requires packlist => 0 *****\n" );
 	}
 
-
 	# Where will it get extracted to
 	my $dist_path = $filename;
 	$dist_path =~ s{\.tar\.gz}{}msx;   # Take off extensions.
@@ -3137,13 +3161,13 @@ sub install_distribution_from_file {
 
 		$self->trace_line( 2, "Configuring $name...\n" );
 		$buildpl
-		  ? $self->_perl( 'Build.PL',    @{ $dist->makefilepl_param } )
-		  : $self->_perl( 'Makefile.PL', @{ $dist->makefilepl_param } );
+		  ? $self->_perl( 'Build.PL',    @{ $dist->{buildpl_param} } )
+		  : $self->_perl( 'Makefile.PL', @{ $dist->{makefilepl_param} } );
 
 		$self->trace_line( 1, "Building $name...\n" );
 		$buildpl ? $self->_build : $self->_make;
 
-		unless ( $dist->force ) {
+		unless ( $dist->{force} ) {
 			$self->trace_line( 2, "Testing $name...\n" );
 			$buildpl ? $self->_build('test') : $self->_make('test');
 		}
@@ -4721,6 +4745,21 @@ As other errors are noticed, they will be listed here.
 
 This is the Object::InsideOut equivalent of a PDWiX::Parameter error.
 
+=for readme continue
+
+=head1 DEPENDENCIES
+
+Perl 5.8.1 is the mimimum version of perl that this module will run on.
+
+Other modules that this module depends on are a working version of 
+L<Alien::WiX>, L<Data::Dump::Streamer> 2.08,  L<Data::UUID> 1.149, 
+L<Devel::StackTrace> 1.20, L<Exception::Class> 1.22, L<File::ShareDir> 
+1.00, L<IO::String> 1.08,L<List::MoreUtils> 0.07, L<Module::Corelist> 2.17, 
+L<Object::InsideOut> 3.53, L<Perl::Dist> 1.14, L<Process> 0.26, L<Readonly> 
+1.03, L<URI> 1.35, and L<Win32> 0.35.
+
+=for readme stop
+
 =head1 TODO
 
 =over
@@ -4732,7 +4771,7 @@ of Perl::Dist::WiX and depend on it (0.190)
 
 =item 2.
 
-Have an option to have WiX installed modules install in a 
+Have an option to have WiX installed non-core modules install in a 
 'vendor path' (0.190? 0.200?)
    
 =back
@@ -4757,6 +4796,8 @@ Adam Kennedy E<lt>adamk@cpan.orgE<gt>
 =head1 SEE ALSO
 
 L<Perl::Dist>, L<Perl::Dist::Inno>, L<http://ali.as/>
+
+=for readme continue
 
 =head1 COPYRIGHT
 
