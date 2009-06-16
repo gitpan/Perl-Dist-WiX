@@ -8,7 +8,7 @@ Perl::Dist::WiX::Installer - WiX-specific routines.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Installer version 0.183.
+This document describes Perl::Dist::WiX::Installer version 0.184.
 
 =head1 DESCRIPTION
 
@@ -43,7 +43,7 @@ require Perl::Dist::WiX::Icons;
 require Perl::Dist::WiX::CreateFolder;
 require Perl::Dist::WiX::RemoveFolder;
 
-use version; $VERSION = version->new('0.183')->numify;
+use version; $VERSION = version->new('0.184')->numify;
 #>>>
 
 =head2 Accessors
@@ -104,7 +104,6 @@ use Object::Tiny qw{
   app_publisher_url
   default_group_name
   output_dir
-  source_dir
   fragment_dir
   directories
   fragments
@@ -244,10 +243,6 @@ sub new {
 		id        => 'CPANFolder',
 	);
 
-#	$self->{fragments}->{RemovePerl} = Perl::Dist::WiX::RemoveFolder->new(
-#		directory => 'Perl',
-#		id        => 'PerlFolder',
-#	);
 	$self->{icons} = Perl::Dist::WiX::Icons->new( trace => $self->{trace} );
 
 	if ( defined $self->msi_product_icon ) {
@@ -396,7 +391,7 @@ See L<http://wix.sourceforge.net/manual-wix3/wix_xsd_product.htm>
 sub msi_perl_version {
 	my $self = shift;
 
-	# Ger perl version arrayref.
+	# Get perl version arrayref.
 	my $ver = {
 		588  => [ 5, 8,  8 ],
 		589  => [ 5, 8,  9 ],
@@ -410,6 +405,31 @@ sub msi_perl_version {
 	return join q{.}, @{$ver};
 
 } ## end sub msi_perl_version
+
+=item * perl_config_myuname
+
+Returns the value to be used for perl -V:myuname, which is in this pattern:
+
+	Win32 app_id 5.10.0.1.beta_1 #1 Mon Jun 15 23:11:00 2009 i386
+	
+(the .betaX is ommitted if the beta_number accessor is not set.)
+
+=cut
+
+# For template.
+# MSI versions are 3 part, not 4, with the maximum version being 255.255.65535
+sub perl_config_myuname {
+	my $self = shift;
+
+	my $version = $self->perl_version_human . q{.} . $self->build_number;
+	if ( $self->beta_number > 0 ) {
+		$version .= '.beta_' . $self->beta_number;
+	}
+
+	return join q{ }, 'Win32', $self->app_id, $version, '#1',
+	  $self->build_start_time, 'i386';
+
+} ## end sub perl_config_myuname
 
 =item * get_component_array
 

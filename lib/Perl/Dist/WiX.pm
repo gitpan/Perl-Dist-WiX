@@ -4,7 +4,7 @@ package Perl::Dist::WiX;
 
 =begin readme text
 
-Perl-Dist-WiX version 0.183
+Perl-Dist-WiX version 0.184
 
 =end readme
 
@@ -16,7 +16,7 @@ Perl::Dist::WiX - Experimental 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 0.183.
+This document describes Perl::Dist::WiX version 0.184.
 
 =for readme continue
 
@@ -104,10 +104,10 @@ use     Probe::Perl           qw();
 use     SelectSaver           qw();
 use     Template              qw();
 use     Win32                 qw();
-require Perl::Dist::WiX::Filelist;
+require File::List::Object;
 require Perl::Dist::WiX::StartMenuComponent;
 
-use version; $VERSION = version->new('0.183')->numify;
+use version; $VERSION = version->new('0.184')->numify;
 
 use Object::Tiny qw(
   perl_version
@@ -142,6 +142,9 @@ use Object::Tiny qw(
   build_number
   beta_number
   trace
+  build_start_time
+  perl_config_cf_email
+  perl_config_cf_by
 );
 
 use Perl::Dist::Asset               1.12 ();
@@ -414,6 +417,19 @@ If upon running the distribution module, you see LGHT0091 or LGHT0130
 errors at the end that refer to directories, add the applicable 
 directories to this parameter.
 
+=item * perl_config_cf_email
+
+The optional C<perl_config_cf_email> parameter specifies the e-mail
+of the person building the perl distribution defined by this object.
+
+It is compiled into the perl binary as the C<cf_email> option accessible
+through C<perl -V:cf_email>.
+
+The username (the part before the at sign) of this parameter also sets the
+C<cf_by> option.
+
+If not defined, this is set to anonymous@unknown.builder.invalid.
+
 =back
 
 The C<new> constructor returns a B<Perl::Dist::WiX> object, which you
@@ -431,11 +447,20 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	}
 
 	# Announce that we're staring.
-	my $time = localtime;
-	if ( $params{trace} > 1 ) { print '[0] '; }
+	$params{build_start_time} = localtime;
+	my $time = $params{build_start_time};
+	if ( $params{trace} >= 100 ) { print '# '; }
+	if ( $params{trace} > 1 )    { print '[0] '; }
 	print "Starting build at $time.\n";
 
 	# Apply more defaults
+	unless ( ( defined $params{perl_config_cf_email} )
+		&& ( $params{perl_config_cf_email} =~ m/\A.*@.*\z/msx ) )
+	{
+		$params{perl_config_cf_email} = 'anonymous@unknown.builder.invalid';
+	}
+	( $params{perl_config_cf_by} ) =
+	  $params{perl_config_cf_email} =~ m/\A(.*)@.*\z/msx;
 	unless ( defined $params{binary_root} ) {
 		$params{binary_root} = 'http://strawberryperl.com/package';
 	}
@@ -1773,7 +1798,7 @@ sub install_perl_588 {
 	$self->make_path( catdir( $self->image_dir, 'perl' ) );
 
 	# Get base filelist.
-	my $fl2 = Perl::Dist::WiX::Filelist->new->readdir(
+	my $fl2 = File::List::Object->new->readdir(
 		catdir( $self->image_dir, 'perl' ) );
 
 	# Install the main perl distributions
@@ -1802,11 +1827,11 @@ sub install_perl_588 {
 		},
 	);
 
-	my $fl_lic = Perl::Dist::WiX::Filelist->new->readdir(
+	my $fl_lic = File::List::Object->new->readdir(
 		catdir( $self->image_dir, 'licenses', 'perl' ) );
 	$self->insert_fragment( 'perl_licenses', $fl_lic->files );
 
-	my $fl = Perl::Dist::WiX::Filelist->new->readdir(
+	my $fl = File::List::Object->new->readdir(
 		catdir( $self->image_dir, 'perl' ) );
 
 	$fl->subtract($fl2)->filter( $self->filters );
@@ -1950,7 +1975,7 @@ sub install_perl_589 {
 	# Make the perl directory if it hasn't been made alreafy.
 	$self->make_path( catdir( $self->image_dir, 'perl' ) );
 
-	my $fl2 = Perl::Dist::WiX::Filelist->new->readdir(
+	my $fl2 = File::List::Object->new->readdir(
 		catdir( $self->image_dir, 'perl' ) );
 
 	# Install the main perl distributions
@@ -1961,6 +1986,8 @@ sub install_perl_589 {
 		install_to => 'perl',
 		patch      => [ qw{
 			  lib/CPAN/Config.pm
+			  win32/config.gc
+			  win32/config_sh.PL
 			  }
 		],
 		license => {
@@ -1970,11 +1997,11 @@ sub install_perl_589 {
 		},
 	);
 
-	my $fl_lic = Perl::Dist::WiX::Filelist->new->readdir(
+	my $fl_lic = File::List::Object->new->readdir(
 		catdir( $self->image_dir, 'licenses', 'perl' ) );
 	$self->insert_fragment( 'perl_licenses', $fl_lic->files );
 
-	my $fl = Perl::Dist::WiX::Filelist->new->readdir(
+	my $fl = File::List::Object->new->readdir(
 		catdir( $self->image_dir, 'perl' ) );
 
 	$fl->subtract($fl2)->filter( $self->filters );
@@ -2103,7 +2130,7 @@ sub install_perl_5100 {
 	# Make the perl directory if it hasn't been made alreafy.
 	$self->make_path( catdir( $self->image_dir, 'perl' ) );
 
-	my $fl2 = Perl::Dist::WiX::Filelist->new->readdir(
+	my $fl2 = File::List::Object->new->readdir(
 		catdir( $self->image_dir, 'perl' ) );
 
 	# Install the main binary
@@ -2115,6 +2142,8 @@ sub install_perl_5100 {
 		patch      => [ qw{
 			  lib/ExtUtils/Command.pm
 			  lib/CPAN/Config.pm
+			  win32/config.gc
+			  win32/config_sh.PL
 			  }
 		],
 		license => {
@@ -2124,11 +2153,11 @@ sub install_perl_5100 {
 		},
 	);
 
-	my $fl_lic = Perl::Dist::WiX::Filelist->new->readdir(
+	my $fl_lic = File::List::Object->new->readdir(
 		catdir( $self->image_dir, 'licenses', 'perl' ) );
 	$self->insert_fragment( 'perl_licenses', $fl_lic->files );
 
-	my $fl = Perl::Dist::WiX::Filelist->new->readdir(
+	my $fl = File::List::Object->new->readdir(
 		catdir( $self->image_dir, 'perl' ) );
 
 	$fl->subtract($fl2)->filter( $self->filters );
@@ -2550,7 +2579,7 @@ Returns true or throws an exception on error.
 
 sub install_libiconv {
 	my $self     = shift;
-	my $filelist = Perl::Dist::WiX::Filelist->new;
+	my $filelist = File::List::Object->new;
 	my $fl;
 
 	# libiconv for win32 comes in 3 parts, install them.
@@ -2561,12 +2590,13 @@ sub install_libiconv {
 	$fl = $self->install_binary( name => 'libiconv-bin', );
 	$filelist->add($fl);
 
-	# The dll is installed with an unexpected name,
-	# so we correct it post-install.
+	# The dll is installed with a different name than what our
+	# prebuilt libxml2.dll expects, so we copy it to the
+	# expected name post-install.
 	my $from = catfile( $self->image_dir, 'c', 'bin', 'libiconv2.dll' );
 	my $to   = catfile( $self->image_dir, 'c', 'bin', 'iconv.dll' );
-	$self->_move( $from, $to );
-	$filelist->move( $from, $to );
+	$self->_copy( $from, $to );
+	$filelist->add_file($to);
 
 	$self->insert_fragment( 'libiconv', $filelist->files );
 
@@ -2754,8 +2784,7 @@ sub install_binary {
 	}
 
 	my $filelist =
-	  Perl::Dist::WiX::Filelist->new->load_array(@files)
-	  ->filter( $self->filters );
+	  File::List::Object->new->load_array(@files)->filter( $self->filters );
 
 	return $filelist;
 } ## end sub install_binary
@@ -2833,7 +2862,7 @@ sub install_library {
 
 	my @sorted_files = sort { $a cmp $b } @files;
 	my $filelist =
-	  Perl::Dist::WiX::Filelist->new->load_array(@sorted_files)
+	  File::List::Object->new->load_array(@sorted_files)
 	  ->filter( $self->filters )->filter( [$unpack_to] );
 
 	return $filelist;
@@ -2916,7 +2945,7 @@ sub install_distribution { ## no critic 'ProhibitExcessComplexity'
 	my $filelist_sub;
 
 	if ( not $packlist_flag ) {
-		$filelist_sub = Perl::Dist::WiX::Filelist->new->readdir(
+		$filelist_sub = File::List::Object->new->readdir(
 			catdir( $self->image_dir, 'perl' ) );
 		$self->trace_line( 5,
 			    "***** Module being installed $module"
@@ -3020,7 +3049,7 @@ sub install_distribution { ## no critic 'ProhibitExcessComplexity'
 	if ($packlist_flag) {
 		$filelist = $self->search_packlist($module);
 	} else {
-		$filelist = Perl::Dist::WiX::Filelist->new->readdir(
+		$filelist = File::List::Object->new->readdir(
 			catdir( $self->image_dir, 'perl' ) );
 		$filelist->subtract($filelist_sub)->filter( $self->filters );
 	}
@@ -3107,7 +3136,7 @@ sub install_distribution_from_file {
 	my $filelist_sub;
 
 	if ( not $dist->{packlist} ) {
-		$filelist_sub = Perl::Dist::WiX::Filelist->new->readdir(
+		$filelist_sub = File::List::Object->new->readdir(
 			catdir( $self->image_dir, 'perl' ) );
 		$self->trace_line( 5,
 			    "***** Module being installed $module"
@@ -3183,7 +3212,7 @@ sub install_distribution_from_file {
 	if ( $dist->{packlist} ) {
 		$filelist = $self->search_packlist($module);
 	} else {
-		$filelist = Perl::Dist::WiX::Filelist->new->readdir(
+		$filelist = File::List::Object->new->readdir(
 			catdir( $self->image_dir, 'perl' ) );
 		$filelist->subtract($filelist_sub)->filter( $self->filters );
 	}
@@ -3261,11 +3290,9 @@ EOF
 	my $fl;
 
 	if ( -r $perl ) {
-		$fl =
-		  Perl::Dist::WiX::Filelist->new->load_file($perl)->add_file($perl);
+		$fl = File::List::Object->new->load_file($perl)->add_file($perl);
 	} elsif ( -r $site ) {
-		$fl =
-		  Perl::Dist::WiX::Filelist->new->load_file($site)->add_file($site);
+		$fl = File::List::Object->new->load_file($site)->add_file($site);
 	} else {
 
 		# Trying to use the output to make an array.
@@ -3291,7 +3318,7 @@ EOF
 		} else {
 			$self->trace_line( 4, "Adding files:\n" );
 			$self->trace_line( 4, q{ } . join "\n ", @files_list );
-			$fl = Perl::Dist::WiX::Filelist->new->load_array(@files_list);
+			$fl = File::List::Object->new->load_array(@files_list);
 		}
 	} ## end else [ if ( -r $perl )
 
@@ -3385,7 +3412,7 @@ END_PERL
 # 	my $fl_flag = $self->_need_packlist( $module->name );
 	my $filelist_sub;
 	if ( not $packlist_flag ) {
-		$filelist_sub = Perl::Dist::WiX::Filelist->new->readdir(
+		$filelist_sub = File::List::Object->new->readdir(
 			catdir( $self->image_dir, 'perl' ) );
 		$self->trace_line( 5,
 			    "***** Module being installed $name"
@@ -3427,7 +3454,7 @@ END_PERL
 	if ($packlist_flag) {
 		$filelist = $self->search_packlist( $module->name );
 	} else {
-		$filelist = Perl::Dist::WiX::Filelist->new->readdir(
+		$filelist = File::List::Object->new->readdir(
 			catdir( $self->image_dir, 'perl' ) );
 		$filelist->subtract($filelist_sub)->filter( $self->filters );
 	}
@@ -3550,7 +3577,7 @@ sub install_par {
 
 	# Read in the .packlist and return it.
 	my $filelist =
-	  Perl::Dist::WiX::Filelist->new->load_file($packlist)
+	  File::List::Object->new->load_file($packlist)
 	  ->filter( $self->filters )->add_file($packlist);
 
 	return $filelist;
@@ -3633,8 +3660,7 @@ sub install_file {
 	File::Remove::remove( \1, $tgz );
 
 	my $filelist =
-	  Perl::Dist::WiX::Filelist->new->load_array(@files)
-	  ->filter( $self->filters );
+	  File::List::Object->new->load_array(@files)->filter( $self->filters );
 
 	return $filelist;
 } ## end sub install_file
@@ -3873,7 +3899,7 @@ sub get_env_path {
 # By default only use the default (as a default...)
 sub patch_include_path {
 	my $self  = shift;
-	my $share = File::ShareDir::dist_dir('Perl-Dist');
+	my $share = File::ShareDir::dist_dir('Perl-Dist-WiX');
 	my $path  = catdir( $share, 'default', );
 	unless ( -d $path ) {
 		PDWiX->throw("Directory $path does not exist");
