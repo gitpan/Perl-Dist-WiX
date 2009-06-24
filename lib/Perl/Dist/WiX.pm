@@ -4,7 +4,7 @@ package Perl::Dist::WiX;
 
 =begin readme text
 
-Perl-Dist-WiX version 0.184
+Perl-Dist-WiX version 0.185
 
 =end readme
 
@@ -16,7 +16,7 @@ Perl::Dist::WiX - Experimental 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 0.184.
+This document describes Perl::Dist::WiX version 0.185.
 
 =for readme continue
 
@@ -107,7 +107,7 @@ use     Win32                 qw();
 require File::List::Object;
 require Perl::Dist::WiX::StartMenuComponent;
 
-use version; $VERSION = version->new('0.184')->numify;
+use version; $VERSION = version->new('0.185')->numify;
 
 use Object::Tiny qw(
   perl_version
@@ -146,18 +146,20 @@ use Object::Tiny qw(
   perl_config_cf_email
   perl_config_cf_by
 );
+#  Don't need to put distributions_installed in here.
 
-use Perl::Dist::Asset               1.12 ();
-use Perl::Dist::Asset::Binary       1.12 ();
-use Perl::Dist::Asset::Library      1.12 ();
-use Perl::Dist::Asset::Perl         1.12 ();
-use Perl::Dist::Asset::Distribution 1.12 ();
-use Perl::Dist::Asset::Module       1.12 ();
-use Perl::Dist::Asset::PAR          1.12 ();
-use Perl::Dist::Asset::File         1.12 ();
-use Perl::Dist::Asset::Website      1.12 ();
-use Perl::Dist::Asset::Launcher     1.12 ();
-use Perl::Dist::Util::Toolchain     1.12 ();
+use Perl::Dist::Asset               1.14   ();
+use Perl::Dist::Asset::Binary       1.14   ();
+use Perl::Dist::Asset::Library      1.14   ();
+use Perl::Dist::Asset::Perl         1.14   ();
+use Perl::Dist::Asset::Distribution 1.14   ();
+use Perl::Dist::Asset::Module       1.14   ();
+use Perl::Dist::Asset::PAR          1.14   ();
+use Perl::Dist::Asset::File         1.14   ();
+use Perl::Dist::Asset::Website      1.14   ();
+use Perl::Dist::Asset::Launcher     1.14   ();
+# Copy this version from http://svn.ali.as/cpan/trunk/Perl-Dist/lib/...
+use Perl::Dist::Util::Toolchain     1.14001 ();
 #>>>
 
 Readonly my %MODULE_FIX => (
@@ -449,11 +451,16 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	# Announce that we're staring.
 	$params{build_start_time} = localtime;
 	my $time = $params{build_start_time};
-	if ( $params{trace} >= 100 ) { print '# '; }
-	if ( $params{trace} > 1 )    { print '[0] '; }
+	if ( $params{trace} >= 100 )        { print '# '; }
+	if ( $params{trace} > 1 )           { print '[0] '; }
+	if ( ( $params{trace} % 100 ) > 4 ) { print '[WiX.pm 455] '; }
 	print "Starting build at $time.\n";
 
 	# Apply more defaults
+	# Auto-detect online-ness if needed
+	unless ( defined $params{offline} ) {
+		$params{offline} = LWP::Online::offline();
+	}
 	unless ( ( defined $params{perl_config_cf_email} )
 		&& ( $params{perl_config_cf_email} =~ m/\A.*@.*\z/msx ) )
 	{
@@ -461,15 +468,19 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	}
 	( $params{perl_config_cf_by} ) =
 	  $params{perl_config_cf_email} =~ m/\A(.*)@.*\z/msx;
-	unless ( defined $params{binary_root} ) {
-		$params{binary_root} = 'http://strawberryperl.com/package';
-	}
 	unless ( defined $params{temp_dir} ) {
 		$params{temp_dir} = catdir( tmpdir(), 'perldist' );
 	}
 	unless ( defined $params{download_dir} ) {
 		$params{download_dir} = catdir( $params{temp_dir}, 'download' );
 		File::Path::mkpath( $params{download_dir} );
+	}
+	unless ( defined $params{binary_root} ) {
+		if ( $params{offline} ) {
+			$params{binary_root} = q{};
+		} else {
+			$params{binary_root} = 'http://strawberryperl.com/package';
+		}
 	}
 	unless ( defined $params{build_dir} ) {
 		$params{build_dir} = catdir( $params{temp_dir}, 'build' );
@@ -497,14 +508,16 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	}
 	if ( defined $params{image_dir} ) {
 		my $perl_location = lc Probe::Perl->find_perl_interpreter();
+		if ( $params{trace} >= 100 ) { print '# '; }
 		if ( 2 < ( $params{trace} % 100 ) ) {
-			print '[WiX.pm 450] [3] '
+			print '[3] [WiX.pm 512] '
 			  . "Currently executing perl: $perl_location\n";
 		}
 		my $our_perl_location =
 		  lc catfile( $params{image_dir}, qw(perl bin perl.exe) );
+		if ( $params{trace} >= 100 ) { print '# '; }
 		if ( 2 < ( $params{trace} % 100 ) ) {
-			print '[WiX.pm 456] [3] '
+			print '[3] [WiX.pm 519] '
 			  . "Our perl to create:       $our_perl_location\n";
 		}
 
@@ -573,11 +586,6 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	}
 	unless ( defined $self->debug_stderr ) {
 		$self->{debug_stderr} = catfile( $self->output_dir, 'debug.err' );
-	}
-
-	# Auto-detect online-ness if needed
-	unless ( defined $self->offline ) {
-		$self->{offline} = LWP::Online::offline();
 	}
 
 	unless ( defined $self->exe ) {
@@ -680,9 +688,8 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	}
 
 	# Initialize the build
-	for my $d (
-		$self->download_dir, $self->image_dir,
-		$self->modules_dir,  $self->license_dir,
+	for my $d ( $self->download_dir, $self->image_dir, $self->modules_dir,
+		$self->license_dir, catdir( $self->image_dir, 'cpan' ),
 	  )
 	{
 		next if -d $d;
@@ -705,8 +712,16 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	  catdir ( $self->image_dir, qw{ c    manifest    } ) . q{\\},
 	  catdir ( $self->image_dir, qw{ cpan sources     } ) . q{\\},
 	  catdir ( $self->image_dir, qw{ cpan build       } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ c    bin         startup mac   } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ c    bin         startup msdos } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ c    bin         startup os2   } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ c    bin         startup qssl  } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ c    bin         startup tos   } ) . q{\\},
+	  catdir ( $self->image_dir, qw{ c    libexec     gcc     mingw32 3.4.5 install-tools}),
 	  catfile( $self->image_dir, qw{ c    COPYING     } ),
 	  catfile( $self->image_dir, qw{ c    COPYING.LIB } ),
+	  catfile( $self->image_dir, qw{ c    bin         gccbug  } ),
+	  catfile( $self->image_dir, qw{ c    bin         mingw32-gcc-3.4.5  } ),
 	  ;
 #>>>
 
@@ -717,6 +732,9 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 
 	$self->add_env( 'TERM',        'dumb' );
 	$self->add_env( 'FTP_PASSIVE', '1' );
+
+	# Get installation list started.
+	$self->{distributions_installed} = [];
 
 	return $self;
 } ## end sub new
@@ -1126,6 +1144,23 @@ sub perl_version_human {
 	  || 0;
 }
 
+=pod
+
+=head3 distribution_version_human
+
+The C<distribution_version_human> method returns the "marketing" form
+of the distribution version.
+
+=cut
+
+sub distribution_version_human {
+	return
+	    $_[0]->perl_version_human . q{.}
+	  . $_[0]->build_number
+	  . ( $_[0]->portable ? ' Portable' : q{} )
+	  . ( $_[0]->beta_number ? ' Beta ' . $_[0]->beta_number : q{} );
+}
+
 #####################################################################
 # Top Level Process Methods
 
@@ -1306,7 +1341,8 @@ sub install_perl_toolchain {
 	  @_
 	  ? _INSTANCE( $_[0], 'Perl::Dist::Util::Toolchain' )
 	  : Perl::Dist::Util::Toolchain->new(
-		perl_version => $self->perl_version_literal, );
+		perl_version => $self->perl_version_literal,
+		cpan         => $self->cpan()->as_string() );
 	unless ($toolchain) {
 		PDWiX->throw('Did not provide a toolchain resolver');
 	}
@@ -1359,6 +1395,23 @@ sub install_perl_toolchain {
 			# so testing cannot be automated.
 			$automated_testing = 1;
 		}
+		if ( $dist =~ /TermReadKey-2\.30/msx ) {
+
+			# Upgrading to this version, instead...
+			$dist = 'STSI/TermReadKey-2.30.01.tar.gz';
+		}
+		if ( $dist =~ /Archive-Zip-1\.28/msx ) {
+
+			# 1.28 makes some things fail tests...
+			$dist = 'ADAMK/Archive-Zip-1.26.tar.gz';
+			PDWiX->throw(
+				<<'EOF') unless ( $self->cpan->as_string =~ m{\Afile:}msx );
+Cannot build using Archive::Zip 1.28 unless working off 
+a minicpan so that it does not get installed.
+(It makes other modules fail tests - a minicpan can cheat 
+and copy 1.26 in its place.)
+EOF
+		} ## end if ( $dist =~ /Archive-Zip-1\.28/msx)
 
 		$module_id = $self->_name_to_module($dist);
 		$core =
@@ -1392,10 +1445,14 @@ sub install_cpan_upgrades {
 	}
 
 	# Generate the CPAN installation script
-	my $cpan_string = <<'END_PERL';
-print "Loading CPAN...\n";
+	my $url         = $self->cpan()->as_string();
+	my $cpan_string = <<"END_PERL";
+print "Loading CPAN...\\n";
 use CPAN;
-CPAN::HandleConfig->load unless $CPAN::Config_loaded++;
+CPAN::HandleConfig->load unless \$CPAN::Config_loaded++;
+\$CPAN::Config->{'urllist'} = [ '$url' ];
+END_PERL
+	$cpan_string .= <<'END_PERL';
 print "Loading Storable...\n";
 use Storable qw(nstore);
 
@@ -1512,6 +1569,21 @@ END_PERL
 			next;
 		}
 
+		if (    ( $module->cpan_file =~ m{/CPANPLUS-\d}msx )
+			and ( $module->cpan_version == 0.8601 ) )
+		{
+
+			# Upgrading to this version, instead...
+			$self->install_distribution(
+				name             => 'KANE/CPANPLUS-0.87_02.tar.gz',
+				mod_name         => 'CPANPLUS',
+				makefilepl_param => ['INSTALLDIRS=perl'],
+				buildpl_param    => [ '--installdirs', 'core' ],
+				force            => $force
+			);
+			next;
+		} ## end if ( ( $module->cpan_file...
+
 		if ( $self->_delay_upgrade($module) ) {
 
 			# Delay these module until last.
@@ -1569,6 +1641,12 @@ sub _skip_upgrade {
 
 	# If the ID is CGI::Carp, there's a bug in the index.
 	return 1 if $module->id eq 'CGI::Carp';
+
+	# If the ID is ExtUtils::MakeMaker, we've already installed it.
+	# There were some files gotten rid of after 6.50, so
+	# install_cpan_upgrades thinks that it needs to upgrade
+	# those files using it.
+	return 1 if $module->cpan_file =~ m{/ExtUtils-MakeMaker-6\.50}msx;
 
 	return 0;
 } ## end sub _skip_upgrade
@@ -1692,14 +1770,31 @@ sub remove_waste {
 	$self->remove_dir(qw{ c    examples  });
 	$self->remove_dir(qw{ c    manifest  });
 
-	$self->trace_line( 2, "  Removing redundant license files\n" );
+	$self->trace_line( 2, "  Removing extra dmake/gcc files\n" );
+	$self->remove_dir(qw{ c    bin         startup mac   });
+	$self->remove_dir(qw{ c    bin         startup msdos });
+	$self->remove_dir(qw{ c    bin         startup os2   });
+	$self->remove_dir(qw{ c    bin         startup qssl  });
+	$self->remove_dir(qw{ c    bin         startup tos   });
+	$self->remove_dir(
+		qw{ c    libexec     gcc     mingw32 3.4.5 install-tools});
+
+	$self->trace_line( 2, "  Removing redundant files\n" );
 	$self->remove_file(qw{ c COPYING     });
 	$self->remove_file(qw{ c COPYING.LIB });
+	$self->remove_file(qw{ c bin gccbug  });
+	$self->remove_file(qw{ c bin mingw32-gcc-3.4.5 });
 
 	$self->trace_line( 2,
 		"  Removing CPAN build directories and download caches\n" );
 	$self->remove_dir(qw{ cpan sources  });
 	$self->remove_dir(qw{ cpan build    });
+	$self->remove_file(qw{ cpan cpandb.sql });
+	$self->remove_file(qw{ cpan FTPstats.yml });
+	$self->remove_file(qw{ cpan cpan_sqlite_log.* });
+
+	# Readding the cpan directory.
+	$self->remake_path( catdir( $self->build_dir, 'cpan' ) );
 
 	return 1;
 } ## end sub remove_waste
@@ -1778,10 +1873,10 @@ sub install_perl_588 {
 	# Prefetch and predelegate the toolchain so that it
 	# fails early if there's a problem
 	$self->trace_line( 1, "Pregenerating toolchain...\n" );
-	my $toolchain =
-	  Perl::Dist::Util::Toolchain->new(
-		perl_version => $self->perl_version_literal, )
-	  or PDWiX->throw('Failed to resolve toolchain modules');
+	my $toolchain = Perl::Dist::Util::Toolchain->new(
+		perl_version => $self->perl_version_literal,
+		cpan         => $self->cpan->as_string
+	) or PDWiX->throw('Failed to resolve toolchain modules');
 	unless ( eval { $toolchain->delegate; 1; } ) {
 		PDWiX::Caught->throw(
 			message => 'Delegation error occured',
@@ -1956,10 +2051,10 @@ sub install_perl_589 {
 	# Prefetch and predelegate the toolchain so that it
 	# fails early if there's a problem
 	$self->trace_line( 1, "Pregenerating toolchain...\n" );
-	my $toolchain =
-	  Perl::Dist::Util::Toolchain->new(
-		perl_version => $self->perl_version_literal, )
-	  or PDWiX->throw('Failed to resolve toolchain modules');
+	my $toolchain = Perl::Dist::Util::Toolchain->new(
+		perl_version => $self->perl_version_literal,
+		cpan         => $self->cpan->as_string
+	) or PDWiX->throw('Failed to resolve toolchain modules');
 	unless ( eval { $toolchain->delegate; 1; } ) {
 		PDWiX::Caught->throw(
 			message => 'Delegation error occured',
@@ -2111,10 +2206,10 @@ sub install_perl_5100 {
 	# Prefetch and predelegate the toolchain so that it
 	# fails early if there's a problem
 	$self->trace_line( 1, "Pregenerating toolchain...\n" );
-	my $toolchain =
-	  Perl::Dist::Util::Toolchain->new(
-		perl_version => $self->perl_version_literal, )
-	  or PDWiX->throw('Failed to resolve toolchain modules');
+	my $toolchain = Perl::Dist::Util::Toolchain->new(
+		perl_version => $self->perl_version_literal,
+		cpan         => $self->cpan->as_string
+	) or PDWiX->throw('Failed to resolve toolchain modules');
 	unless ( eval { $toolchain->delegate; 1; } ) {
 		PDWiX::Caught->throw(
 			message => 'Delegation error occured',
@@ -2962,6 +3057,7 @@ sub install_distribution { ## no critic 'ProhibitExcessComplexity'
 	$dist_path =~ s{\.zip}{}msx;
 	$dist_path =~ s{.+\/}{}msx;        # Take off directories.
 	my $unpack_to = catdir( $self->build_dir, $dist_path );
+	$self->_add_to_distributions_installed($dist_path);
 
 	# Extract the tarball
 	if ( -d $unpack_to ) {
@@ -3147,8 +3243,8 @@ sub install_distribution_from_file {
 	my $dist_path = $filename;
 	$dist_path =~ s{\.tar\.gz}{}msx;   # Take off extensions.
 	$dist_path =~ s{\.zip}{}msx;
+	$self->_add_to_distributions_installed($dist_path);
 
-#	$dist_path =~ s{.+\/}{}msx;        # Take off directories.
 	my $unpack_to = catdir( $self->build_dir, $dist_path );
 
 	# Extract the tarball
@@ -3374,22 +3470,25 @@ sub install_module {
 		PDWiX->throw(
 			'Cannot install CPAN modules yet, perl is not installed');
 	}
-	my $dist_file = catfile( $self->build_dir, 'cpan_distro.txt' );
+	my $dist_file = catfile( $self->output_dir, 'cpan_distro.txt' );
 
 	# Generate the CPAN installation script
+	my $url         = $self->cpan()->as_string();
 	my $cpan_string = <<"END_PERL";
 print "Loading CPAN...\\n";
 use CPAN;
 CPAN::HandleConfig->load unless \$CPAN::Config_loaded++;
+\$CPAN::Config->{'urllist'} = [ '$url' ];
 print "Installing $name from CPAN...\\n";
 my \$module = CPAN::Shell->expandany( "$name" ) 
 	or die "CPAN.pm couldn't locate $name";
+my \$dist_file = '$dist_file'; 
 if ( \$module->uptodate ) {
+	unlink \$dist_file;
 	print "$name is up to date\\n";
 	exit(0);
 }
 SCOPE: {
-	my \$dist_file = '$dist_file'; 
 	open( CPAN_FILE, '>', \$dist_file )      or die "open: $!";
 	print CPAN_FILE 
 		\$module->distribution()->pretty_id() or die "print: $!";
@@ -3439,15 +3538,24 @@ END_PERL
 		"Failure detected installing $name, stopping [$CHILD_ERROR]")
 	  if $CHILD_ERROR;
 
-
 	# Read in the dist file and return it as $dist_info.
 	my @files;
-	my $fh = IO::File->new( $dist_file, 'r' );
-	if ( not defined $fh ) {
-		PDWiX->throw("CPAN modules file error: $!");
+	if ( -r $dist_file ) {
+		my $fh = IO::File->new( $dist_file, 'r' );
+		if ( not defined $fh ) {
+			PDWiX->throw("CPAN modules file error: $!");
+		}
+		my $dist_info = <$fh>;
+		$fh->close;
+		$dist_info =~ s{\.tar\.gz}{}msx;   # Take off extensions.
+		$dist_info =~ s{\.zip}{}msx;
+		$dist_info =~ s{.+\/}{}msx;    # Take off directories.
+		$self->_add_to_distributions_installed($dist_info);
+	} else {
+		my $module_name = $module->name;
+		$self->trace_line( 0,
+			"Distribution for module $module_name was up-to-date\n" );
 	}
-	my $dist_info = <$fh>;
-	$fh->close;
 
 	# Making final filelist.
 	my $filelist;
@@ -3574,6 +3682,29 @@ sub install_par {
 	# Print saved output if required.
 	$io->close;
 	$self->trace_line( 2, $output );
+
+	# Get distribution name to add to what's installed.
+	if ( {@_}->{url} =~ m{.*/([^/]*)\z}msx ) {
+		my $dist_info = $1;
+		$dist_info =~ s{\.par}{}msx;   # Take off .par extension.
+		if ($dist_info =~
+m{\A(.*?)     # Grab anything that could be the name non-greedily, ...
+			-           # break at a dash,
+			([0-9._]*)  # then try to grab a version,
+			(?:-.*)?    # then discard anything else.
+			\z}msx
+		  )
+		{
+			my ( $name, $ver ) = ( $1, $2 );
+			$dist_info = "$name-$ver";
+			$self->_add_to_distributions_installed($dist_info);
+		} else {
+			$self->trace_line( 1, <<"EOF");
+Could not parse name of .par to determine name and version.
+Source: $dist_info
+EOF
+		}
+	} ## end if ( {@_}->{url} =~ m{.*/([^/]*)\z}msx)
 
 	# Read in the .packlist and return it.
 	my $filelist =
@@ -3791,6 +3922,9 @@ sub install_website {
 sub write { ## no critic 'ProhibitBuiltinHomonyms'
 	my $self = shift;
 	$self->{output_file} ||= [];
+
+	$self->create_distribution_list;
+
 	if ( $self->zip ) {
 		push @{ $self->{output_file} }, $self->write_zip;
 	}
@@ -3798,7 +3932,7 @@ sub write { ## no critic 'ProhibitBuiltinHomonyms'
 		push @{ $self->{output_file} }, $self->write_msi;
 	}
 	return 1;
-}
+} ## end sub write
 
 =pod
 
@@ -4448,6 +4582,65 @@ sub remake_path {
 	}
 	return $dir;
 }
+
+sub _add_to_distributions_installed {
+	my $self = shift;
+	my $dist = shift;
+	$self->{distributions_installed} =
+	  [ @{ $self->{distributions_installed} }, $dist ];
+	my $dist_list = join "\n   ", @{ $self->{distributions_installed} };
+	$self->trace_line( 1, "Dist list:\n   $dist_list\n" );
+
+	return;
+}
+
+sub create_distribution_list {
+	my $self = shift;
+	my $dist_list;
+	my ( $name, $ver );
+
+	foreach my $dist ( @{ $self->{distributions_installed} } ) {
+		( $name, $ver ) = $dist =~ m{(.*)-(?:v?)([0-9\._]*)}msx;
+		$dist_list .= "    $name $ver\n";
+	}
+
+	my $dist_txt;
+	my $vars = {
+		dist      => $self,
+		dist_list => $dist_list
+	};
+
+	my $tt = Template->new(
+		INCLUDE_PATH => [ $self->dist_dir, $self->wix_dist_dir, ],
+		ABSOLUTE     => 1,
+	  )
+	  || PDWiX::Caught->throw(
+		message => 'Template error',
+		info    => Template->error(),
+	  );
+
+	$tt->process( 'DISTRIBUTIONS.txt.tt', $vars, \$dist_txt )
+	  || PDWiX::Caught->throw(
+		message => 'Template error',
+		info    => $tt->error(),
+	  );
+
+	my $dist_file = catfile( $self->image_dir, q{DISTRIBUTIONS.txt} );
+	my $fh = IO::File->new( $dist_file, 'w' );
+
+	$self->trace_line( 2, "Creating distribution list at $dist_file\n" );
+
+	if ( not defined $fh ) {
+		PDWiX->throw(
+			"Could not open file $dist_file for writing [$!] [$^E]");
+	}
+	$fh->print($dist_txt);
+	$fh->close;
+
+	$self->add_to_fragment( 'perl', [$dist_file] );
+
+	return;
+} ## end sub create_distribution_list
 
 1;
 

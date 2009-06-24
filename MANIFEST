@@ -60,6 +60,7 @@ share/default/perl-5.8.9/lib/CPAN/Config.pm.tt
 share/default/perl-5.8.9/win32/config.gc.tt
 share/default/perl-5.8.9/win32/config_sh.PL
 share/default/perl-5.8.9/win32/makefile.mk.tt
+share/DISTRIBUTIONS.txt.tt
 share/License.rtf
 share/Main.wxs.tt
 share/perldoc.ico
