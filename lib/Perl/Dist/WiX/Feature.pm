@@ -15,7 +15,7 @@ use vars              qw( $VERSION                       );
 use Object::InsideOut qw( Perl::Dist::WiX::Misc Storable );
 use Params::Util      qw( _INSTANCE _STRING _NONNEGINT   );
 
-use version; $VERSION = version->new('0.185')->numify;
+use version; $VERSION = version->new('0.190')->numify;
 #>>>
 #####################################################################
 # Accessors:
@@ -287,7 +287,7 @@ sub as_string {
 		$string .= qq{\n};
 
 		$string .= qq{</Feature>\n};
-	} ## end else [ if ( ( $c_count == 0 )...
+	} ## end else [ if ( ( $c_count == 0 )...)]
 
 	return $string;
 

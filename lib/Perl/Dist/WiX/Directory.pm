@@ -11,7 +11,7 @@ package Perl::Dist::WiX::Directory;
 use     5.008001;
 use     strict;
 use     warnings 'all' => 'FATAL';
-use     vars                   qw( $VERSION           );
+use     vars                   qw( $VERSION );
 use     Object::InsideOut      qw( 
 	Perl::Dist::WiX::Base::Component 
 	Perl::Dist::WiX::Base::Entry
@@ -19,12 +19,13 @@ use     Object::InsideOut      qw(
 );
 use     Params::Util
   qw( _IDENTIFIER _STRING _NONNEGINT _HASH  );
-use     Scalar::Util           qw( blessed            );
-use     File::Spec::Functions  qw( catdir splitdir    );
+use     Scalar::Util           qw( blessed                 );
+use     File::Spec::Functions  qw( catdir splitdir abs2rel );
 require Perl::Dist::WiX::Files::Component;
 
-use version; $VERSION = version->new('0.185')->numify;
+use version; $VERSION = version->new('0.190')->numify;
 #>>>
+
 #####################################################################
 # Accessors:
 #   name, path, special: See constructor.
@@ -35,6 +36,16 @@ my @files : Field : Name(files);
 my @name : Field : Arg(name) : Get(get_name);
 my @path : Field : Arg(path) : Get(get_path);
 my @special : Field : Arg(special) : Get(get_special);
+
+my %init_args : InitArgs = (
+	'image_dir' => {
+		'Type'    => 'scalar',
+		'Default' => undef,
+	},
+);
+
+my $image_dir;
+my %directory_cache;
 
 #####################################################################
 # Constructor for Directory
@@ -47,6 +58,7 @@ my @special : Field : Arg(special) : Get(get_special);
 
 sub _init : Init {
 	my $self      = shift;
+	my $args      = shift;
 	my $object_id = ${$self};
 
 	# Check parameters.
@@ -61,18 +73,56 @@ sub _init : Init {
 			where     => '::Directory->new'
 		);
 	}
+
+	my $id;
+
 	if (   ( not defined _STRING( $self->get_guid ) )
 		&& ( not defined _STRING( $self->get_component_id ) ) )
 	{
 		$self->set_guid( $self->generate_guid( $path[$object_id] ) );
-		my $id = $self->get_guid;
+		$id = $self->get_guid;
 		$id =~ s{-}{_}msg;
 		$self->set_component_id($id);
 	}
 
+	if ( defined $args->{'image_dir'} ) {
+		$image_dir = $args->{'image_dir'};
+	} elsif ( not defined $image_dir ) {
+		PDWiX->throw(
+"Need to set an image_dir parameter on first call to P::D::W::Directory->new.\n"
+		);
+	}
+
+	if ( 0 == $self->get_special() ) {
+
+		# Get path and id.
+		my $rel_path = abs2rel( $path[$object_id], $image_dir );
+		$id = $self->get_guid;
+
+		if ( defined $id ) {
+			if ( exists $directory_cache{$id} ) {
+				$self->trace_line( 2,
+"You may need to add the path $rel_path to the \n    msi_directory_tree_additions parameter to ->new.\n"
+				);
+				if ( $directory_cache{$id} ne $rel_path ) {
+					PDWiX->throw(<<"EOF");
+Directory GUID collision - PLEASE report as a bug.
+Directory being added: $rel_path
+Directory already added to cache: $directory_cache{$id}
+GUID colliding: $id
+EOF
+				}
+			} ## end if ( exists $directory_cache...)
+
+			# Add entry to cache.
+			$directory_cache{$id} = $rel_path;
+		} ## end if ( defined $id )
+	} ## end if ( 0 == $self->get_special...)
+
 	# Initialize arrayrefs.
 	$directories[$object_id] = [];
 	$files[$object_id]       = [];
+
 
 	return $self;
 } ## end sub _init :
@@ -418,7 +468,7 @@ sub add_directory {
 		$params_ref->{name} = $name;
 		$directory->add_directory($params_ref);
 		return $directory;
-	} ## end else [ if ( ( defined $params_ref...
+	} ## end else [ if ( ( defined $params_ref...))]
 } ## end sub add_directory
 
 ########################################

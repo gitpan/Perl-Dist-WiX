@@ -23,7 +23,7 @@ use     List::MoreUtils       qw( any                         );
 use     Data::UUID            qw( NameSpace_DNS               );
 require Devel::StackTrace;
 
-use version; $VERSION = version->new('0.185')->numify;
+use version; $VERSION = version->new('0.190')->numify;
 
 #>>>
 
@@ -339,7 +339,7 @@ sub _trace_line : Private { ## no critic 'ProhibitManyArgs'
 				  if (  ( defined $dirs[-2] )
 					and ( $dirs[-2] eq 'WiX' ) );
 				$start .= "[$file $line] ";
-			} ## end if ( ( $tracelevel > 2...
+			} ## end if ( ( $tracelevel > 2...))
 #<<<
 			$text =~ s{\n}              # Replace a newline
 					  {\n$start}gxms;   ## with a newline and the start string.
@@ -350,7 +350,7 @@ sub _trace_line : Private { ## no critic 'ProhibitManyArgs'
 		} ## end if ( not $no_display )
 
 		return "$start$text";
-	} ## end if ( $tracestate_status...
+	} ## end if ( $tracestate_status...)
 
 	return q{};
 } ## end sub _trace_line :

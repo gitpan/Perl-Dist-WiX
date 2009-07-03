@@ -18,7 +18,7 @@ use     Params::Util          qw( _IDENTIFIER _STRING            );
 use     File::Spec::Functions qw( catdir                         );
 require Perl::Dist::WiX::Directory;
 
-use version; $VERSION = version->new('0.185')->numify;
+use version; $VERSION = version->new('0.190')->numify;
 #>>>
 #####################################################################
 # Accessors:
@@ -40,9 +40,10 @@ sub _init : Init {
 	my $object_id = ${$self};
 
 	$root[$object_id] = Perl::Dist::WiX::Directory->new(
-		id      => 'TARGETDIR',
-		name    => 'SourceDir',
-		special => 1,
+		id        => 'TARGETDIR',
+		name      => 'SourceDir',
+		special   => 1,
+		image_dir => $self->app_dir,
 	);
 
 	return $self;
@@ -102,7 +103,7 @@ sub search_dir {
 #   C:\strawberry\perl\share.)
 
 sub initialize_tree {
-	my ( $self, @dirs ) = @_;
+	my ( $self, $ver, @dirs ) = @_;
 
 	$self->trace_line( 2, "Initializing directory tree.\n" );
 
@@ -129,6 +130,9 @@ sub initialize_tree {
 		'Cpan',      'cpan',
 		'Win32',     'win32',
 	);
+	$branch->add_directories_id(
+		'Cpanplus',  'cpanplus',
+	) if ('5100' eq $ver);
 #>>>
 	$branch->add_directories_init( qw(
 		  c\bin

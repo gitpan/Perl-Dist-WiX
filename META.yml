@@ -36,7 +36,7 @@ requires:
   List::MoreUtils: 0.07
   Module::CoreList: 2.17
   Object::InsideOut: 3.53
-  Perl::Dist: 1.14
+  Perl::Dist: 1.15
   Process: 0.26
   Readonly: 1.03
   URI: 1.35
@@ -45,8 +45,9 @@ requires:
   perl: 5.8.1
   version: 0.76
 resources:
+  IRC: irc://irc.perl.org/#win32
   bugtracker: http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Perl-Dist-WiX
   homepage: http://csjewell.comyr.com/perl/
   license: http://dev.perl.org/licenses/
   repository: http://svn.ali.as/cpan/trunk/Perl-Dist-WiX/
-version: 0.185
+version: 0.190

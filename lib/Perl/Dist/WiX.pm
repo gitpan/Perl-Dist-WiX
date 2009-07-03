@@ -4,7 +4,7 @@ package Perl::Dist::WiX;
 
 =begin readme text
 
-Perl-Dist-WiX version 0.185
+Perl-Dist-WiX version 0.190
 
 =end readme
 
@@ -16,7 +16,7 @@ Perl::Dist::WiX - Experimental 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 0.185.
+This document describes Perl::Dist::WiX version 0.190.
 
 =for readme continue
 
@@ -107,7 +107,7 @@ use     Win32                 qw();
 require File::List::Object;
 require Perl::Dist::WiX::StartMenuComponent;
 
-use version; $VERSION = version->new('0.185')->numify;
+use version; $VERSION = version->new('0.190')->numify;
 
 use Object::Tiny qw(
   perl_version
@@ -148,18 +148,17 @@ use Object::Tiny qw(
 );
 #  Don't need to put distributions_installed in here.
 
-use Perl::Dist::Asset               1.14   ();
-use Perl::Dist::Asset::Binary       1.14   ();
-use Perl::Dist::Asset::Library      1.14   ();
-use Perl::Dist::Asset::Perl         1.14   ();
-use Perl::Dist::Asset::Distribution 1.14   ();
-use Perl::Dist::Asset::Module       1.14   ();
-use Perl::Dist::Asset::PAR          1.14   ();
-use Perl::Dist::Asset::File         1.14   ();
-use Perl::Dist::Asset::Website      1.14   ();
-use Perl::Dist::Asset::Launcher     1.14   ();
-# Copy this version from http://svn.ali.as/cpan/trunk/Perl-Dist/lib/...
-use Perl::Dist::Util::Toolchain     1.14001 ();
+use Perl::Dist::Asset               1.15 ();
+use Perl::Dist::Asset::Binary       1.15 ();
+use Perl::Dist::Asset::Library      1.15 ();
+use Perl::Dist::Asset::Perl         1.15 ();
+use Perl::Dist::Asset::Distribution 1.15 ();
+use Perl::Dist::Asset::Module       1.15 ();
+use Perl::Dist::Asset::PAR          1.15 ();
+use Perl::Dist::Asset::File         1.15 ();
+use Perl::Dist::Asset::Website      1.15 ();
+use Perl::Dist::Asset::Launcher     1.15 ();
+use Perl::Dist::Util::Toolchain     1.15 ();
 #>>>
 
 Readonly my %MODULE_FIX => (
@@ -176,6 +175,7 @@ Readonly my %MODULE_FIX => (
 	'Scalar::List::Utils'  => 'List::Util',
 	'libnet'               => 'Net',
 	'encoding'             => 'Encode',
+	'IO::Scalar'           => 'IO::Stringy',
 );
 
 Readonly my @MODULE_DELAY => qw(
@@ -533,7 +533,7 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 		) if ( $params{image_dir} =~ m{\\\\}ms );
 
 		$class->remake_path( $params{image_dir} );
-	} ## end if ( defined $params{image_dir...
+	} ## end if ( defined $params{image_dir...})
 	unless ( defined $params{perl_version} ) {
 		$params{perl_version} = '5100';
 	}
@@ -1400,18 +1400,25 @@ sub install_perl_toolchain {
 			# Upgrading to this version, instead...
 			$dist = 'STSI/TermReadKey-2.30.01.tar.gz';
 		}
+		if ( $dist =~ /CPAN-1\.9402/msx ) {
+
+			# 1.9402 fails its tests...
+			$dist = 'ANDK/CPAN-1.94.tar.gz';
+		}
+		if ( $dist =~ /Pod-Simple-/msx ) {
+
+			# Prerequisite that needs installing if only on 5.8.9...
+			$self->install_modules('Pod::Escapes')
+			  if $self->perl_version eq '589';
+		}
 		if ( $dist =~ /Archive-Zip-1\.28/msx ) {
 
 			# 1.28 makes some things fail tests...
-			$dist = 'ADAMK/Archive-Zip-1.26.tar.gz';
-			PDWiX->throw(
-				<<'EOF') unless ( $self->cpan->as_string =~ m{\Afile:}msx );
-Cannot build using Archive::Zip 1.28 unless working off 
-a minicpan so that it does not get installed.
-(It makes other modules fail tests - a minicpan can cheat 
-and copy 1.26 in its place.)
+			PDWiX->throw(<<'EOF');
+Cannot build using Archive::Zip 1.28.
+It makes other modules fail tests.
 EOF
-		} ## end if ( $dist =~ /Archive-Zip-1\.28/msx)
+		}
 
 		$module_id = $self->_name_to_module($dist);
 		$core =
@@ -1432,12 +1439,12 @@ EOF
 			  : (),
 		);
 #>>>
-	} ## end foreach my $dist ( @{ $toolchain...
+	} ## end foreach my $dist ( @{ $toolchain...})
 
 	return 1;
 } ## end sub install_perl_toolchain
 
-sub install_cpan_upgrades {
+sub install_cpan_upgrades { ## no critic 'ProhibitExcessComplexity'
 	my $self = shift;
 	unless ( $self->bin_perl ) {
 		PDWiX->throw(
@@ -1575,14 +1582,29 @@ END_PERL
 
 			# Upgrading to this version, instead...
 			$self->install_distribution(
-				name             => 'KANE/CPANPLUS-0.87_02.tar.gz',
+				name             => 'KANE/CPANPLUS-0.87_03.tar.gz',
 				mod_name         => 'CPANPLUS',
 				makefilepl_param => ['INSTALLDIRS=perl'],
 				buildpl_param    => [ '--installdirs', 'core' ],
 				force            => $force
 			);
 			next;
-		} ## end if ( ( $module->cpan_file...
+		} ## end if ( ( $module->cpan_file...))
+
+		if (    ( $module->cpan_file =~ m{/autodie-\d}msx )
+			and ( $module->cpan_version > 1.999 ) )
+		{
+
+			# Upgrading to this version, instead...
+			$self->install_distribution(
+				name             => 'PJF/autodie-1.999.tar.gz',
+				mod_name         => 'autodie',
+				makefilepl_param => ['INSTALLDIRS=perl'],
+				buildpl_param    => [ '--installdirs', 'core' ],
+				force            => $force
+			);
+			next;
+		} ## end if ( ( $module->cpan_file...))
 
 		if ( $self->_delay_upgrade($module) ) {
 
@@ -1592,10 +1614,22 @@ END_PERL
 		}
 
 		$self->_install_cpan_module( $module, $force );
-	} ## end for my $module ( @{$module_info...
+	} ## end for my $module ( @{$module_info...})
 
 	for my $module (@delayed_modules) {
 		$self->_install_cpan_module( $module, $force );
+	}
+
+	my $cpanp_config_location =
+	  catfile( $self->image_dir, qw(perl lib CPANPLUS Config.pm) );
+
+	if ( -e $cpanp_config_location ) {
+		$self->trace_line( 1,
+			"Getting CPANPLUS config file ready for patching\n" );
+
+		$self->patch_file(
+			'perl/lib/CPANPLUS/Config.pm' => $self->image_dir,
+			{ dist => $self, } );
 	}
 
 	return 1;
@@ -1647,6 +1681,15 @@ sub _skip_upgrade {
 	# install_cpan_upgrades thinks that it needs to upgrade
 	# those files using it.
 	return 1 if $module->cpan_file =~ m{/ExtUtils-MakeMaker-6\.50}msx;
+
+	# If the ID is CPAN 1.9402, don't install it, please.
+	# It was skipped in the previous stage for a reason.
+	return 1 if $module->cpan_file =~ m{/CPAN-1\.9402}msx;
+
+	# Safe is being skipped because it is not passing tests
+	# inside the VM - but it passes tests outside.
+	# Weird.
+	return 1 if $module->cpan_file =~ m{/Safe-2\.1}msx;
 
 	return 0;
 } ## end sub _skip_upgrade
@@ -1999,7 +2042,7 @@ sub install_perl_588_bin {
 				INST_TOP => $INST_TOP,
 			} );
 
-		$self->trace_line( 1, "Building perl...\n" );
+		$self->trace_line( 1, "Building perl 5.8.8...\n" );
 		$self->_make;
 
 		unless ( $perl->force ) {
@@ -2169,7 +2212,7 @@ sub install_perl_589_bin {
 				INST_TOP => $INST_TOP,
 			} );
 
-		$self->trace_line( 1, "Building perl...\n" );
+		$self->trace_line( 1, "Building perl 5.8.9...\n" );
 		$self->_make;
 
 		unless ( $perl->force ) {
@@ -2324,7 +2367,7 @@ sub install_perl_5100_bin {
 				INST_TOP => $INST_TOP,
 			} );
 
-		$self->trace_line( 1, "Building perl...\n" );
+		$self->trace_line( 1, "Building perl 5.10.0...\n" );
 		$self->_make;
 
 		my $long_build =
@@ -2349,7 +2392,7 @@ sub install_perl_5100_bin {
 * -- csjewell\@cpan.org
 ***********************************************************
 EOF
-		} ## end if ( ( not $perl->force...
+		} ## end if ( ( not $perl->force...))
 
 		unless ( ( $perl->force ) or ( $long_build =~ /\s/ms ) ) {
 			local $ENV{PERL_SKIP_TTY_TEST} = 1;
@@ -2934,7 +2977,7 @@ sub install_library {
 			def => catfile( $unpack_to, $library->build_a->{def} ),
 			a   => catfile( $unpack_to, $library->build_a->{a} ),
 		  );
-	} ## end if ( _HASH( $library->build_a...
+	} ## end if ( _HASH( $library->build_a...))
 
 	# Copy in the files
 	my $install_to = $library->install_to;
@@ -3416,7 +3459,7 @@ EOF
 			$self->trace_line( 4, q{ } . join "\n ", @files_list );
 			$fl = File::List::Object->new->load_array(@files_list);
 		}
-	} ## end else [ if ( -r $perl )
+	} ## end else [ if ( -r $perl ) ]
 
 	return $fl->filter( $self->filters );
 } ## end sub search_packlist
@@ -3474,11 +3517,14 @@ sub install_module {
 
 	# Generate the CPAN installation script
 	my $url         = $self->cpan()->as_string();
+	my $dp_dir      = catdir( $self->wix_dist_dir, 'distroprefs' );
 	my $cpan_string = <<"END_PERL";
 print "Loading CPAN...\\n";
 use CPAN;
 CPAN::HandleConfig->load unless \$CPAN::Config_loaded++;
 \$CPAN::Config->{'urllist'} = [ '$url' ];
+\$CPAN::Config->{'use_sqlite'} = q[0];
+\$CPAN::Config->{'prefs_dir'} = q[$dp_dir];
 print "Installing $name from CPAN...\\n";
 my \$module = CPAN::Shell->expandany( "$name" ) 
 	or die "CPAN.pm couldn't locate $name";
@@ -3520,6 +3566,7 @@ END_PERL
 
 	# Dump the CPAN script to a temp file and execute
 	$self->trace_line( 1, "Running install of $name\n" );
+	$self->trace_line( 2, '  at ' . localtime() . "\n" );
 	my $cpan_file = catfile( $self->build_dir, 'cpan_string.pl' );
   SCOPE: {
 		my $CPAN_FILE;
@@ -3684,16 +3731,19 @@ sub install_par {
 	$self->trace_line( 2, $output );
 
 	# Get distribution name to add to what's installed.
-	if ( {@_}->{url} =~ m{.*/([^/]*)\z}msx ) {
+	if ( ( defined {@_}->{url} ) and ( {@_}->{url} =~ m{.*/([^/]*)\z}msx ) )
+	{
 		my $dist_info = $1;
 		$dist_info =~ s{\.par}{}msx;   # Take off .par extension.
+#<<<
 		if ($dist_info =~
-m{\A(.*?)     # Grab anything that could be the name non-greedily, ...
+            m{\A(.*?)   # Grab anything that could be the name non-greedily, ...
 			-           # break at a dash,
 			([0-9._]*)  # then try to grab a version,
 			(?:-.*)?    # then discard anything else.
 			\z}msx
 		  )
+#>>>
 		{
 			my ( $name, $ver ) = ( $1, $2 );
 			$dist_info = "$name-$ver";
@@ -3704,7 +3754,7 @@ Could not parse name of .par to determine name and version.
 Source: $dist_info
 EOF
 		}
-	} ## end if ( {@_}->{url} =~ m{.*/([^/]*)\z}msx)
+	} ## end if ( ( defined {@_}->{...}))
 
 	# Read in the .packlist and return it.
 	my $filelist =
@@ -4100,6 +4150,11 @@ sub patch_file {
 	return 1;
 } ## end sub patch_file
 
+sub image_drive {
+	my $self = shift;
+	return substr rel2abs( $self->image_dir ), 0, 2;
+}
+
 sub image_dir_url {
 	my $self = shift;
 	return URI::file->new( $self->image_dir )->as_string;
@@ -4150,7 +4205,7 @@ sub user_agent {
 				show_progress => 1,
 			);
 		}
-	} ## end unless ( $self->{user_agent...
+	} ## end unless ( $self->{user_agent...})
 	return $self->{user_agent};
 } ## end sub user_agent
 
@@ -4227,7 +4282,7 @@ sub _mirror {
 			$self->trace_line( 2, "(already up to date)\n",
 				$no_display_trace );
 		}
-	} ## end else [ if ( $url =~ m{\Afile://}msx)
+	} ## end else [ if ( $url =~ m{\Afile://}msx)]
 
 	return $target;
 } ## end sub _mirror
@@ -4430,7 +4485,7 @@ sub _extract_filemap {
 				}
 				push @files, $filename;
 			} ## end foreach my $member (@members)
-		} ## end while ( my ( $f, $t ) = each...
+		} ## end while ( my ( $f, $t ) = each...)
 
 	} elsif ( $archive =~ m{\.tar\.gz | \.tgz}msx ) {
 		local $Archive::Tar::CHMOD = 0;
@@ -4460,7 +4515,7 @@ sub _extract_filemap {
 				$self->trace_line( 2, "Extracting $f to $full_t\n" );
 				$tar->extract_file( $f, $full_t );
 				push @files, $full_t;
-			} ## end for my $tgt ( keys %{$filemap...
+			} ## end for my $tgt ( keys %{$filemap...})
 		} ## end for my $file ( $tar->get_files)
 
 	} else {
@@ -4588,8 +4643,6 @@ sub _add_to_distributions_installed {
 	my $dist = shift;
 	$self->{distributions_installed} =
 	  [ @{ $self->{distributions_installed} }, $dist ];
-	my $dist_list = join "\n   ", @{ $self->{distributions_installed} };
-	$self->trace_line( 1, "Dist list:\n   $dist_list\n" );
 
 	return;
 }
@@ -4986,12 +5039,12 @@ L<Object::InsideOut> 3.53, L<Perl::Dist> 1.14, L<Process> 0.26, L<Readonly>
 =item 1.
 
 Create a distribution for handling the XML-generating parts 
-of Perl::Dist::WiX and depend on it (0.190)
+of Perl::Dist::WiX and depend on it (0.200)
 
 =item 2.
 
 Have an option to have WiX installed non-core modules install in a 
-'vendor path' (0.190? 0.200?)
+'vendor path' (0.200? 0.210?)
    
 =back
 
@@ -5018,7 +5071,7 @@ L<Perl::Dist>, L<Perl::Dist::Inno>, L<http://ali.as/>
 
 =for readme continue
 
-=head1 COPYRIGHT
+=head1 COPYRIGHT AND LICENSE
 
 Copyright 2009 Curtis Jewell.
 

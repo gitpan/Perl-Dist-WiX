@@ -2,10 +2,19 @@ use inc::Module::Install 0.91;
 
 die "OS unsupported\n" unless win32;
 
+# Create README file.
 if (author_context) {
+	print "Creating README file\n";
 	require Pod::Readme;
 	my $readme = Pod::Readme->new();
 	$readme->parse_from_file('lib/Perl/Dist/WiX.pm', 'README');
+}
+
+# Cheat to make sure that the module that
+# includes install_script is always
+# copied into the distribution.
+if (is_admin) {
+	admin()->load('install_script', 1);
 }
 
 all_from       'lib/Perl/Dist/WiX.pm';
@@ -21,7 +30,7 @@ requires       'IO::String'           => '1.08';
 requires       'List::MoreUtils'      => '0.07';
 requires       'Module::CoreList'     => '2.17';
 requires       'Object::InsideOut'    => '3.53';
-requires       'Perl::Dist'           => '1.14';
+requires       'Perl::Dist'           => '1.15';
 requires       'Process'              => '0.26';
 requires       'Readonly'             => '1.03';
 requires       'URI'                  => '1.35';
@@ -34,7 +43,25 @@ requires       'Win32API::File'       => '0.1001';
 resources      'repository'           => 'http://svn.ali.as/cpan/trunk/Perl-Dist-WiX/';
 resources      'bugtracker'           => 'http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Perl-Dist-WiX';
 resources      'homepage'             => 'http://csjewell.comyr.com/perl/';
+resources      'IRC'                  => 'irc://irc.perl.org/#win32';
 license        'perl';
 install_share;
+
+my $answer;
+YN: 
+	while ($answer = prompt 'Do you want to install the minimal minicpan script?', 'n') {
+		last if $answer =~ /^y/i;
+		last if $answer =~ /^n/i;
+		local $| = 1;
+		print "Please answer 'y' or 'n'.\n";
+}
+
+if ($answer =~ /^y/i) {
+	require File::Spec;
+	my $script_file = File::Spec->catfile('script', 'minicpan_pdwix'); 
+	install_script  $script_file;
+	requires       'CPAN::Mini'        => '0.576';
+	requires       'CPAN::Mini::Devel' => '0.03';
+}
 
 WriteAll;

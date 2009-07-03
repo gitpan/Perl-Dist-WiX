@@ -5,6 +5,7 @@ inc/Module/Install/Can.pm
 inc/Module/Install/Fetch.pm
 inc/Module/Install/Makefile.pm
 inc/Module/Install/Metadata.pm
+inc/Module/Install/Scripts.pm
 inc/Module/Install/Share.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/With.pm
@@ -37,6 +38,7 @@ Makefile.PL
 MANIFEST			This list of files
 META.yml
 README
+script/minicpan_pdwix
 share/ClearFolderCA.dll
 share/cpan.ico
 share/default/perl-5.10.0/lib/CPAN/Config.pm.tt
@@ -60,7 +62,9 @@ share/default/perl-5.8.9/lib/CPAN/Config.pm.tt
 share/default/perl-5.8.9/win32/config.gc.tt
 share/default/perl-5.8.9/win32/config_sh.PL
 share/default/perl-5.8.9/win32/makefile.mk.tt
+share/default/perl/lib/CPANPLUS/Config.pm.tt
 share/DISTRIBUTIONS.txt.tt
+share/distroprefs/cpan-disabled.yml
 share/License.rtf
 share/Main.wxs.tt
 share/perldoc.ico
@@ -111,9 +115,3 @@ t/lib/TestPortable.pm
 t/lib/TestQuick.pm
 t/settings/perlcritic.txt
 t/settings/perltidy.txt
-t/test10/dir3/file3.txt
-t/test10/excluded/file1.txt
-t/test10/excluded/file2.txt
-t/test10/file1.txt
-t/test10/file2.txt
-t/test10/file3.txt
