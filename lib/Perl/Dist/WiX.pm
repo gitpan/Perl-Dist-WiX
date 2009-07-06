@@ -4,7 +4,7 @@ package Perl::Dist::WiX;
 
 =begin readme text
 
-Perl-Dist-WiX version 0.190
+Perl-Dist-WiX version 0.191
 
 =end readme
 
@@ -16,7 +16,7 @@ Perl::Dist::WiX - Experimental 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 0.190.
+This document describes Perl::Dist::WiX version 0.191.
 
 =for readme continue
 
@@ -107,7 +107,7 @@ use     Win32                 qw();
 require File::List::Object;
 require Perl::Dist::WiX::StartMenuComponent;
 
-use version; $VERSION = version->new('0.190')->numify;
+use version; $VERSION = version->new('0.191')->numify;
 
 use Object::Tiny qw(
   perl_version
@@ -503,7 +503,7 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	}
 	unless ( defined $params{fragment_dir} ) {
 		$params{fragment_dir} =        # To store the WiX fragments in.
-		  catdir( $params{output_dir}, 'fragments' );
+		  catdir( $params{temp_dir}, 'fragments' );
 		$class->remake_path( $params{fragment_dir} );
 	}
 	if ( defined $params{image_dir} ) {
@@ -1402,14 +1402,8 @@ sub install_perl_toolchain {
 		}
 		if ( $dist =~ /CPAN-1\.9402/msx ) {
 
-			# 1.9402 fails its tests...
-			$dist = 'ANDK/CPAN-1.94.tar.gz';
-		}
-		if ( $dist =~ /Pod-Simple-/msx ) {
-
-			# Prerequisite that needs installing if only on 5.8.9...
-			$self->install_modules('Pod::Escapes')
-			  if $self->perl_version eq '589';
+			# 1.9402 fails its tests... ANDK says it's a test bug.
+			$force = 1;
 		}
 		if ( $dist =~ /Archive-Zip-1\.28/msx ) {
 
@@ -1571,7 +1565,7 @@ END_PERL
 			and ( $module->cpan_version > 2.00 )
 			and ( $self->perl_version < 5100 ) )
 		{
-			$self->install_modules(qw( Pod::Simple ));
+			$self->install_modules(qw( Pod::Escapes Pod::Simple ));
 			$self->_install_cpan_module( $module, $force );
 			next;
 		}
@@ -1732,7 +1726,7 @@ sub install_portable {
 	my $self = shift;
 
 	# Install the regular parts of Portability
-	$self->install_module( name => 'Portable', );
+	$self->install_modules(qw(Class::Inspector CPAN::Mini Portable));
 
 	# Create the portability object
 	$self->trace_line( 1, "Creating Portable::Dist\n" );
@@ -3525,6 +3519,7 @@ CPAN::HandleConfig->load unless \$CPAN::Config_loaded++;
 \$CPAN::Config->{'urllist'} = [ '$url' ];
 \$CPAN::Config->{'use_sqlite'} = q[0];
 \$CPAN::Config->{'prefs_dir'} = q[$dp_dir];
+\$CPAN::Config->{'prerequisites_policy'} = q[ignore];
 print "Installing $name from CPAN...\\n";
 my \$module = CPAN::Shell->expandany( "$name" ) 
 	or die "CPAN.pm couldn't locate $name";
