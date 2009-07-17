@@ -1,8 +1,8 @@
-Perl-Dist-WiX version 0.191
+Perl-Dist-WiX version 0.192
 
 DESCRIPTION
-    This package is the experimental upgrade to Perl::Dist based on Windows
-    Install XML technology, instead of Inno Setup.
+    This package is the upgrade to Perl::Dist based on Windows Installer XML
+    technology, instead of Inno Setup.
 
     Perl distributions built with this module have the option of being
     created as Windows Installer databases (otherwise known as .msi files)

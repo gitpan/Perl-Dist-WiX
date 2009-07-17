@@ -4,7 +4,7 @@ package Perl::Dist::WiX;
 
 =begin readme text
 
-Perl-Dist-WiX version 0.191
+Perl-Dist-WiX version 0.192
 
 =end readme
 
@@ -12,18 +12,18 @@ Perl-Dist-WiX version 0.191
 
 =head1 NAME
 
-Perl::Dist::WiX - Experimental 4th generation Win32 Perl distribution builder
+Perl::Dist::WiX - 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 0.191.
+This document describes Perl::Dist::WiX version 0.192.
 
 =for readme continue
 
 =head1 DESCRIPTION
 
-This package is the experimental upgrade to Perl::Dist based on Windows 
-Install XML technology, instead of Inno Setup.
+This package is the upgrade to Perl::Dist based on Windows Installer XML 
+technology, instead of Inno Setup.
 
 Perl distributions built with this module have the option of being created
 as Windows Installer databases (otherwise known as .msi files)
@@ -107,7 +107,7 @@ use     Win32                 qw();
 require File::List::Object;
 require Perl::Dist::WiX::StartMenuComponent;
 
-use version; $VERSION = version->new('0.191')->numify;
+use version; $VERSION = version->new('0.192')->numify;
 
 use Object::Tiny qw(
   perl_version
@@ -148,17 +148,17 @@ use Object::Tiny qw(
 );
 #  Don't need to put distributions_installed in here.
 
-use Perl::Dist::Asset               1.15 ();
-use Perl::Dist::Asset::Binary       1.15 ();
-use Perl::Dist::Asset::Library      1.15 ();
-use Perl::Dist::Asset::Perl         1.15 ();
-use Perl::Dist::Asset::Distribution 1.15 ();
-use Perl::Dist::Asset::Module       1.15 ();
-use Perl::Dist::Asset::PAR          1.15 ();
-use Perl::Dist::Asset::File         1.15 ();
-use Perl::Dist::Asset::Website      1.15 ();
-use Perl::Dist::Asset::Launcher     1.15 ();
-use Perl::Dist::Util::Toolchain     1.15 ();
+use Perl::Dist::Asset               1.16 ();
+use Perl::Dist::Asset::Binary       1.16 ();
+use Perl::Dist::Asset::Library      1.16 ();
+use Perl::Dist::Asset::Perl         1.16 ();
+use Perl::Dist::Asset::Distribution 1.16 ();
+use Perl::Dist::Asset::Module       1.16 ();
+use Perl::Dist::Asset::PAR          1.16 ();
+use Perl::Dist::Asset::File         1.16 ();
+use Perl::Dist::Asset::Website      1.16 ();
+use Perl::Dist::Asset::Launcher     1.16 ();
+use Perl::Dist::Util::Toolchain     1.16 ();
 #>>>
 
 Readonly my %MODULE_FIX => (
@@ -687,6 +687,14 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 			'No previous ' . $self->image_dir . " found\n" );
 	}
 
+	# Clear the par cache, just to be safe.
+	# Sometimes, if not cleared, PAR fails tests.
+	my $par_temp = catdir( $ENV{TEMP}, 'par-' . Win32::LoginName() );
+	if ( -d $par_temp ) {
+		$self->trace_line( 1, 'Removing ' . $par_temp . "\n" );
+		File::Remove::remove( \1, $par_temp );
+	}
+
 	# Initialize the build
 	for my $d ( $self->download_dir, $self->image_dir, $self->modules_dir,
 		$self->license_dir, catdir( $self->image_dir, 'cpan' ),
@@ -755,6 +763,7 @@ my %PACKAGES = (
 	'libiconv-bin'  => 'libiconv-1.9.2-1-bin.zip',
 	'expat'         => 'expat-2.0.1-vanilla.zip',
 	'gmp'           => 'gmp-4.2.1-vanilla.zip',
+	'six'           => 'six-20090715-gabor.zip',
 );
 
 sub binary_file {
@@ -1446,7 +1455,10 @@ sub install_cpan_upgrades { ## no critic 'ProhibitExcessComplexity'
 	}
 
 	# Generate the CPAN installation script
-	my $url         = $self->cpan()->as_string();
+	my $url = $self->cpan()->as_string();
+
+	$url =~ s{file:///C:/}{file://C:/}msx;
+
 	my $cpan_string = <<"END_PERL";
 print "Loading CPAN...\\n";
 use CPAN;
@@ -1548,17 +1560,25 @@ END_PERL
 
 	require CPAN;
 	my @delayed_modules;
+  MODULE:
 	for my $module ( @{$module_info} ) {
-		$force = 0;
+		$force = $self->force;
 
-		next if $self->_skip_upgrade($module);
+		next MODULE if $self->_skip_upgrade($module);
 
 		if (    ( $module->cpan_file =~ m{/Module-Install-\d}msx )
 			and ( $module->cpan_version > 0.79 ) )
 		{
 			$self->install_modules(qw( File::Remove YAML::Tiny ));
 			$self->_install_cpan_module( $module, $force );
-			next;
+			next MODULE;
+		}
+
+		if ( $module->cpan_file =~ m{/Encode-2.34}msx ) {
+
+			# Force this module.
+			$self->_install_cpan_module( $module, 1 );
+			next MODULE;
 		}
 
 		if (    ( $module->cpan_file =~ m{/podlators-\d}msx )
@@ -1567,11 +1587,11 @@ END_PERL
 		{
 			$self->install_modules(qw( Pod::Escapes Pod::Simple ));
 			$self->_install_cpan_module( $module, $force );
-			next;
+			next MODULE;
 		}
 
 		if (    ( $module->cpan_file =~ m{/CPANPLUS-\d}msx )
-			and ( $module->cpan_version == 0.8601 ) )
+			and ( $module->cpan_version < 0.88 ) )
 		{
 
 			# Upgrading to this version, instead...
@@ -1582,29 +1602,48 @@ END_PERL
 				buildpl_param    => [ '--installdirs', 'core' ],
 				force            => $force
 			);
-			next;
+			next MODULE;
 		} ## end if ( ( $module->cpan_file...))
 
-		if (    ( $module->cpan_file =~ m{/autodie-\d}msx )
-			and ( $module->cpan_version > 1.999 ) )
-		{
+		if ( $module->cpan_file =~ m{/autodie-\d}msx ) {
 
-			# Upgrading to this version, instead...
-			$self->install_distribution(
-				name             => 'PJF/autodie-1.999.tar.gz',
-				mod_name         => 'autodie',
-				makefilepl_param => ['INSTALLDIRS=perl'],
-				buildpl_param    => [ '--installdirs', 'core' ],
-				force            => $force
-			);
-			next;
-		} ## end if ( ( $module->cpan_file...))
+			# TODO: Win32::Process does not install at all on 5.8.9
+			# on Strawberry.
+			# Will fix for October 2009 release.
+			if ( $self->perl_version eq '5100' ) {
+
+				# This module will not install using install_module(s)
+				# with Strawberry's CPAN::Config. (RT #44770)
+				$self->install_distribution(
+					name     => 'JDB/Win32-Process-0.14.tar.gz',
+					mod_name => 'Win32::Process',
+					force    => $force
+				);
+
+				$self->install_modules(qw( IPC::System::Simple ));
+			} ## end if ( $self->perl_version...)
+
+			if (    ( $module->cpan_version > 1.999 )
+				and ( $module->cpan_version < 2.04 ) )
+			{
+
+				# Upgrading to this version, instead...
+				$self->install_distribution(
+					name             => 'PJF/autodie-1.999.tar.gz',
+					mod_name         => 'autodie',
+					makefilepl_param => ['INSTALLDIRS=perl'],
+					buildpl_param    => [ '--installdirs', 'core' ],
+					force            => $force
+				);
+				next MODULE;
+			} ## end if ( ( $module->cpan_version...))
+		} ## end if ( $module->cpan_file...)
 
 		if ( $self->_delay_upgrade($module) ) {
 
 			# Delay these module until last.
 			unshift @delayed_modules, $module;
-			next;
+			next MODULE;
 		}
 
 		$self->_install_cpan_module( $module, $force );
@@ -1663,6 +1702,14 @@ sub _skip_upgrade {
 	# DON'T try to install Perl.
 	return 1 if $module->cpan_file =~ m{/perl-5\.}msx;
 
+	# DON'T try to install Locale::Maketext::Simple, it
+	# does not pass tests.
+	return 1 if $module->id eq 'Locale::Maketext::Simple';
+
+	# DON'T try to install Term::ReadKey, we
+	# already upgraded it.
+	return 1 if $module->id eq 'Term::ReadKey';
+
 	# DON'T try to install Net::Ping, it seems to require
 	# a web server available on 127.0.0.1 to pass tests.
 	return 1 if $module->id eq 'Net::Ping';
@@ -1675,10 +1722,6 @@ sub _skip_upgrade {
 	# install_cpan_upgrades thinks that it needs to upgrade
 	# those files using it.
 	return 1 if $module->cpan_file =~ m{/ExtUtils-MakeMaker-6\.50}msx;
-
-	# If the ID is CPAN 1.9402, don't install it, please.
-	# It was skipped in the previous stage for a reason.
-	return 1 if $module->cpan_file =~ m{/CPAN-1\.9402}msx;
 
 	# Safe is being skipped because it is not passing tests
 	# inside the VM - but it passes tests outside.
@@ -1726,7 +1769,18 @@ sub install_portable {
 	my $self = shift;
 
 	# Install the regular parts of Portability
-	$self->install_modules(qw(Class::Inspector CPAN::Mini Portable));
+	$self->install_modules( qw(
+		  Sub::Uplevel
+		  Test::Exception
+		  Test::Tester
+		  Test::NoWarnings
+		  LWP::Online
+		  ) ) unless $self->isa('Perl::Dist::Strawberry');
+	$self->install_modules( qw(
+		  Class::Inspector
+		  CPAN::Mini
+		  Portable
+		  ) ) unless $self->isa('Perl::Dist::Bootstrap');
 
 	# Create the portability object
 	$self->trace_line( 1, "Creating Portable::Dist\n" );
@@ -2259,7 +2313,7 @@ sub install_perl_5100 {
 			info    => $toolchain->{errstr} );
 	}
 
-	# Make the perl directory if it hasn't been made alreafy.
+	# Make the perl directory if it hasn't been made already.
 	$self->make_path( catdir( $self->image_dir, 'perl' ) );
 
 	my $fl2 = File::List::Object->new->readdir(
@@ -2854,6 +2908,32 @@ sub install_pari {
 	return 1;
 } ## end sub install_pari
 
+=pod
+
+=head2 install_six
+
+  $dist->install_six
+
+The C<install_six> method installs (via a ZIP file) an experimental parrot
+and rakudo conglomeration codenamed "six" that is utterly unlike whatever
+the final packaged binary of Perl 6 will look like.
+
+This method should only be called after all Perl 5 components are installed.
+
+=cut
+
+sub install_six {
+	my $self = shift;
+
+	# Install Gabor's crazy Perl 6 blob
+	my $filelist = $self->install_binary( name => 'six' );
+	$self->insert_fragment( 'six', $filelist->files );
+
+	return 1;
+}
+
+
+
 
 
 #####################################################################
@@ -2934,7 +3014,6 @@ the distribution.
 Returns true or throws an exception on error.
 
 =cut
-
 
 sub install_library {
 	my $self    = shift;
@@ -3510,8 +3589,10 @@ sub install_module {
 	my $dist_file = catfile( $self->output_dir, 'cpan_distro.txt' );
 
 	# Generate the CPAN installation script
-	my $url         = $self->cpan()->as_string();
-	my $dp_dir      = catdir( $self->wix_dist_dir, 'distroprefs' );
+	my $url = $self->cpan()->as_string();
+	$url =~ s{file:///C:/}{file://C:/}msx;
+
+	my $dp_dir = catdir( $self->wix_dist_dir, 'distroprefs' );
 	my $cpan_string = <<"END_PERL";
 print "Loading CPAN...\\n";
 use CPAN;
@@ -4246,9 +4327,7 @@ sub _mirror {
 		return $target;
 	}
 	if ( $self->offline and not $url =~ m{\Afile://}msx ) {
-		$self->trace_line( 0,
-			"Error: Currently offline, cannot download.\n" );
-		exit 0;
+		PDWiX->throw("Currently offline, cannot download $url.\n");
 	}
 	File::Path::mkpath($dir);
 
