@@ -34,6 +34,7 @@ lib/Perl/Dist/WiX/Registry/Key.pm
 lib/Perl/Dist/WiX/RemoveFolder.pm
 lib/Perl/Dist/WiX/StartMenu.pm
 lib/Perl/Dist/WiX/StartMenuComponent.pm
+LICENSE
 Makefile.PL
 MANIFEST			This list of files
 META.yml
@@ -67,6 +68,7 @@ share/DISTRIBUTIONS.txt.tt
 share/distroprefs/cpan-disabled.yml
 share/License.rtf
 share/Main.wxs.tt
+share/minicpan_filters.txt
 share/perldoc.ico
 share/win32.ico
 src/ClearFolderCA/ClearFolderCA.sln

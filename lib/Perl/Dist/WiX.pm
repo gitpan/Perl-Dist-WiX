@@ -4,7 +4,7 @@ package Perl::Dist::WiX;
 
 =begin readme text
 
-Perl-Dist-WiX version 0.192
+Perl-Dist-WiX version 1.000
 
 =end readme
 
@@ -16,7 +16,7 @@ Perl::Dist::WiX - 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 0.192.
+This document describes Perl::Dist::WiX version 1.000.
 
 =for readme continue
 
@@ -107,7 +107,7 @@ use     Win32                 qw();
 require File::List::Object;
 require Perl::Dist::WiX::StartMenuComponent;
 
-use version; $VERSION = version->new('0.192')->numify;
+use version; $VERSION = version->new('1.000')->numify;
 
 use Object::Tiny qw(
   perl_version
@@ -453,7 +453,7 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	my $time = $params{build_start_time};
 	if ( $params{trace} >= 100 )        { print '# '; }
 	if ( $params{trace} > 1 )           { print '[0] '; }
-	if ( ( $params{trace} % 100 ) > 4 ) { print '[WiX.pm 455] '; }
+	if ( ( $params{trace} % 100 ) > 4 ) { print '[WiX.pm 457] '; }
 	print "Starting build at $time.\n";
 
 	# Apply more defaults
@@ -510,14 +510,14 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 		my $perl_location = lc Probe::Perl->find_perl_interpreter();
 		if ( $params{trace} >= 100 ) { print '# '; }
 		if ( 2 < ( $params{trace} % 100 ) ) {
-			print '[3] [WiX.pm 512] '
+			print '[3] [WiX.pm 514] '
 			  . "Currently executing perl: $perl_location\n";
 		}
 		my $our_perl_location =
 		  lc catfile( $params{image_dir}, qw(perl bin perl.exe) );
 		if ( $params{trace} >= 100 ) { print '# '; }
 		if ( 2 < ( $params{trace} % 100 ) ) {
-			print '[3] [WiX.pm 519] '
+			print '[3] [WiX.pm 521] '
 			  . "Our perl to create:       $our_perl_location\n";
 		}
 
@@ -542,7 +542,7 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	my $self = $class->SUPER::new(%params);
 
 	# Check the version of Perl to build
-	unless ( $self->build_number ) {
+	unless ( defined $self->build_number ) {
 		PDWiX::Parameter->throw(
 			parameter => 'build_number',
 			where     => '->new'
@@ -622,6 +622,32 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	# use cpan.strawberryperl.com as a default.
 	if ( not $self->offline and not $self->cpan ) {
 		$self->{cpan} = URI->new('http://cpan.strawberryperl.com/');
+	}
+
+	# If we have a file:// url for the CPAN, move the
+	# sources directory out of the way.
+
+	if ( $self->cpan->as_string =~ m{\Afile://}mxsi ) {
+		require CPAN;
+		CPAN::HandleConfig->load unless $CPAN::Config_loaded++;
+
+		my $cpan_path_from = $CPAN::Config->{'keep_source_where'};
+		my $cpan_path_to =
+		  rel2abs( catdir( $cpan_path_from, q{..}, 'old_sources' ) );
+
+		$self->trace_line( 0, "Moving CPAN sources files:\n" );
+		$self->trace_line( 2, <<"EOF");
+  From: $cpan_path_from
+  To:   $cpan_path_to
+EOF
+
+		File::Copy::Recursive::move( $cpan_path_from, $cpan_path_to );
+
+		$self->{'_cpan_sources_from'} = $cpan_path_from;
+		$self->{'_cpan_sources_to'}   = $cpan_path_to;
+		$self->{'_cpan_moved'}        = 1;
+	} else {
+		$self->{'_cpan_moved'} = 0;
 	}
 
 	# Check params
@@ -747,10 +773,26 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 	return $self;
 } ## end sub new
 
+# Handle moving the CPAN source files back.
+sub DESTROY {
+	my $self = shift;
+
+	if ( defined $self->{'_cpan_moved'} && $self->{'_cpan_moved'} ) {
+		my $x = eval {
+			File::Remove::remove( \1, $self->{'_cpan_sources_from'} );
+			File::Copy::Recursive::move(
+				$self->{'_cpan_sources_to'},
+				$self->{'_cpan_sources_from'} );
+		};
+	}
+
+	return;
+} ## end sub DESTROY
+
 #####################################################################
 # Upstream Binary Packages (Mirrored)
 
-my %PACKAGES = (
+Readonly my %PACKAGES => (
 	'dmake'         => 'dmake-4.8-20070327-SHAY.zip',
 	'gcc-core'      => 'gcc-core-3.4.5-20060117-3.tar.gz',
 	'gcc-g++'       => 'gcc-g++-3.4.5-20060117-3.tar.gz',
@@ -763,7 +805,7 @@ my %PACKAGES = (
 	'libiconv-bin'  => 'libiconv-1.9.2-1-bin.zip',
 	'expat'         => 'expat-2.0.1-vanilla.zip',
 	'gmp'           => 'gmp-4.2.1-vanilla.zip',
-	'six'           => 'six-20090715-gabor.zip',
+	'six'           => 'six-20090724-gabor.zip',
 );
 
 sub binary_file {
@@ -2926,11 +2968,15 @@ sub install_six {
 	my $self = shift;
 
 	# Install Gabor's crazy Perl 6 blob
-	my $filelist = $self->install_binary( name => 'six' );
+	my $filelist = $self->install_binary(
+		name       => 'six',
+		install_to => q{.}
+	);
 	$self->insert_fragment( 'six', $filelist->files );
+	$self->add_env_path('six');
 
 	return 1;
-}
+} ## end sub install_six
 
 
 
@@ -3972,7 +4018,6 @@ sub install_launcher {
 	$self->add_icon(
 		name     => $launcher->name,
 		filename => $to,
-		fragment => 'Icons',
 		fragment => 'Icons',
 		icon_id  => $icon_id
 	);
@@ -5113,12 +5158,12 @@ L<Object::InsideOut> 3.53, L<Perl::Dist> 1.14, L<Process> 0.26, L<Readonly>
 =item 1.
 
 Create a distribution for handling the XML-generating parts 
-of Perl::Dist::WiX and depend on it (0.200)
+of Perl::Dist::WiX and depend on it (2.000)
 
 =item 2.
 
 Have an option to have WiX installed non-core modules install in a 
-'vendor path' (0.200? 0.210?)
+'vendor path' (1.010)
    
 =back
 
