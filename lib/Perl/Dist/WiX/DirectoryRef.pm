@@ -1,66 +1,24 @@
-package Perl::Dist::WiX::Directory;
+package Perl::Dist::WiX::DirectoryRef;
 
 #####################################################################
-# Perl::Dist::WiX::Directory - Extends <Directory> tags to make them
+# Perl::Dist::WiX::DirectoryRef - Extends <Directory> tags to make them
 # easily searchable.
 #
 # Copyright 2009 Curtis Jewell
 #
-# License is the same as perl. See WiX.pm for details.
+# License is the same as perl. See Wix.pm for details.
 #
 
 use 5.008001;
 use Moose;
-
-# TODO: May or may not need this. Needs to be tested.
-# use WiX3::Util::StrictConstructor;
-use File::Spec::Functions qw( catpath catdir splitpath splitdir );
-use Params::Util qw( _STRING );
-
-require Perl::Dist::WiX::Exceptions;
+use MooseX::Types::Moose qw( Str );
+use File::Spec::Functions qw( catdir abs2rel );
+use Params::Util qw( _STRING _INSTANCE );
 
 our $VERSION = '1.090_102';
 $VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
 
-extends 'WiX3::XML::Directory';
-
-########################################
-# add_directories_id(($id, $name)...)
-# Parameters: [repeatable in pairs]
-#   $id:   ID of directory object to create.
-#   $name: Name of directory to create object for.
-# Returns:
-#   Object being operated on. (chainable)
-
-sub add_directories_id {
-	my ( $self, @params ) = @_;
-
-	# We need id, name pairs passed in.
-	if ( @params % 2 != 0 ) {
-		PDWiX->throw(
-			'Internal Error: Odd number of parameters to add_directories_id'
-		);
-	}
-
-	# Add each individual id and name.
-	my ( $id, $name );
-	while ( $#params > 0 ) {
-		$id   = shift @params;
-		$name = shift @params;
-		if ( $name =~ m{\\}ms ) {
-
-			# TODO: Throw an error.
-		} else {
-			$self->add_directory( {
-					id   => $id,
-					path => $self->get_path() . q{\\} . $name,
-					name => $name,
-				} );
-		}
-	} ## end while ( $#params > 0 )
-
-	return $self;
-} ## end sub add_directories_id
+extends 'WiX3::XML::DirectoryRef';
 
 sub get_directory_object {
 	my $self = shift;
@@ -73,7 +31,8 @@ sub get_directory_object {
 
   SUBDIRECTORY:
 	foreach my $object ( $self->get_child_tags() ) {
-		next SUBDIRECTORY if not $object->isa('Perl::Dist::WiX::Directory');
+		next SUBDIRECTORY
+		  if not _INSTANCE( $object, 'Perl::Dist::WiX::Directory' );
 		$return = $object->get_directory_object($id);
 		return $return if defined $return;
 	}
@@ -148,11 +107,16 @@ sub search_dir {
 	foreach my $tag (@tags) {
 		next TAG unless $tag->isa('Perl::Dist::WiX::Directory');
 
+		my $x = ref $tag;
+		my $y = $tag->get_path();
+
+#		print "Searching in a $x containing $y for $path_to_find\n";
+
 		$answer = $tag->search_dir( \%args );
 		if ( defined $answer ) {
 			return $answer;
 		}
-	}
+	} ## end foreach my $tag (@tags)
 
 	# If we get here, we did not find a lower directory.
 	return $exact ? undef : $self;
@@ -177,7 +141,8 @@ sub _add_directory_recursive {
 
 	if ( defined $directory ) {
 		return $directory->add_directory(
-			name => $dir_to_add,
+			parent => $directory,
+			name   => $dir_to_add,
 
 			# TODO: Check for other needs.
 		);
@@ -185,7 +150,7 @@ sub _add_directory_recursive {
 		my ( $volume, $dirs, undef ) = splitpath( $path_to_find, 1 );
 		my @dirs              = splitdir($dirs);
 		my $dir_to_add_down   = pop @dirs;
-		my $path_to_find_down = catdir( $volume, @dirs );
+		my $path_to_find_down = catpath( $volume, catdir(@dirs), undef );
 		my $dir =
 		  $self->_add_directory_recursive( $path_to_find_down,
 			$dir_to_add_down );
@@ -193,6 +158,19 @@ sub _add_directory_recursive {
 
 	}
 } ## end sub _add_directory_recursive
+
+sub add_directory {
+	my $self = shift;
+
+	my $new_dir = Perl::Dist::WiX::Directory->new(
+		parent => $self,
+		@_
+	);
+	$self->add_child_tag($new_dir);
+
+	return $new_dir;
+}
+
 
 no Moose;
 __PACKAGE__->meta->make_immutable;

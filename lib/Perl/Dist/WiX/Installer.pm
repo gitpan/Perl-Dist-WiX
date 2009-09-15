@@ -17,34 +17,32 @@ package, generate .wxs files, or are otherwise WiX specific.
 
 =head1 METHODS
 
-Many public methods are listed in L<Perl::Dist::WiX>, since this is a 
-superclass of that class.
+Many public methods are listed in L<Perl::Dist::WiX|Perl::Dist::WiX>, 
+since this is a superclass of that class.
 
 =cut
 
-#<<<
-use     5.008001;
-use     strict;
-use     warnings;
-use     vars                     qw( $VERSION                      );
-use     Alien::WiX               qw( :ALL                          );
-use     File::Spec::Functions    qw( catdir catfile rel2abs curdir );
-use     Params::Util
-	qw( _STRING _IDENTIFIER _ARRAY0 _ARRAY                         );
-use     IO::File                 qw();
-use     IPC::Run3                qw();
-use     URI                      qw();
-require Perl::Dist::WiX::Files;
-require Perl::Dist::WiX::StartMenu;
-require Perl::Dist::WiX::Environment;
-require Perl::Dist::WiX::DirectoryTree;
-require Perl::Dist::WiX::FeatureTree;
-require Perl::Dist::WiX::Icons;
-require Perl::Dist::WiX::CreateFolder;
-require Perl::Dist::WiX::RemoveFolder;
+use 5.008001;
+use strict;
+use warnings;
+use Alien::WiX qw( :ALL );
+use File::Spec::Functions qw( catdir catfile rel2abs curdir );
+use Params::Util qw( _STRING _IDENTIFIER _ARRAY0 _ARRAY _INSTANCE );
+use English qw( -no_match_vars );
+use IO::File qw();
+use IPC::Run3 qw();
+use URI qw();
+require Perl::Dist::WiX::Exceptions;
+require Perl::Dist::WiX::DirectoryTree2;
+require Perl::Dist::WiX::FeatureTree2;
+require Perl::Dist::WiX::Fragment::CreateFolder;
+require Perl::Dist::WiX::Fragment::Files;
+require Perl::Dist::WiX::Fragment::Environment;
+require Perl::Dist::WiX::Fragment::StartMenu;
+require Perl::Dist::WiX::IconArray;
 
-use version; $VERSION = version->new('1.000')->numify;
-#>>>
+our $VERSION = '1.090_102';
+$VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
 
 =head2 Accessors
 
@@ -72,14 +70,15 @@ specified.
 
 =item * directories
 
-Returns the L<Perl::Dist::WiX::DirectoryTree> object 
-associated with this distribution.  Created by L</new>
+Returns the L<Perl::Dist::WiX::DirectoryTree|Perl::Dist::WiX::DirectoryTree> 
+object associated with this distribution.  Created by L</new>
 
 =item * fragments
 
 Returns a hashref containing the objects subclassed from 
-L<Perl::Dist::WiX::Base::Fragment> associated with this distribution.
-Created as the distribution's L</run> routine progresses.
+L<Perl::Dist::WiX::Base::Fragment|Perl::Dist::WiX::Base::Fragment> 
+associated with this distribution. Created as the distribution's 
+L</run> routine progresses.
 
 =item * msi_feature_tree
 
@@ -88,12 +87,13 @@ from L</new>. Unused as of yet.
 
 =item * msi_product_icon_id
 
-Specifies the Id for the icon that is used in Add/Remove Programs for this MSI file.
+Specifies the Id for the icon that is used in Add/Remove Programs for 
+this MSI file.
 
 =item * feature_tree_obj
 
-Returns the Perl::Dist::WiX::FeatureTree object 
-associated with this distribution.
+Returns the L<Perl::Dist::WiX::FeatureTree|Perl::Dist::WiX::FeatureTree> 
+object associated with this distribution.
 
 =cut
 
@@ -135,128 +135,6 @@ sub _check_string_parameter {
 
 	return;
 } ## end sub _check_string_parameter
-
-sub new {
-	my $class = shift;
-	my $self = bless {@_}, $class;
-
-	$self->{pdw_version} = $Perl::Dist::WiX::VERSION;
-	$self->{pdw_class}   = $class;
-
-	$self->{misc} = Perl::Dist::WiX::Misc->new(
-		trace    => $self->{trace},
-		sitename => $self->{sitename} );
-
-	# Apply defaults
-	unless ( defined $self->output_dir ) {
-		$self->{output_dir} = rel2abs( curdir, );
-	}
-
-	unless ( defined _ARRAY0( $self->msi_directory_tree_additions ) ) {
-		$self->{msi_directory_tree_additions} = [];
-	}
-
-	unless ( defined $self->default_group_name ) {
-		$self->{default_group_name} = $self->app_name;
-	}
-	unless ( _STRING( $self->msi_license_file ) ) {
-		$self->{msi_license_file} =
-		  catfile( $self->wix_dist_dir, 'License.rtf' );
-	}
-
-	# Check and default params
-	unless ( _IDENTIFIER( $self->app_id ) ) {
-		PDWiX::Parameter->throw(
-			parameter => 'app_id',
-			where     => '::Installer->new'
-		);
-	}
-	$self->_check_string_parameter( $self->app_name,      'app_name' );
-	$self->_check_string_parameter( $self->app_ver_name,  'app_ver_name' );
-	$self->_check_string_parameter( $self->app_publisher, 'app_publisher' );
-	$self->_check_string_parameter( $self->app_publisher_url,
-		'app_publisher_url' );
-
-	if ( $self->app_name =~ m{[\\/:*"<>|]}msx ) {
-		PDWiX::Parameter->throw(
-			parameter => 'app_name: Contains characters invalid '
-			  . 'for Windows file/directory names',
-			where => '::Installer->new'
-		);
-	}
-
-	unless ( _STRING( $self->sitename ) ) {
-		$self->{sitename} = URI->new( $self->app_publisher_url )->host;
-	}
-	$self->_check_string_parameter( $self->default_group_name,
-		'default_group_name' );
-	$self->_check_string_parameter( $self->output_dir, 'output_dir' );
-	unless ( -d $self->output_dir ) {
-		$self->trace_line( 0,
-			'Directory does not exist: ' . $self->output_dir . "\n" );
-		PDWiX::Parameter->throw(
-			parameter => 'output_dir: Directory does not exist',
-			where     => '::Installer->new'
-		);
-	}
-	unless ( -w $self->output_dir ) {
-		PDWiX->throw('The output_dir directory is not writable');
-	}
-	$self->_check_string_parameter( $self->output_base_filename,
-		'output_base_filename' );
-	$self->_check_string_parameter( $self->source_dir, 'source_dir' );
-	unless ( -d $self->source_dir ) {
-		$self->trace_line( 0,
-			'Directory does not exist: ' . $self->source_dir . "\n" );
-		PDWiX::Parameter->throw(
-			parameter => 'source_dir: Directory does not exist',
-			where     => '::Installer->new'
-		);
-	}
-	$self->_check_string_parameter( $self->fragment_dir, 'fragment_dir' );
-	unless ( -d $self->fragment_dir ) {
-		$self->trace_line( 0,
-			'Directory does not exist: ' . $self->fragment_dir . "\n" );
-		PDWiX::Parameter->throw(
-			parameter => 'fragment_dir: Directory does not exist',
-			where     => '::Installer->new'
-		);
-	}
-
-	# Set element collections
-	$self->trace_line( 2, "Creating in-memory directory tree...\n" );
-	$self->{directories} = Perl::Dist::WiX::DirectoryTree->new(
-		app_dir  => $self->image_dir,
-		app_name => $self->app_name,
-	  )
-	  ->initialize_tree( $self->perl_version,
-		@{ $self->{msi_directory_tree_additions} } );
-	$self->{fragments} = {};
-	$self->{fragments}->{Icons} =
-	  Perl::Dist::WiX::StartMenu->new( directory => 'D_App_Menu', );
-	$self->{fragments}->{Environment} =
-	  Perl::Dist::WiX::Environment->new( id => 'Environment', );
-	$self->{fragments}->{Win32Extras} = Perl::Dist::WiX::Files->new(
-		directory_tree => $self->directories,
-		id             => 'Win32Extras',
-	);
-	$self->{fragments}->{CreateCpan} = Perl::Dist::WiX::CreateFolder->new(
-		directory => 'Cpan',
-		id        => 'CPANFolder',
-	);
-	$self->{fragments}->{CreateCpan} = Perl::Dist::WiX::CreateFolder->new(
-		directory => 'Cpanplus',
-		id        => 'CPANPLUSFolder',
-	) if ( '5100' eq $self->perl_version );
-
-	$self->{icons} = Perl::Dist::WiX::Icons->new( trace => $self->{trace} );
-
-	if ( defined $self->msi_product_icon ) {
-		$self->icons->add_icon( $self->msi_product_icon );
-	}
-
-	return $self;
-} ## end sub new
 
 sub trace_line {
 	my $self = shift;
@@ -348,6 +226,8 @@ See L<http://wix.sourceforge.net/manual-wix3/wix_xsd_product.htm?>
 sub msi_product_id {
 	my $self = shift;
 
+	my $generator = WiX3::XML::GeneratesGUID::Object->instance();
+
 	my $product_name =
 	    $self->app_name
 	  . ( $self->portable ? ' Portable ' : q{ } )
@@ -356,7 +236,7 @@ sub msi_product_id {
 	  . $self->msi_perl_version;
 
 	#... then use it to create a GUID out of the ID.
-	my $guid = $self->{misc}->generate_guid($product_name);
+	my $guid = $generator->generate_guid($product_name);
 
 	return $guid;
 } ## end sub msi_product_id
@@ -373,13 +253,15 @@ See L<http://wix.sourceforge.net/manual-wix3/wix_xsd_upgrade.htm>
 sub msi_upgrade_code {
 	my $self = shift;
 
+	my $generator = WiX3::XML::GeneratesGUID::Object->instance();
+
 	my $upgrade_ver =
 	    $self->app_name
 	  . ( $self->portable ? ' Portable' : q{} ) . q{ }
 	  . $self->app_publisher_url;
 
 	#... then use it to create a GUID out of the ID.
-	my $guid = $self->{misc}->generate_guid($upgrade_ver);
+	my $guid = $generator->generate_guid($upgrade_ver);
 
 	return $guid;
 } ## end sub msi_upgrade_code
@@ -399,9 +281,9 @@ sub msi_perl_version {
 
 	# Get perl version arrayref.
 	my $ver = {
-		588  => [ 5, 8,  8 ],
 		589  => [ 5, 8,  9 ],
 		5100 => [ 5, 10, 0 ],
+		5101 => [ 5, 10, 1 ],
 	  }->{ $self->perl_version }
 	  || [ 0, 0, 0 ];
 
@@ -418,7 +300,7 @@ Returns the value to be used for perl -V:myuname, which is in this pattern:
 
 	Win32 app_id 5.10.0.1.beta_1 #1 Mon Jun 15 23:11:00 2009 i386
 	
-(the .betaX is ommitted if the beta_number accessor is not set.)
+(the .beta_X is ommitted if the beta_number accessor is not set.)
 
 =cut
 
@@ -451,9 +333,10 @@ L<http://wix.sourceforge.net/manual-wix3/wix_xsd_componentref.htm>
 sub get_component_array {
 	my $self = shift;
 
+	print "Running get_component_array...\n";
 	my @answer;
 	foreach my $key ( keys %{ $self->fragments } ) {
-		push @answer, $self->fragments->{$key}->get_component_array;
+		push @answer, $self->fragments->{$key}->get_componentref_array();
 	}
 
 	return @answer;
@@ -502,7 +385,7 @@ sub compile_wxs {
 	my $out;
 	my $rv = IPC::Run3::run3( $cmd, \undef, \$out, \undef );
 
-	unless ( ( -f $wixobj ) and ( not $out =~ /error|warning/msx ) ) {
+	if ( ( not -f $wixobj ) and ( $out =~ /error|warning/msx ) ) {
 		$self->trace_line( 0, $out );
 		PDWiX->throw( "Failed to find $wixobj (probably "
 			  . "compilation error in $filename)" );
@@ -550,6 +433,8 @@ sub write_msi {
 		$self->add_env( 'PATH', $value, 1 );
 	}
 
+  FRAGMENT:
+
 	# Write out .wxs files for all the fragments and compile them.
 	foreach my $key ( keys %{ $self->{fragments} } ) {
 		$fragment        = $self->{fragments}->{$key};
@@ -557,14 +442,15 @@ sub write_msi {
 		next
 		  if ( ( not defined $fragment_string )
 			or ( $fragment_string eq q{} ) );
-		$fragment_name = $fragment->get_fragment_id;
+		$fragment_name = $fragment->get_id;
 		$filename_in   = catfile( $dir, $fragment_name . q{.wxs} );
 		$filename_out  = catfile( $dir, $fragment_name . q{.wixout} );
 		$fh            = IO::File->new( $filename_in, 'w' );
 
 		if ( not defined $fh ) {
 			PDWiX->throw(
-				"Could not open file $filename_in for writing [$!] [$^E]");
+"Could not open file $filename_in for writing [$OS_ERROR] [$EXTENDED_OS_ERROR]"
+			);
 		}
 		$fh->print($fragment_string);
 		$fh->close;
@@ -582,7 +468,7 @@ sub write_msi {
 
 	# Generate feature tree.
 	$self->{feature_tree_obj} =
-	  Perl::Dist::WiX::FeatureTree->new( parent => $self, );
+	  Perl::Dist::WiX::FeatureTree2->new( parent => $self, );
 
 	# Write out the .wxs file
 	my $content = $self->as_string;
@@ -602,7 +488,8 @@ sub write_msi {
 
 	if ( not defined $fh ) {
 		PDWiX->throw(
-			"Could not open file $filename_in for writing [$!] [$^E]");
+"Could not open file $filename_in for writing [$OS_ERROR] [$EXTENDED_OS_ERROR]"
+		);
 	}
 	$fh->print($content);
 	$fh->close;
@@ -649,7 +536,7 @@ sub write_msi {
 	$self->trace_line( 1, $out );
 
 	# Did everything get done correctly?
-	unless ( ( -f $output_msi ) and ( not $out =~ /error|warning/msx ) ) {
+	if ( ( not -f $output_msi ) and ( $out =~ /error|warning/msx ) ) {
 		$self->trace_line( 0, $out );
 		PDWiX->throw(
 			"Failed to find $output_msi (probably compilation error)");
@@ -751,7 +638,7 @@ This B<MUST> be done for each set of files to be installed in an MSI.
 =cut
 
 sub insert_fragment {
-	my ( $self, $id, $files_ref ) = @_;
+	my ( $self, $id, $files_obj, $overwritable ) = @_;
 
 	# Check parameters.
 	unless ( _IDENTIFIER($id) ) {
@@ -760,25 +647,30 @@ sub insert_fragment {
 			where     => '::Installer->insert_fragment'
 		);
 	}
-	unless ( _ARRAY0($files_ref) ) {
+	unless ( _INSTANCE( $files_obj, 'File::List::Object' ) ) {
 		PDWiX::Parameter->throw(
-			parameter => 'files_ref',
+			parameter => 'files_obj',
 			where     => '::Installer->insert_fragment'
 		);
 	}
 
+	defined $overwritable or $overwritable = 0;
+
 	$self->trace_line( 2, "Adding fragment $id...\n" );
 
-	foreach my $key ( keys %{ $self->{fragments} } ) {
-		$self->{fragments}->{$key}->check_duplicates($files_ref);
+  FRAGMENT:
+	foreach my $frag ( keys %{ $self->{fragments} } ) {
+		next FRAGMENT
+		  if not $self->{fragments}->{$frag}
+			  ->isa('Perl::Dist::WiX::Fragment::Files');
+		$self->{fragments}->{$frag}->check_duplicates($files_obj);
 	}
 
-	my $fragment = Perl::Dist::WiX::Files->new(
-		id             => $id,
-		sitename       => $self->sitename,
-		directory_tree => $self->directories,
-		trace          => $self->{trace},
-	)->add_files( @{$files_ref} );
+	my $fragment = Perl::Dist::WiX::Fragment::Files->new(
+		id            => $id,
+		files         => $files_obj,
+		can_overwrite => $overwritable,
+	);
 
 	$self->{fragments}->{$id} = $fragment;
 
@@ -814,11 +706,15 @@ sub add_to_fragment {
 		PDWiX->throw("Fragment $id does not exist");
 	}
 
+	my @files = @{$files_ref};
+
+	my $files_obj = File::List::Object->new()->add_files(@files);
+
 	foreach my $key ( keys %{ $self->{fragments} } ) {
-		$self->{fragments}->{$key}->check_duplicates($files_ref);
+		$self->{fragments}->{$key}->check_duplicates($files_obj);
 	}
 
-	my $fragment = $self->{fragments}->{$id}->add_files( @{$files_ref} );
+	my $fragment = $self->{fragments}->{$id}->add_files(@files);
 
 	return $fragment;
 } ## end sub add_to_fragment
@@ -849,7 +745,11 @@ sub as_string {
 	  );
 
 	my $answer;
-	my $vars = { dist => $self };
+	my $vars = {
+		dist => $self,
+		directory_tree =>
+		  Perl::Dist::WiX::DirectoryTree2->instance()->as_string(),
+	};
 
 	$tt->process( 'Main.wxs.tt', $vars, \$answer )
 	  || PDWiX::Caught->throw(
@@ -857,6 +757,7 @@ sub as_string {
 		info    => $tt->error() );
 #<<<
 	# Delete empty lines.
+	## no critic(ProhibitComplexRegexes)
 	$answer =~ s{(?>\x0D\x0A?|[\x0A-\x0C\x85\x{2028}\x{2029}])
                             # Replace a linebreak, 
 							# (within parentheses is = to \R for 5.8)
@@ -878,7 +779,7 @@ __END__
 
 =head1 DIAGNOSTICS
 
-See Perl::Dist::WiX's <DIAGNOSTICS section|Perl::Dist::WiX/DIAGNOSTICS> for 
+See Perl::Dist::WiX's L<DIAGNOSTICS section|Perl::Dist::WiX/DIAGNOSTICS> for 
 details, as all diagnostics from this module are listed there.
 
 =head1 SUPPORT
@@ -888,7 +789,7 @@ Bugs should be reported via:
 1) The CPAN bug tracker at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Perl-Dist-WiX>
 if you have an account there.
 
-2) Email to L<mailto:bug-Perl-Dist-WiX@rt.cpan.org> if you do not.
+2) Email to E<lt>bug-Perl-Dist-WiX@rt.cpan.orgE<gt> if you do not.
 
 For other issues, contact the topmost author.
 
@@ -900,7 +801,8 @@ Adam Kennedy E<lt>adamk@cpan.orgE<gt>
 
 =head1 SEE ALSO
 
-L<Perl::Dist>, L<Perl::Dist::Inno::Script>, L<http://ali.as/>
+L<Perl::Dist|Perl::Dist>, L<Perl::Dist::Inno::Script|Perl::Dist::Inno::Script>, 
+L<http://ali.as/>, L<http://csjewell.comyr.com/perl/>
 
 =head1 COPYRIGHT
 

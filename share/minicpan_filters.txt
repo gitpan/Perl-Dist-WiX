@@ -58,7 +58,7 @@
 /NUFFIN/Tie-RefHash-
 /JHI/Time-HiRes-
 /DROLSKY/Time-Local-
-/DCONWAY/Text-Balanced-
+/(?:DCONWAY|ADAMK)/Text-Balanced-
 /MSERGEANT/Time-Piece-
 /JDB/Win32-\d
 /SAPER/XSLoader-
@@ -77,6 +77,8 @@
 /JDHEDDEN/Thread-Queue-
 /KANE/File-Fetch-
 /BINGOS/CPANPLUS-Dist-Build-
+/BINGOS/Log-Message-Simple-
+/RMBARKER/Pod-Plainer-
 
 # Toolchain
 /MSCHWERN/ExtUtils-MakeMaker-
