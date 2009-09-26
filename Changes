@@ -1,5 +1,10 @@
 Changes for Perl extension Perl-Dist-WiX
 
+1.090_103   Sat 26 Sep 2009
+    1. Used to make Strawberry Perl October 2009 Beta 2.
+    2. Portability now works.
+    3. Small bug fixes.
+
 1.090_102   Mon 14 Sep 2009
     1. Major refactoring. (Now uses Moose rather 
        than Object::InsideOut.)

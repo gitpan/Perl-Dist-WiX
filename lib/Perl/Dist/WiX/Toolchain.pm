@@ -157,6 +157,9 @@ sub _modules_build {
 			  Win32API::Registry
 			  Win32::TieRegistry
 			  File::HomeDir
+			  IPC::Run3
+			  Probe::Perl
+			  Test::Script
 			  File::Which
 			  Archive::Zip
 			  Package::Constants
@@ -236,7 +239,7 @@ sub BUILD {
 			  . $self->_get_perl_version
 			  . "' is not supported in $class" );
 	}
-	
+
 } ## end sub BUILD
 
 sub prepare {

@@ -5,11 +5,11 @@ package Perl::Dist::WiX::Asset::Perl;
 use 5.008001;
 use Moose;
 use MooseX::Types::Moose qw( Str HashRef ArrayRef Bool );
-use File::Spec::Functions qw( catdir splitpath rel2abs );
+use File::Spec::Functions qw( catdir splitpath rel2abs catfile );
 require File::Remove;
 require File::Basename;
 
-our $VERSION = '1.090_102';
+our $VERSION = '1.090_103';
 $VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
 
 with 'Perl::Dist::WiX::Role::Asset';
@@ -157,6 +157,17 @@ EOF
 		$self->_trace_line( 1, "Installing perl...\n" );
 		$self->_make(qw/install UNINST=1/);
 	} ## end SCOPE:
+
+	$self->_trace_line( 2, "Copying sitecustomize.pl...\n" );
+	$self->_copy(
+		catfile(
+			$self->_get_wix_dist_dir,
+			qw(default perl site lib sitecustomize.pl)
+		),
+		catfile(
+			$self->_get_image_dir, qw(perl site lib sitecustomize.pl)
+		),
+	);
 
 	my $fl_lic = File::List::Object->new()
 	  ->readdir( catdir( $self->_get_image_dir, 'licenses', 'perl' ) );

@@ -9,11 +9,12 @@ package Perl::Dist::WiX::DirectoryTree2;
 # License is the same as perl. See Wix.pm for details.
 #
 use 5.008001;
-use metaclass (
-	base_class  => 'MooseX::Singleton::Object',
-	metaclass   => 'MooseX::Singleton::Meta::Class',
-	error_class => 'WiX3::Util::Error',
-);
+
+#use metaclass (
+#	base_class  => 'MooseX::Singleton::Object',
+#	metaclass   => 'MooseX::Singleton::Meta::Class',
+#	error_class => 'WiX3::Util::Error',
+#);
 use MooseX::Singleton;
 use Params::Util qw( _IDENTIFIER _STRING );
 use File::Spec::Functions qw( catdir catpath splitdir splitpath );
@@ -141,8 +142,7 @@ sub initialize_tree {
 	  c\\share
 	  perl\\bin
 	  perl\\lib\\auto
-	  perl\\site\\lib\\auto\\share\\dist
-	  perl\\site\\lib\\auto\\share\\module
+	  perl\\site\\lib\\auto
 	  perl\\vendor\\lib\\auto\\share\\dist
 	  perl\\vendor\\lib\\auto\\share\\module
 	  cpan\\sources

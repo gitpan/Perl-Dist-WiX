@@ -123,7 +123,7 @@ require Perl::Dist::WiX::IconArray;
 require WiX3::XML::GeneratesGUID::Object;
 require WiX3::Traceable;
 
-our $VERSION = '1.090_102';
+our $VERSION = '1.090_103';
 $VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
 
 use Object::Tiny qw(
@@ -153,6 +153,7 @@ use Object::Tiny qw(
   perl_version_corelist
   cpan
   force
+  forceperl
   checkpoint_before
   checkpoint_after
   checkpoint_stop
@@ -427,7 +428,7 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 		@_,
 	);
 
-	$params{misc} = WiX3::Traceable->new( tracelevel => $params{trace} );
+	$params{misc} ||= WiX3::Traceable->new( tracelevel => $params{trace} );
 
 	# Announce that we're starting.
 	{
@@ -447,7 +448,7 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 		$params{sitename} = URI->new( $params{app_publisher_url} )->host;
 	}
 
-	$params{_guidgen} =
+	$params{_guidgen} ||=
 	  WiX3::XML::GeneratesGUID::Object->new(
 		_sitename => $params{sitename} );
 
@@ -536,6 +537,9 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 		# Remove waste and temporary files
 		'remove_waste',
 
+		# Create the distribution list
+		'create_distribution_list',
+
 		# Regenerate file fragments
 		'regenerate_fragments',
 
@@ -551,6 +555,7 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 		fragments    => {},
 		beta_number  => 0,
 		force        => 0,
+		forceperl    => 0,
 		exe          => 0,
 		msi               => 1,        # Goal of Perl::Dist::WiX is to make an MSI.
 		checkpoint_before => 0,
@@ -698,8 +703,15 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 
 	# If we are online and don't have a cpan repository,
 	# use cpan.strawberryperl.com as a default.
-	if ( not $self->offline and not $self->cpan ) {
-		$self->{cpan} = URI->new('http://cpan.strawberryperl.com/');
+	if ( not $self->cpan ) {
+		if ( $self->offline ) {
+			PDWiX::Parameter->throw(
+				parameter => 'cpan: Required if offline => 1',
+				where     => '->new'
+			);
+		} else {
+			$self->{cpan} = URI->new('http://cpan.strawberryperl.com/');
+		}
 	}
 
 	# If we have a file:// url for the CPAN, move the
@@ -826,8 +838,10 @@ Readonly my %PACKAGES => (
 sub final_initialization {
 	my $self = shift;
 
+	## no critic(ProtectPrivateSubs)
 	# Set element collections
 	$self->trace_line( 2, "Creating in-memory directory tree...\n" );
+	Perl::Dist::WiX::DirectoryTree2->_clear_instance();
 	$self->{directories} = Perl::Dist::WiX::DirectoryTree2->new(
 		app_dir  => $self->image_dir,
 		app_name => $self->app_name,
@@ -1357,7 +1371,11 @@ sub install_portable {
 	# Install the regular parts of Portability
 	$self->install_modules( qw(
 		  Sub::Uplevel
+		  ) ) unless $self->isa('Perl::Dist::Strawberry');
+	$self->install_modules( qw(
 		  Test::Exception
+	) );
+	$self->install_modules( qw(
 		  Test::Tester
 		  Test::NoWarnings
 		  LWP::Online
@@ -1380,8 +1398,18 @@ sub install_portable {
 
 	# Install the file that turns on Portability last
 	$self->install_file(
-		share      => 'Perl-Dist portable.perl',
+		share      => 'Perl-Dist-WiX portable\portable.perl',
 		install_to => 'portable.perl',
+	);
+
+	# Install files to help use Strawberry Portable.
+	$self->install_file(
+		share      => 'Perl-Dist-WiX portable\README.portable.txt',
+		install_to => 'README.portable.txt',
+	);
+	$self->install_file(
+		share      => 'Perl-Dist-WiX portable\portableshell.bat',
+		install_to => 'portableshell.bat',
 	);
 
 	return 1;
@@ -1394,16 +1422,16 @@ sub install_win32_extras {
 	File::Path::mkpath( catdir( $self->image_dir, 'win32' ) );
 
 	# TODO: Delete next two statements.
-	my $perldir = $self->{directories}->search_dir(
-		path_to_find => catdir( $self->image_dir, 'perl' ),
-		exact        => 1,
-		descend      => 1,
-	);
-	$perldir->add_directory(
-		name => 'bin',
-		id   => 'PerlBin',
-		path => catdir( $self->image_dir, qw( perl bin ) ),
-	);
+#	my $perldir = $self->{directories}->search_dir(
+#		path_to_find => catdir( $self->image_dir, 'perl' ),
+#		exact        => 1,
+#		descend      => 1,
+#	);
+#	$perldir->add_directory(
+#		name => 'bin',
+#		id   => 'PerlBin',
+#		path => catdir( $self->image_dir, qw( perl bin ) ),
+#	);
 
 	$self->install_launcher(
 		name => 'CPAN Client',
@@ -1519,14 +1547,20 @@ sub regenerate_fragments {
 
 	while ( 0 != scalar @fragment_names ) {
 		foreach my $name (@fragment_names) {
-			push @fragment_names_regenerate,
-			  $self->{fragments}->{$name}->regenerate();
+			my $fragment = $self->{fragments}->{$name};
+			if ( defined $fragment ) {
+				push @fragment_names_regenerate, $fragment->regenerate();
+			} else {
+				$self->trace_line( 0,
+"Couldn't regenerate fragment $name because fragment object did not exist.\n"
+				);
+			}
 		}
 
 		$#fragment_names = -1;         # clears the array.
 		@fragment_names             = uniq @fragment_names_regenerate;
 		$#fragment_names_regenerate = -1;
-	}
+	} ## end while ( 0 != scalar @fragment_names)
 
 	return 1;
 } ## end sub regenerate_fragments
@@ -1537,8 +1571,6 @@ sub regenerate_fragments {
 sub write { ## no critic 'ProhibitBuiltinHomonyms'
 	my $self = shift;
 	$self->{output_file} ||= [];
-
-	$self->create_distribution_list;
 
 	if ( $self->zip ) {
 		push @{ $self->{output_file} }, $self->write_zip;

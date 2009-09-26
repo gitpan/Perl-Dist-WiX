@@ -79,6 +79,11 @@
 /BINGOS/CPANPLUS-Dist-Build-
 /BINGOS/Log-Message-Simple-
 /RMBARKER/Pod-Plainer-
+/LETO/Math-BigRat-
+/SMPETERS/Net-Ping-
+/SKIMO/FCGI-\d
+/JESSE/Locale-Maketext-Simple-
+/BINGOS/Module-Loaded-
 
 # Toolchain
 /MSCHWERN/ExtUtils-MakeMaker-
@@ -127,3 +132,7 @@
 /PETDANCE/HTML-Tagset-
 /GAAS/HTML-Parser-
 /GAAS/libwww-perl-
+/ADAMK/Test-Script-
+/KWILLIAMS/Probe-Perl-
+/(?:RSCHUPP|RJBS)/IPC-Run3-
+
