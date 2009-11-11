@@ -9,7 +9,7 @@ require Perl::Dist::WiX::Exceptions;
 require File::List::Object;
 require IO::File;
 
-our $VERSION = '1.100';
+our $VERSION = '1.101_001';
 $VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
 
 with 'Perl::Dist::WiX::Role::NonURLAsset';
@@ -108,8 +108,8 @@ END_PERL
 
 	my $filelist_sub;
 	if ( not $self->_get_packlist() ) {
-		$filelist_sub = File::List::Object->new->readdir(
-			catdir( $self->image_dir, 'perl' ) );
+		$filelist_sub =
+		  File::List::Object->new->readdir( $self->_dir('perl') );
 		$self->_trace_line( 5,
 			    "***** Module being installed $name"
 			  . " requires packlist => 0 *****\n" );
@@ -159,8 +159,8 @@ END_PERL
 	if ($packlist_flag) {
 		$filelist = $self->_search_packlist($name);
 	} else {
-		$filelist = File::List::Object->new()
-		  ->readdir( catdir( $self->image_dir, 'perl' ) );
+		$filelist =
+		  File::List::Object->new()->readdir( $self->_dir('perl') );
 		$filelist->subtract($filelist_sub)->filter( $self->_filters );
 	}
 

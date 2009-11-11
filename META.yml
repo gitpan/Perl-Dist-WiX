@@ -57,6 +57,7 @@ requires:
   List::MoreUtils: 0.07
   Module::CoreList: 2.18
   Moose: 0.90
+  Moose::Tiny: 0.04
   MooseX::NonMoose: 0.05
   Object::Tiny: 1.06
   PAR::Dist: 0.42
@@ -82,4 +83,4 @@ resources:
   homepage: http://csjewell.comyr.com/perl/
   license: http://dev.perl.org/licenses/
   repository: http://svn.ali.as/cpan/trunk/Perl-Dist-WiX/
-version: 1.100
+version: 1.101_001

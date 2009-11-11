@@ -4,11 +4,11 @@ package Perl::Dist::WiX::ReleaseNotes;
 
 =head1 NAME
 
-Perl::Dist::WiX::ReleaseNotes - 4th generation Win32 Perl distribution builder
+Perl::Dist::WiX::ReleaseNotes - Creates accessory files.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::ReleaseNotes version 1.100.
+This document describes Perl::Dist::WiX::ReleaseNotes version 1.101.
 
 =head1 DESCRIPTION
 
@@ -18,44 +18,55 @@ make the distributions.txt and the release notes files.
 =head1 SYNOPSIS
 
 	# This module is not to be used independently.
+	# It provides methods to a Perl::Dist::WiX object.
 
 =head1 INTERFACE
 
 =cut
 
 use 5.008001;
-use strict;
-use warnings;
+use Moose;
 use English qw( -no_match_vars );
-use File::Spec::Functions qw(
-  catdir catfile catpath tmpdir splitpath rel2abs curdir
-);
-use File::Remove qw();
-use File::pushd qw();
-use File::ShareDir qw();
-use IO::File qw();
-use Template qw();
-use Win32 qw();
+use File::Spec::Functions qw( catfile );
+require IO::File;
+require Template;
+require File::List::Object;
 
-our $VERSION = '1.100';
-$VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
+our $VERSION = '1.101_001';
+$VERSION =~ s/_//ms;
+
+=head2 release_notes_filename
+
+The C<release_notes_filename> method returns the name of the release 
+notes framework file.
+
+=cut
 
 sub release_notes_filename {
 	my $self = shift;
 	my $filename =
-	    $self->perl_version_human . q{.}
-	  . $self->build_number
-	  . ( $self->beta_number ? '.beta' : q{} ) . '.html';
+	    $self->perl_version_human() . q{.}
+	  . $self->build_number()
+	  . ( $self->beta_number() ? '.beta' : q{} ) . '.html';
 
 	return $filename;
 }
+
+
+
+=head2 create_release_notes
+
+The C<create_release_notes> method creates the framework file for the 
+release notes to upload to a web site.
+
+=cut
 
 sub create_release_notes {
 	my $self = shift;
 	my $dist_list;
 	my ( $name, $ver );
 
-	foreach my $dist ( @{ $self->{distributions_installed} } ) {
+	foreach my $dist ( $self->_get_distributions() ) {
 		( $name, $ver ) = $dist =~ m{(.*)-(?:v?)([0-9._]*)}msx;
 		$dist_list .= "<tr><td>$name</td><td>$ver</td></tr>\n";
 	}
@@ -101,7 +112,7 @@ sub create_release_notes {
 	$fh->print($dist_txt);
 	$fh->close;
 
-	push @{ $self->{output_file} }, $dist_file;
+	$self->add_output_file($dist_file);
 
 	return 1;
 } ## end sub create_release_notes
@@ -113,6 +124,16 @@ sub create_release_notes {
 # NOTE: "The object that called it" is supposed to be a Perl::Dist::WiX
 # object.
 
+sub _add_to_distributions_installed {
+	my $self = shift;
+	my $dist = shift;
+	$self->_add_distribution($dist);
+
+	return;
+}
+
+
+
 =head2 create_distribution_list
 
 The C<create_distribution_list> method creates the DISTRIBUTIONS.txt file
@@ -121,21 +142,12 @@ the .msi.
 
 =cut
 
-sub _add_to_distributions_installed {
-	my $self = shift;
-	my $dist = shift;
-	$self->{distributions_installed} =
-	  [ @{ $self->{distributions_installed} }, $dist ];
-
-	return;
-}
-
 sub create_distribution_list {
 	my $self = shift;
 	my $dist_list;
 	my ( $name, $ver );
 
-	foreach my $dist ( @{ $self->{distributions_installed} } ) {
+	foreach my $dist ( $self->_get_distributions() ) {
 		( $name, $ver ) = $dist =~ m{(.*)-(?:v?)([0-9._]*)}msx;
 		$dist_list .= "    $name $ver\n";
 	}
@@ -147,7 +159,7 @@ sub create_distribution_list {
 	};
 
 	my $tt = Template->new(
-		INCLUDE_PATH => [ $self->dist_dir, $self->wix_dist_dir, ],
+		INCLUDE_PATH => [ $self->dist_dir(), $self->wix_dist_dir(), ],
 		ABSOLUTE     => 1,
 	  )
 	  || PDWiX::Caught->throw(
@@ -174,7 +186,9 @@ sub create_distribution_list {
 	$fh->print($dist_txt);
 	$fh->close;
 
-	$self->add_to_fragment( 'perl_licenses', [$dist_file] );
+	# Create a fragment for the distribution list to go into.
+	my $dist_file_list = File::List::Object->new()->add_file($dist_file);
+	$self->insert_fragment( 'perl_dist_list', $dist_file_list );
 
 	return 1;
 } ## end sub create_distribution_list

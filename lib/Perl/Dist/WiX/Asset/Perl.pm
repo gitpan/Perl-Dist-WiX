@@ -9,8 +9,8 @@ use File::Spec::Functions qw( catdir splitpath rel2abs catfile );
 require File::Remove;
 require File::Basename;
 
-our $VERSION = '1.100';
-$VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
+our $VERSION = '1.101_001';
+$VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::Asset';
 extends 'Perl::Dist::WiX::Asset::DistBase';
@@ -58,6 +58,14 @@ has force => (
 	default => sub { $_[0]->parent->force ? 1 : 0 },
 );
 
+has git => (
+	is      => 'ro',
+	isa     => Str,
+	reader  => '_get_git',
+	default => undef,
+);
+
+
 sub install {
 	my $self = shift;
 
@@ -66,20 +74,38 @@ sub install {
 	my $fl2 = File::List::Object->new->readdir(
 		catdir( $self->_get_image_dir, 'perl' ) );
 
-	# Download the file
-	my $tgz = $self->_mirror( $self->_get_url, $self->_get_download_dir, );
+	my $git = $self->_get_git();
 
-	# Unpack to the build directory
+	my $tgz;
+	if ( not defined $git ) {
+
+		# Download the file
+		$tgz = $self->_mirror( $self->_get_url, $self->_get_download_dir, );
+	}
+
 	my $unpack_to = catdir( $self->_get_build_dir, $self->_get_unpack_to );
 	if ( -d $unpack_to ) {
 		$self->_trace_line( 2, "Removing previous $unpack_to\n" );
 		File::Remove::remove( \1, $unpack_to );
 	}
-	my @files = $self->_extract( $tgz, $unpack_to );
 
-	# Get the versioned name of the directory
-	( my $perlsrc = $tgz ) =~ s{[.] tar[.] gz\z | [.] tgz\z}{}msx;
-	$perlsrc = File::Basename::basename($perlsrc);
+	my $perlsrc;
+	if ( defined $git ) {
+
+		# Copy to the build directory.
+		$self->_copy(
+			URI->new( $self->_get_url )->file(),
+			catdir( $unpack_to, 'perl-git' ) );
+		$perlsrc = 'perl-git';
+	} else {
+
+		# Unpack to the build directory
+		my @files = $self->_extract( $tgz, $unpack_to );
+
+		# Get the versioned name of the directory
+		( $perlsrc = $tgz ) =~ s{[.] tar[.] gz\z | [.] tgz\z}{}msx;
+		$perlsrc = File::Basename::basename($perlsrc);
+	}
 
 	# Pre-copy updated files over the top of the source
 	my $patch   = $self->_get_patch;
@@ -93,24 +119,40 @@ sub install {
 	}
 
 	# Copy in licenses
-	if ( ref $self->_get_license eq 'HASH' ) {
+	if ( ref $self->_get_license() eq 'HASH' ) {
+		my $licenses = $self->_get_license();
 		my $license_dir = catdir( $self->_get_image_dir, 'licenses' );
-		$self->_extract_filemap( $tgz, $self->_get_license, $license_dir,
-			1 );
-	}
+		if ( defined $git ) {
+			foreach my $key ( keys %{$licenses} ) {
+				$self->_copy( catfile( $unpack_to, $key ),
+					catfile( $license_dir, $licenses->{$key} ) );
+			}
+		} else {
+			$self->_extract_filemap( $tgz, $self->_get_license(),
+				$license_dir, 1 );
+		}
+	} ## end if ( ref $self->_get_license...)
 
 	# Build win32 perl
   SCOPE: {
-		my $wd = $self->_pushd( $unpack_to, $perlsrc, 'win32' );
 
 		# Prepare to patch
-		my $image_dir = $self->_get_image_dir;
+		my $image_dir = $self->_get_image_dir();
 		my $INST_TOP = catdir( $image_dir, $self->_get_install_to );
 		my ($INST_DRV) = splitpath( $INST_TOP, 1 );
 
+		my $wd = $self->_pushd( $unpack_to, $perlsrc, 'win32' );
+
+		my $perldir;
+		if ( defined $git ) {
+			$perldir = 'perl-git';
+		} else {
+			$perldir = "perl-$version";
+		}
+
 		$self->_trace_line( 2, "Patching makefile.mk\n" );
 		$self->_patch_file(
-			"perl-$version/win32/makefile.mk" => $unpack_to,
+			"$perldir/win32/makefile.mk" => $unpack_to,
 			{   dist     => $self->_get_parent(),
 				INST_DRV => $INST_DRV,
 				INST_TOP => $INST_TOP,
@@ -120,12 +162,12 @@ sub install {
 		$self->_make;
 
 		my $long_build =
-		  Win32::GetLongPathName( rel2abs( $self->_get_build_dir ) );
+		  Win32::GetLongPathName( rel2abs( $self->_get_build_dir() ) );
 
 		my $force = $self->_get_force();
 		if (   ( not $force )
 			&& ( $long_build =~ /\s/ms )
-			&& ( $self->_get_pv_human eq '5.10.0' ) )
+			&& ( $self->_get_pv_human() eq '5.10.0' ) )
 		{
 			$force = 1;
 			$self->_trace_line( 0, <<"EOF");

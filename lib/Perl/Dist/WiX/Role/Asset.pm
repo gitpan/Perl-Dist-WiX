@@ -15,8 +15,8 @@ require Perl::Dist::WiX::Exceptions;
 require URI;
 require URI::file;
 
-our $VERSION = '1.100';
-$VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
+our $VERSION = '1.101_001';
+$VERSION =~ s/_//ms;
 
 has parent => (
 	is       => 'ro',
@@ -33,13 +33,13 @@ has parent => (
 		'_get_cpan'         => 'cpan',
 		'_get_bin_perl'     => 'bin_perl',
 		'_get_wix_dist_dir' => 'wix_dist_dir',
-		'_get_icons'        => 'icons',
+		'_get_icons'        => '_icons',
 		'_get_pv_human'     => 'perl_version_human',
 		'_module_fix'       => '_module_fix',
 		'_trace_line'       => 'trace_line',
 		'_mirror'           => '_mirror',
 		'_run3'             => '_run3',
-		'_filters'          => 'filters',
+		'_filters'          => '_filters',
 		'_add_icon'         => 'add_icon',
 		'_add_file'         => 'add_file',
 		'_dll_to_a'         => '_dll_to_a',
@@ -59,7 +59,7 @@ has parent => (
 );
 
 has url => (
-	is       => 'rw',
+	is       => 'bare',
 	isa      => Str,
 	reader   => '_get_url',
 	writer   => '_set_url',
@@ -67,7 +67,7 @@ has url => (
 );
 
 has file => (
-	is       => 'ro',
+	is       => 'bare',
 	isa      => Str,
 	reader   => '_get_file',
 	required => 1,
@@ -115,20 +115,9 @@ sub BUILDARGS {
 			$args{url} = URI::file->new($file)->as_string;
 			$parent->trace_line( 2, " found\n" );
 
-		} elsif ( defined $args{dist} ) {
-
-			# Map CPAN dist path to url
-			my $dist = $args{dist};
-			$parent->trace_line( 2, "Using distribution path $dist\n" );
-			my $one = substr $dist, 0, 1;
-			my $two = substr $dist, 1, 1;
-			my $path =
-			  File::Spec::Unix->catfile( 'authors', 'id', $one, "$one$two",
-				$dist, );
-			$args{url} =
-			  URI->new_abs( $path, $args{parent}->cpan() )->as_string;
-
 		} elsif ( defined $args{name} ) {
+
+			PDWiX->throw(q{'name' without 'url' is deprecated});
 
 			# Map name to URL via the default package path
 			$args{url} = $parent->binary_url( $args{name} );
@@ -168,7 +157,6 @@ sub BUILDARGS {
 
 sub cpan {
 
-	# TODO: Throw error.
 	WiX3::Exception::Unimplemented->throw(
 		'Perl::Dist::WiX::Role::Asset->cpan');
 
@@ -246,3 +234,88 @@ EOF
 
 
 1;
+
+__END__
+
+=pod
+
+=head1 NAME
+
+Perl::Dist::WiX::Role::Asset - Role for assets.
+
+=head1 SYNOPSIS
+
+	# Since this is a role, it is composed into classes that use it.
+  
+=head1 DESCRIPTION
+
+B<Perl::Dist::WiX::Role::Asset> is a role that provides methods,
+attributes, and error checking for assets to be installed in a 
+L<Perl::Dist::WiX>-based Perl distribution.
+
+=head1 ATTRIBUTES
+
+Attributes of this role also become parameters to the new() constructor for 
+classes that use this role.
+
+=head2 parent
+
+This is the L<Perl::Dist::WiX> object that uses an asset object that uses 
+this role.  The Perl::Dist::WiX object handles a number of private methods 
+for the asset object.
+
+It is required, and has no default, so an error will be thrown if it is not 
+given.
+
+=head2 url
+
+This attribute is the location on the Internet of the thing the asset 
+installs.
+
+=head2 file
+
+This attribute is the location of the file the asset installs. This could be 
+an archive containing multiple files to install.
+
+=head1 METHODS
+
+=head2 cpan
+
+The C<cpan> routine is a stub, as it is not used, and will throw an error.
+
+It will be removed in the future.
+
+=head2 install
+
+This role requires that classes that use it implement an C<install> method
+that installs the asset.
+
+It does not provide the method itself.
+
+=head1 SUPPORT
+
+Bugs should be reported via the CPAN bug tracker at
+
+L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Perl-Dist-WiX>
+
+For other issues, contact the author.
+
+=head1 AUTHOR
+
+Curtis Jewell E<lt>csjewell@cpan.orgE<gt>
+
+=head1 SEE ALSO
+
+L<Perl::Dist::WiX|Perl::Dist::WiX>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2009 Curtis Jewell.
+
+This program is free software; you can redistribute
+it and/or modify it under the same terms as Perl itself.
+
+The full text of the license can be found in the
+LICENSE file included with this module.
+
+=cut

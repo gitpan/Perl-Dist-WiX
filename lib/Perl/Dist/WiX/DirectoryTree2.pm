@@ -16,14 +16,14 @@ use 5.008001;
 #	error_class => 'WiX3::Util::Error',
 #);
 use MooseX::Singleton;
-use Params::Util qw( _IDENTIFIER _STRING );
+use Params::Util qw( _IDENTIFIER _STRING _INSTANCE );
 use File::Spec::Functions qw( catdir catpath splitdir splitpath );
 use MooseX::Types::Moose qw( Str );
-use Perl::Dist::WiX::Directory;
+use Perl::Dist::WiX::Tag::Directory;
 use WiX3::Exceptions;
 
-our $VERSION = '1.100';
-$VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
+our $VERSION = '1.101_001';
+$VERSION =~ s/_//sm;
 
 with 'WiX3::Role::Traceable';
 
@@ -33,7 +33,7 @@ with 'WiX3::Role::Traceable';
 
 has root => (
 	is     => 'ro',
-	isa    => 'Perl::Dist::WiX::Directory',
+	isa    => 'Perl::Dist::WiX::Tag::Directory',
 	reader => 'get_root',
 	handles =>
 	  [qw(search_dir get_directory_object _add_directory_recursive)],
@@ -76,7 +76,7 @@ sub BUILDARGS {
 	my $app_dir = $args{'app_dir'}
 	  or PDWiX::Parameter->throw('No app_dir parameter');
 
-	my $root = Perl::Dist::WiX::Directory->new(
+	my $root = Perl::Dist::WiX::Tag::Directory->new(
 		id       => 'TARGETDIR',
 		name     => 'SourceDir',
 		path     => $app_dir,
@@ -130,7 +130,7 @@ sub initialize_tree {
 
 	$branch->add_directories_id(
 		'Cpanplus',  'cpanplus',
-	) if (5100 <= $ver);
+	) if ('589' ne $ver);
 #>>>
 
 	my @list = qw(
@@ -154,6 +154,39 @@ sub initialize_tree {
 
 	return $self;
 } ## end sub initialize_tree
+
+sub initialize_short_tree {
+	my $self = shift;
+
+	$self->trace_line( 2, "Initializing short directory tree.\n" );
+
+	# Create starting directories.
+	my $branch = $self->get_root()->add_directory( {
+			id       => 'INSTALLDIR',
+			noprefix => 1,
+			path     => $self->_get_app_dir(),
+		} );
+	$self->get_root()->add_directory( {
+			id       => 'ProgramMenuFolder',
+			noprefix => 1,
+		}
+	  )->add_directory( {
+			id   => 'App_Menu',
+			name => $self->_get_app_name(),
+		} );
+
+#<<<
+	$branch->add_directories_id(
+		'Win32',     'win32',
+		'Perl',      'perl',
+	);
+#>>>
+
+	# This is so that the binaries to make icons of can be found.
+	$self->add_directory( catdir( $self->_get_app_dir(), 'perl\\bin' ) );
+
+	return $self;
+} ## end sub initialize_short_tree
 
 sub add_directory {
 	my $self = shift;
@@ -200,6 +233,28 @@ sub add_root_directory {
 	my $branch = $self->get_directory_object('INSTALLDIR');
 	return $branch->add_directories_id( $id, $dir );
 }
+
+sub add_merge_module {
+	my $self = shift;
+	my $dir  = shift;
+	my $mm   = shift;
+
+	my $directory_object = $self->search_dir( path_to_find => $dir );
+	if ( not defined $directory_object ) {
+		PDWiX->throw("Could not find object for directory $dir");
+	}
+
+	if ( not defined _INSTANCE( $mm, 'Perl::Dist::WiX::Tag::MergeModule' ) )
+	{
+		PDWiX->throw(
+			'Second parameter not Perl::Dist::WiX::Tag::MergeModule object'
+		);
+	}
+
+	$directory_object->add_child_tag($mm);
+
+	return;
+} ## end sub add_merge_module
 
 no Moose;
 __PACKAGE__->meta->make_immutable;

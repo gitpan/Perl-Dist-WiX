@@ -8,12 +8,11 @@ package Perl::Dist::WiX::FeatureTree2;
 # License is the same as perl. See Wix.pm for details.
 #
 use 5.008001;
-use Moose;
-use MooseX::AttributeHelpers;
+use Moose 0.90;
 require WiX3::XML::Feature;
 
-our $VERSION = '1.100';
-$VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
+our $VERSION = '1.101_001';
+$VERSION =~ s/_//ms;
 
 #####################################################################
 # Accessors:
@@ -31,15 +30,16 @@ has parent => (
 );
 
 has features => (
-	metaclass => 'Collection::Array',
-	is        => 'rw',
-	isa       => 'ArrayRef[WiX3::XML::Feature]',
-	default   => sub { [] },
-	init_arg  => undef,
-	provides  => {
-		'push'     => '_push_feature',
-		'count'    => '_count_features',
-		'elements' => '_get_feature_array',
+	traits   => ['Array'],
+	is       => 'ro',
+	isa      => 'ArrayRef[WiX3::XML::Feature]',
+	default  => sub { [] },
+	init_arg => undef,
+	handles  => {
+		'_push_feature'      => 'push',
+		'_count_features'    => 'count',
+		'_get_feature'       => 'get',
+		'_get_feature_array' => 'elements',
 	},
 );
 
@@ -97,6 +97,39 @@ sub as_string {
 
 	return $answer;
 } ## end sub as_string
+
+sub as_string_msm {
+	my $self = shift;
+
+	# Get the strings for each of our branches.
+	my $spaces = q{    };              # Indent 4 spaces.
+	my $answer = $spaces;
+	foreach my $feature ( $self->_get_feature_array() ) {
+
+		# We just want the children for this one.
+		$answer .= $feature->as_string_children;
+	}
+
+	chomp $answer;
+#<<<
+	$answer =~ s{\n}                   # match a newline 
+				{\n$spaces}gxms;       # and add spaces after it.
+									   # (i.e. the beginning of the line.)
+#>>>
+
+	return $answer;
+} ## end sub as_string_msm
+
+sub add_merge_module {
+	my $self  = shift;
+	my $mm    = shift;
+	my $index = shift || 0;
+
+	my $feature = $self->_get_feature($index);
+	$feature->add_child_tag( $mm->get_merge_reference() );
+
+	return;
+}
 
 no Moose;
 __PACKAGE__->meta->make_immutable;
