@@ -1,5 +1,12 @@
 Changes for Perl extension Perl-Dist-WiX
 
+1.100   Wed 11 Nov 2009
+    1. Used to make Strawberry Perl October 2009.
+    2. Used to make Padre Standalone 0.50.
+    3. Small fixes (adding prerequisite that _103 missed,
+       removing reordering [had to take out portable for now]
+       and making sure root directory files got installed.)
+
 1.090_103   Sat 26 Sep 2009
     1. Used to make Strawberry Perl October 2009 Beta 2.
     2. Portability now works.

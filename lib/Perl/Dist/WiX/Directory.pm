@@ -19,7 +19,7 @@ use Params::Util qw( _STRING );
 
 require Perl::Dist::WiX::Exceptions;
 
-our $VERSION = '1.090_102';
+our $VERSION = '1.100';
 $VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
 
 extends 'WiX3::XML::Directory';
@@ -119,8 +119,13 @@ sub search_dir {
 	# If we're at the correct path, exit with success!
 	if ( ( defined $path ) && ( $path_to_find eq $path ) ) {
 
-#		$self->trace_line( 4, "Found $path.\n" );
-#print "Found $path.\n" ;
+		$self->trace_line( 4, "Found $path.\n" );
+
+		# TARGETDIR has the path attached, but we really
+		# want INSTALLDIR to be the correct ID.
+		if ( 'TARGETDIR' eq $self->get_directory_id() ) {
+			return $self->get_directory_object('INSTALLDIR');
+		}
 		return $self;
 	}
 

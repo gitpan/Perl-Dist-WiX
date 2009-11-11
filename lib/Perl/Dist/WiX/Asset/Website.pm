@@ -3,10 +3,10 @@ package Perl::Dist::WiX::Asset::Website;
 use 5.008001;
 use Moose;
 use MooseX::Types::Moose qw( Str Int Maybe );
-use File::Spec::Functions qw( catfile );
+use File::Spec::Functions qw( catfile splitpath );
 use English qw( -no_match_vars );
 
-our $VERSION = '1.090_102';
+our $VERSION = '1.100';
 $VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
 
 with 'Perl::Dist::WiX::Role::Asset';
@@ -32,6 +32,29 @@ has icon_file => (
 	default => undef,
 );
 
+has icon_file_to => (
+	is     => 'ro',
+	isa    => Str,
+	reader => '_get_icon_file_to',
+	lazy   => 1,
+
+	# Move to a builder routine later.
+	default => sub {
+		my $self = shift;
+		my $file = $self->_get_icon_file();
+		if ( defined $file ) {
+			( undef, undef, $file ) = splitpath( $file, 0 );
+			$file = catfile( $self->_get_image_dir(), 'win32', $file );
+			if ( !-f $file ) {
+				$self->_copy( $self->_get_icon_file(), $file );
+			}
+			return $file;
+		} else {
+			return undef;
+		}
+	},
+);
+
 has icon_index => (
 	is      => 'ro',
 	isa     => Maybe [Int],
@@ -44,7 +67,7 @@ sub install {
 	my $self = shift;
 
 	my $name = $self->get_name();
-	my $filename = catfile( $self->_get_image_dir, 'win32', "$name.url" );
+	my $filename = catfile( $self->_get_image_dir(), 'win32', "$name.url" );
 
 	my $website;
 
@@ -81,7 +104,7 @@ sub _content {
 
 	my @content = "[InternetShortcut]\n";
 	push @content, 'URL=' . $self->_get_url();
-	my $file = $self->_get_icon_file();
+	my $file = $self->_get_icon_file_to();
 	if ( defined $file ) {
 		push @content, 'IconFile=' . $file;
 	}

@@ -76,7 +76,6 @@ To install this module, run the following commands:
 use     5.008001;
 use     strict;
 use     warnings;
-use     vars                  qw( $VERSION                      );
 use     parent                qw( Perl::Dist::WiX::Installer 
                                   Perl::Dist::WiX::BuildPerl
                                   Perl::Dist::WiX::Checkpoint
@@ -123,7 +122,7 @@ require Perl::Dist::WiX::IconArray;
 require WiX3::XML::GeneratesGUID::Object;
 require WiX3::Traceable;
 
-our $VERSION = '1.090_103';
+our $VERSION = '1.100';
 $VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
 
 use Object::Tiny qw(
@@ -222,7 +221,7 @@ results.
 B<Perl::Dist::WiX> needs a series of temporary directories while
 it is running the build, including places to cache downloaded files,
 somewhere to expand tarballs to build things, and somewhere to put
-debugging output and the final installer zip and exe files.
+debugging output and the final installer zip and msi files.
 
 The C<temp_dir> param specifies the root path for where these
 temporary directories should be created.
@@ -428,7 +427,17 @@ sub new { ## no critic 'ProhibitExcessComplexity'
 		@_,
 	);
 
-	$params{misc} ||= WiX3::Traceable->new( tracelevel => $params{trace} );
+	## no critic (RequireCarping RequireUseOfExceptions ProtectPrivateSubs)
+	eval {
+		$params{misc} ||=
+		  WiX3::Traceable->new( tracelevel => $params{trace} );
+		1;
+	} || eval {
+		WiX3::Trace::Object->_clear_instance();
+		WiX3::Traceable->_clear_instance();
+		$params{misc} ||=
+		  WiX3::Traceable->new( tracelevel => $params{trace} );
+	} || die 'Could not create trace object';
 
 	# Announce that we're starting.
 	{
@@ -1280,27 +1289,6 @@ sub run {
 
 =head2 Routines used by C<run>
 
-=head3 install_custom
-
-The C<install_custom> method is an empty install stub provided
-to allow sub-classed distributions to add B<vastly> different
-additional packages on top of Strawberry Perl.
-
-For example, this class is used by the Parrot distribution builder
-(which needs to sit on a full Strawberry install).
-
-Notably, the C<install_custom> method comes AFTER C<remove_waste>, so that the
-file deletion logic in C<remove_waste> won't accidentally delete files that
-may result in a vastly more damaging effect on the custom software.
-
-Returns true, or throws an error on exception.
-
-=cut
-
-sub install_custom {
-	return 1;
-}
-
 =head3 install_c_toolchain
 
 The C<install_c_toolchain> method is used by C<run> to install various
@@ -1587,10 +1575,10 @@ sub write { ## no critic 'ProhibitBuiltinHomonyms'
 
 The C<write_zip> method is used to generate a standalone .zip file
 containing the entire distribution, for situations in which a full
-installer executable is not wanted (such as for "Portable Perl"
+installer database is not wanted (such as for "Portable Perl"
 type installations).
 
-The executable file is written to the output directory, and the location
+The .zip file is written to the output directory, and the location
 of the file is printed to STDOUT.
 
 Returns true or throws an exception or error.

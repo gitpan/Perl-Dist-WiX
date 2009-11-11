@@ -9,7 +9,7 @@ use File::Spec::Functions qw( catdir splitpath rel2abs catfile );
 require File::Remove;
 require File::Basename;
 
-our $VERSION = '1.090_103';
+our $VERSION = '1.100';
 $VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
 
 with 'Perl::Dist::WiX::Role::Asset';
@@ -125,7 +125,7 @@ sub install {
 		my $force = $self->_get_force();
 		if (   ( not $force )
 			&& ( $long_build =~ /\s/ms )
-			&& ( $self->_get_version eq '5.10.0' ) )
+			&& ( $self->_get_pv_human eq '5.10.0' ) )
 		{
 			$force = 1;
 			$self->_trace_line( 0, <<"EOF");
@@ -158,16 +158,18 @@ EOF
 		$self->_make(qw/install UNINST=1/);
 	} ## end SCOPE:
 
-	$self->_trace_line( 2, "Copying sitecustomize.pl...\n" );
-	$self->_copy(
-		catfile(
-			$self->_get_wix_dist_dir,
-			qw(default perl site lib sitecustomize.pl)
-		),
-		catfile(
-			$self->_get_image_dir, qw(perl site lib sitecustomize.pl)
-		),
-	);
+# TODO: Reactivate once the toolchain and p5p people let me
+# do the reordering.
+#	$self->_trace_line( 2, "Copying sitecustomize.pl...\n" );
+#	$self->_copy(
+#		catfile(
+#			$self->_get_wix_dist_dir,
+#			qw(default perl site lib sitecustomize.pl)
+#		),
+#		catfile(
+#			$self->_get_image_dir, qw(perl site lib sitecustomize.pl)
+#		),
+#	);
 
 	my $fl_lic = File::List::Object->new()
 	  ->readdir( catdir( $self->_get_image_dir, 'licenses', 'perl' ) );

@@ -56,7 +56,7 @@ require Perl::Dist::WiX::Asset::Perl;
 require Perl::Dist::WiX::Toolchain;
 require File::List::Object;
 
-our $VERSION = '1.090_103';
+our $VERSION = '1.100';
 $VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
 
 Readonly my %CORE_MODULE_FIX => (
@@ -127,7 +127,7 @@ the default tasklist after the "perl toolchain" is installed.
 
 =cut
 
-sub install_cpan_upgrades {
+sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 	my $self = shift;
 	unless ( $self->bin_perl ) {
 		PDWiX->throw(
@@ -236,12 +236,32 @@ sub install_cpan_upgrades {
 	  catfile( $self->image_dir, qw(perl lib CPANPLUS Config.pm) );
 
 	if ( -e $cpanp_config_location ) {
+
+		# Installing 0.89_02 because of accumulated fixes,
+		# including one in which the config set
+		# by us works better.
+		$self->install_distribution(
+			name             => 'BINGOS/CPANPLUS-0.89_02.tar.gz',
+			mod_name         => 'CPANPLUS',
+			makefilepl_param => ['INSTALLDIRS=perl'],
+			buildpl_param    => [ '--installdirs', 'core' ],
+		);
+
 		$self->trace_line( 1,
 			"Getting CPANPLUS config file ready for patching\n" );
 
 		$self->patch_file(
 			'perl/lib/CPANPLUS/Config.pm' => $self->image_dir,
 			{ dist => $self, } );
+	} ## end if ( -e $cpanp_config_location)
+
+	if ( not exists $self->{fragments}->{CPAN} ) {
+		$self->install_distribution(
+			name             => 'ANDK/CPAN-1.94_52.tar.gz',
+			mod_name         => 'CPAN',
+			makefilepl_param => ['INSTALLDIRS=perl'],
+			buildpl_param    => [ '--installdirs', 'core' ],
+		);
 	}
 
 	return $self;
@@ -746,6 +766,9 @@ sub install_perl_toolchain {
 		if ( $dist =~ /CPAN-1 [.] 9402/msx ) {
 
 			# 1.9402 fails its tests... ANDK says it's a test bug.
+			# Alias agrees that we include 1.94_51 because of the fix
+			# for the Win32 file:// bug.
+			$dist  = 'ANDK/CPAN-1.94_52.tar.gz';
 			$force = 1;
 		}
 		if ( $dist =~ /ExtUtils-ParseXS-2[.]20(?:02)?[.]tar[.]gz/msx ) {

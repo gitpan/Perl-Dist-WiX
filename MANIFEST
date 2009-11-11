@@ -53,6 +53,7 @@ MANIFEST			This list of files
 META.yml
 README
 script/minicpan_pdwix
+script/perldist_w
 share/ClearFolderCA.dll
 share/cpan.ico
 share/default/perl-5.10.0/lib/CPAN/Config.pm.tt

@@ -10,13 +10,6 @@ if (author_context) {
 	$readme->parse_from_file('lib/Perl/Dist/WiX.pm', 'README');
 }
 
-# Cheat to make sure that the module that
-# includes install_script is always
-# copied into the distribution.
-if (is_admin) {
-	admin()->load('install_script', 1);
-}
-
 all_from       'lib/Perl/Dist/WiX.pm';
 requires       'parent'                    => '0.221';
 requires       'Alien::WiX'                => '0.300000';
@@ -51,6 +44,7 @@ requires       'LWP::UserAgent::WithCache' => '0.06';
 requires       'LWP::Online'               => '1.07';
 requires       'Module::CoreList'          => '2.18';
 requires       'Moose'                     => '0.90';
+requires       'MooseX::NonMoose'          => '0.05',
 requires       'Object::Tiny'              => '1.06';
 requires       'PAR::Dist'                 => '0.42';
 requires       'Params::Util'              => '0.35';
@@ -80,8 +74,10 @@ resources      'homepage'                  => 'http://csjewell.comyr.com/perl/';
 resources      'IRC'                       => 'irc://irc.perl.org/#win32';
 resources      'DLSIP'                     => 'http://search.cpan.org/dlsip?RpdOp';
 license        'perl';
+my $pdwscript = File::Spec->catfile('script', 'perldist_w');
+install_script  $pdwscript;
 install_share;
-
+ 
 my $answer;
 YN: 
   while ($answer = prompt 'Do you want to install the minimal minicpan script?', 'n') {
