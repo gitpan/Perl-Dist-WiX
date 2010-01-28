@@ -9,7 +9,7 @@ use Params::Util qw( _INSTANCE );
 require File::Remove;
 require URI;
 
-our $VERSION = '1.101_001';
+our $VERSION = '1.102';
 $VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::Asset';
@@ -90,9 +90,8 @@ sub BUILDARGS {
 	} elsif ( 0 == @_ % 2 ) {
 		%args = (@_);
 	} else {
-		PDWiX->throw(
-'Parameters incorrect (not a hashref or hash) for Perl::Dist::WiX::Asset::Distribution'
-		);
+		PDWiX->throw( 'Parameters incorrect (not a hashref or hash) '
+			  . 'for Perl::Dist::WiX::Asset::Distribution' );
 	}
 
 	unless ( defined _INSTANCE( $args{parent}, 'Perl::Dist::WiX' ) ) {
@@ -439,7 +438,7 @@ L<Perl::Dist::WiX>, L<Perl::Dist::WiX::Role::Asset>
 
 =head1 COPYRIGHT
 
-Copyright 2009 Curtis Jewell.
+Copyright 2009 - 2010 Curtis Jewell.
 
 Copyright 2007 - 2009 Adam Kennedy.
 

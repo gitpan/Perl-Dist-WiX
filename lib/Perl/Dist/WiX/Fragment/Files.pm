@@ -5,9 +5,9 @@ package Perl::Dist::WiX::Fragment::Files;
 # contains <Directory> or <DirectoryRef> elements, which contain <Component> and
 # <File> tags.
 #
-# Copyright 2009 Curtis Jewell
+# Copyright 2009 - 2010 Curtis Jewell
 #
-# License is the same as perl. See Wix.pm for details.
+# License is the same as perl. See WiX.pm for details.
 #
 use 5.008001;
 use Moose;
@@ -28,7 +28,7 @@ require WiX3::Exceptions;
 require File::List::Object;
 require Win32::Exe;
 
-our $VERSION = '1.101_001';
+our $VERSION = '1.102';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::Fragment';
@@ -40,8 +40,8 @@ has files => (
 	required => 1,
 	reader   => 'get_files',
 	handles  => {
-		'add_files'  => 'add_files',
-		'add_file'   => 'add_file',
+		'_add_files' => 'add_files',
+		'_add_file'  => 'add_file',
 		'_subtract'  => 'subtract',
 		'_get_files' => 'files',
 	},
@@ -64,9 +64,9 @@ sub _build_feature {
 			level   => 1,
 			display => 'hidden',
 		);
-		$self->add_child_tag($feat);
 		return $feat;
 	} else {
+		## no critic (ProhibitExplicitReturnUndef)
 		return undef;
 	}
 } ## end sub _build_feature
@@ -102,6 +102,10 @@ sub regenerate {
 
 	if ( 0 < scalar @fragment_ids ) {
 		push @fragment_ids, $id;
+	} else {
+		if ( not $self->in_merge_module() ) {
+			$self->add_child_tag( $self->_get_feature() );
+		}
 	}
 
 	return uniq @fragment_ids;
@@ -112,7 +116,7 @@ sub _add_file_to_fragment {
 	my $file_path = shift;
 	my $tree      = Perl::Dist::WiX::DirectoryTree2->instance();
 
-	$self->trace_line( 3, "Adding $file_path\n" );
+	$self->trace_line( 3, "Adding file $file_path\n" );
 
 # return () or any fragments that need regeneration retrieved from the cache.
 	my ( $directory_final, @fragment_ids );
@@ -150,6 +154,9 @@ sub _add_file_to_fragment {
 
 		if ( defined $directory_step1 ) {
 
+			$self->trace_line( 4,
+				"Directory search for step 1 successful.\n" );
+
 			$found_step1 = 1;
 			$self->_add_file_component( $directory_step1, $file_path );
 			return ();
@@ -172,6 +179,8 @@ sub _add_file_to_fragment {
 
 	if ( defined $directory_step2 ) {
 
+		$self->trace_line( 4, "Directory search for step 2 successful.\n" );
+
 		my $directory_ref_step2 =
 		  Perl::Dist::WiX::Tag::DirectoryRef->new(
 			directory_object => $directory_step2 );
@@ -179,7 +188,7 @@ sub _add_file_to_fragment {
 		$self->add_child_tag($directory_ref_step2);
 		$self->_add_file_component( $directory_ref_step2, $file_path );
 		return ();
-	}
+	} ## end if ( defined $directory_step2)
 
 # Step 3: Search in our own directories non-exactly.
 #  SUCCESS: Create directories, create component and file.
@@ -209,13 +218,17 @@ sub _add_file_to_fragment {
 
 		if ( defined $directory_step3 ) {
 
+			$self->trace_line( 4,
+				"Directory search for step 3 successful.\n" );
+
 			$found_step3 = 1;
+
 			( $directory_final, @fragment_ids ) =
 			  $self->_add_directory_recursive( $directory_step3,
 				$path_to_find );
 			$self->_add_file_component( $directory_final, $file_path );
 			return @fragment_ids;
-		}
+		} ## end if ( defined $directory_step3)
 	} ## end while ( $i_step3 < $child_tags_count...)
 
 
@@ -235,6 +248,8 @@ sub _add_file_to_fragment {
 	);
 
 	if ( defined $directory_step4 ) {
+
+		$self->trace_line( 4, "Directory search for step 4 successful.\n" );
 
 		my $directory_ref_step4 =
 		  Perl::Dist::WiX::Tag::DirectoryRef->new(
@@ -392,6 +407,22 @@ around 'get_componentref_array' => sub {
 		return $self->_get_feature()->get_componentref_array();
 	}
 };
+
+sub add_file {
+	my $self = shift;
+	## no critic qw(ProhibitComplexMappings)
+	my @files = map { my $file = $_; $file =~ s{/}{\\}gms; $file || $_ } @_;
+
+	return $self->_add_file(@files);
+}
+
+sub add_files {
+	my $self = shift;
+	## no critic qw(ProhibitComplexMappings)
+	my @files = map { my $file = $_; $file =~ s{/}{\\}gms; $file || $_ } @_;
+
+	return $self->_add_files(@files);
+}
 
 no Moose;
 __PACKAGE__->meta->make_immutable;

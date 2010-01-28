@@ -8,7 +8,7 @@ Perl::Dist::WiX::Libraries - Library installation routines
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Libraries version 1.101.
+This document describes Perl::Dist::WiX::Libraries version 1.102.
 
 =head1 DESCRIPTION
 
@@ -31,14 +31,14 @@ use Params::Util qw( _STRING );
 use Perl::Dist::WiX::Exceptions;
 use Readonly;
 
-our $VERSION = '1.101_001';
+our $VERSION = '1.102';
 $VERSION =~ s/_//ms;
 
 Readonly my %PACKAGES => (
 	'32bit-gcc3' => {
 		'dmake'         => 'dmake-4.8-20070327-SHAY.zip',
 		'mingw-make'    => 'mingw32-make-3.81-2.tar.gz',
-		'pexports'      => 'pexports-0.43-1.zip',
+		'pexports'      => '32bit-gcc3/pexports-0.43-1-20100120.zip',
 		'gcc-toolchain' => 'mingw32-gcc3-toolchain-20091026-subset.tar.gz',
 
 # Former components of what's now included in gcc-toolchain.
@@ -49,10 +49,10 @@ Readonly my %PACKAGES => (
 #		'w32api'        => 'w32api-3.10.tar.gz',
 	},
 	'32bit-gcc4' => {
-		'dmake'         => 'dmake-4.8-20070327-SHAY.zip',
-		'mingw-make'    => 'mingw32-make-3.81-2.tar.gz',
-		'pexports'      => 'pexports-0.43-1.zip',
-		'gcc-toolchain' => 'mingw-w32-20091019_subset.7z',
+		'dmake'      => '32bit-gcc4/dmake-SVN20091127-bin_20100120.zip',
+		'mingw-make' => '32bit-gcc4/gmake-3.81-20090914-bin_20010120.zip',
+		'pexports'   => '32bit-gcc4/pexports-0.43-1.zip',
+		'gcc-toolchain' => '32bit-gcc4/mingw-w32-20091019_subset.7z',
 	},
 	'64bit-gcc4' => {
 		'dmake'         => 'dmake-4.8-20070327-SHAY.zip',
@@ -62,11 +62,31 @@ Readonly my %PACKAGES => (
 	},
 );
 
+=pod
+
+=head2 library_directory
+
+  $dist->library_directory()
+
+The C<library_directory> method returns the correct directory on the
+strawberryperl.com server for libraries, given the L<bits()|Perl::Dist::WiX/bits> 
+and L<gcc-version()|Perl::Dist::WiX/gcc_version> values.
+
+=cut
+
+sub library_directory {
+	my $self = shift;
+
+	my $answer = $self->bits() . 'bit-gcc' . $self->gcc_version();
+
+	return $answer;
+}
+
 sub _binary_file {
 	my $self    = shift;
 	my $package = shift;
 
-	my $toolchain = $self->bits() . 'bit-gcc' . $self->gcc_version();
+	my $toolchain = $self->library_directory();
 
 	$self->trace_line( 3, "Searching for $package in $toolchain\n" );
 
@@ -115,7 +135,7 @@ sub _binary_url {
 
 =head2 install_gcc_toolchain
 
-  $dist->install_gcc_toolchain
+  $dist->install_gcc_toolchain()
 
 The C<install_dmake> method installs the corrent gcc toolchain into the
 distribution, and is typically installed during "C toolchain" build
@@ -219,8 +239,7 @@ sub install_pexports {
 	my $filelist = $self->install_binary(
 		name       => 'pexports',
 		url        => $self->_binary_url('pexports'),
-		license    => { 'pexports-0.43/COPYING' => 'pexports/COPYING', },
-		install_to => { 'pexports-0.43/bin' => 'c/bin', },
+		install_to => q{.},
 	);
 	$self->_set_bin_pexports( $self->_file( 'c', 'bin', 'pexports.exe' ) );
 	unless ( -x $self->bin_pexports() ) {
@@ -436,7 +455,7 @@ L<http://ali.as/>, L<http://csjewell.comyr.com/perl/>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2009 Curtis Jewell.
+Copyright 2009 - 2010 Curtis Jewell.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.

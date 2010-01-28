@@ -9,8 +9,8 @@ require SelectSaver;
 require PAR::Dist;
 require IO::String;
 
-our $VERSION = '1.101_001';
-$VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
+our $VERSION = '1.102';
+$VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::Asset';
 
@@ -28,6 +28,7 @@ sub install {
 	my $image_dir    = $self->_get_image_dir();
 	my $download_dir = $self->_get_download_dir();
 	my $url          = $self->_get_url();
+	my $portable     = $self->_get_parent()->portable();
 
 	$self->_trace_line( 1, "Preparing $name\n" );
 
@@ -48,8 +49,12 @@ sub install {
 		my $perldir = catdir( $image_dir, 'perl' );
 		my $libdir  = catdir( $perldir,   'vendor', 'lib' );
 		my $bindir  = catdir( $perldir,   'bin' );
+		my $cdir    = catdir( $image_dir, 'c' );
+
+		if ($portable) {
+			$libdir = catdir( $perldir, 'site', 'lib' );
+		}
 		$packlist = catfile( $libdir, 'auto', @module_dirs, '.packlist' );
-		my $cdir = catdir( $image_dir, 'c' );
 
 		# Suppress warnings for resources that don't exist
 		local $WARNING = 0;
@@ -216,7 +221,7 @@ L<Perl::Dist::WiX>, L<Perl::Dist::WiX::Asset>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2009 Curtis Jewell.
+Copyright 2009 - 2010 Curtis Jewell.
 
 Copyright 2008 Steffen Mueller, borrowing heavily from
 Adam Kennedy's code.

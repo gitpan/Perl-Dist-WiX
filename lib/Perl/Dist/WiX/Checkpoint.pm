@@ -8,7 +8,7 @@ Perl::Dist::WiX::Checkpoint - Checkpoint support for Perl::Dist::WiX
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Checkpoint version 1.101_001.
+This document describes Perl::Dist::WiX::Checkpoint version 1.102.
 
 =head1 DESCRIPTION
 
@@ -41,7 +41,7 @@ use List::Util qw( first );
 use File::Spec::Functions qw( catdir catfile );
 use File::Remove qw();
 
-our $VERSION = '1.101_001';
+our $VERSION = '1.102';
 $VERSION =~ s/_//ms;
 
 #####################################################################
@@ -163,7 +163,7 @@ sub checkpoint_save {
 	return 1;
 } ## end sub checkpoint_save
 
-=head2 checkpoint_save
+=head2 checkpoint_load
 
 Restores a checkpoint saved to the checkpoint subdirectory of 
 L<Perl::Dist::WiX-E<gt>temp_dir|Perl::Dist::WiX/temp_dir> with 
@@ -267,7 +267,7 @@ L<http://ali.as/>, L<http://csjewell.comyr.com/perl/>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2009 Curtis Jewell.
+Copyright 2009 - 2010 Curtis Jewell.
 
 Copyright 2008 - 2009 Adam Kennedy.
 

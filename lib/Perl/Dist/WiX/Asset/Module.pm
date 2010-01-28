@@ -9,8 +9,8 @@ require Perl::Dist::WiX::Exceptions;
 require File::List::Object;
 require IO::File;
 
-our $VERSION = '1.101_001';
-$VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
+our $VERSION = '1.102';
+$VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::NonURLAsset';
 
@@ -36,31 +36,27 @@ has packlist => (
 	default => 1,
 );
 
-# Don't know what these are for. TODO: Delete.
-#use Object::Tiny qw{
-#	type
-#	extras
-#};
-
 sub install {
-	my $self  = shift;
-	my $name  = $self->get_name();
-	my $force = $self->_get_force();
+	my $self   = shift;
+	my $name   = $self->get_name();
+	my $force  = $self->_get_force();
+	my $vendor = $self->_get_parent()->portable() ? 0 : 1;
 
 	my $packlist_flag = $self->_get_packlist();
 
-	unless ( $self->_get_bin_perl ) {
+	unless ( $self->_get_bin_perl() ) {
 		PDWiX->throw(
 			'Cannot install CPAN modules yet, perl is not installed');
 	}
-	my $dist_file = catfile( $self->_get_output_dir, 'cpan_distro.txt' );
+	my $dist_file = catfile( $self->_get_output_dir(), 'cpan_distro.txt' );
 
 	# Generate the CPAN installation script.
 	# Fix url's for minicpans until 1.9403 is released.
 	my $url = $self->_get_cpan()->as_string();
-	$url =~ s{\Afile:///C:/}{file://C:/}msx;
 
-	my $dp_dir = catdir( $self->_get_wix_dist_dir, 'distroprefs' );
+#	$url =~ s{\Afile:///C:/}{file://C:/}msx;
+
+	my $dp_dir = catdir( $self->_get_wix_dist_dir(), 'distroprefs' );
 	my $internet_available = ( $url =~ m{ \A file://}msx ) ? 1 : 0;
 
 	my $cpan_string = <<"END_PERL";
@@ -73,10 +69,12 @@ CPAN::HandleConfig->load unless \$CPAN::Config_loaded++;
 \$CPAN::Config->{'prerequisites_policy'} = q[ignore];
 \$CPAN::Config->{'connect_to_internet_ok'} = q[$internet_available];
 \$CPAN::Config->{'ftp'} = q[];
-\$CPAN::Config->{'makepl_arg'} = q[INSTALLDIRS=vendor];
-\$CPAN::Config->{'make_install_arg'} = q[INSTALLDIRS=vendor];
-\$CPAN::Config->{'mbuildpl_arg'} = q[--installdirs vendor];
-\$CPAN::Config->{'mbuild_install_arg'} = q[--installdirs vendor];
+if ($vendor) {
+	\$CPAN::Config->{'makepl_arg'} = q[INSTALLDIRS=vendor];
+	\$CPAN::Config->{'make_install_arg'} = q[INSTALLDIRS=vendor];
+	\$CPAN::Config->{'mbuildpl_arg'} = q[--installdirs vendor];
+	\$CPAN::Config->{'mbuild_install_arg'} = q[--installdirs vendor];
+}
 print "Installing $name from CPAN...\\n";
 my \$module = CPAN::Shell->expandany( "$name" ) 
 	or die "CPAN.pm couldn't locate $name";
@@ -109,7 +107,7 @@ END_PERL
 	my $filelist_sub;
 	if ( not $self->_get_packlist() ) {
 		$filelist_sub =
-		  File::List::Object->new->readdir( $self->_dir('perl') );
+		  File::List::Object->new()->readdir( $self->_dir('perl') );
 		$self->_trace_line( 5,
 			    "***** Module being installed $name"
 			  . " requires packlist => 0 *****\n" );
@@ -131,7 +129,7 @@ END_PERL
 	local $ENV{PERL_MM_USE_DEFAULT} = 1;
 	local $ENV{AUTOMATED_TESTING}   = undef;
 	local $ENV{RELEASE_TESTING}     = undef;
-	$self->_run3( $self->_get_bin_perl, $cpan_file )
+	$self->_run3( $self->_get_bin_perl(), $cpan_file )
 	  or PDWiX->throw('CPAN script execution failed');
 	PDWiX->throw(
 		"Failure detected installing $name, stopping [$CHILD_ERROR]")
@@ -161,7 +159,7 @@ END_PERL
 	} else {
 		$filelist =
 		  File::List::Object->new()->readdir( $self->_dir('perl') );
-		$filelist->subtract($filelist_sub)->filter( $self->_filters );
+		$filelist->subtract($filelist_sub)->filter( $self->_filters() );
 	}
 
 	return $filelist;
@@ -299,7 +297,7 @@ L<Perl::Dist::WiX>, L<Perl::Dist::WiX::Role::Asset>
 
 =head1 COPYRIGHT
 
-Copyright 2009 Curtis Jewell.
+Copyright 2009 - 2010 Curtis Jewell.
 
 Copyright 2007 - 2009 Adam Kennedy.
 

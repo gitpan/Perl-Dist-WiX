@@ -8,7 +8,7 @@ Perl::Dist::WiX::BuildPerl - 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::BuildPerl version 1.090.
+This document describes Perl::Dist::WiX::BuildPerl version 1.102.
 
 =head1 DESCRIPTION
 
@@ -40,7 +40,7 @@ require Perl::Dist::WiX::Asset::Perl;
 require Perl::Dist::WiX::Toolchain;
 require File::List::Object;
 
-our $VERSION = '1.101_001';
+our $VERSION = '1.102';
 $VERSION =~ s/_//sm;
 
 Readonly my %CORE_MODULE_FIX => (
@@ -154,6 +154,18 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 			next MODULE;
 		}
 
+		# IPC-System-Simple's t\win32.t has the wrong number of tests.
+		if ( $module->cpan_file =~ m{/IPC-System-Simple-1 [.] 19\d}msx ) {
+			$self->_install_cpan_module( $module, 1 );
+			next MODULE;
+		}
+
+		# Time-HiRes is timing-dependent, of course.
+		if ( $module->cpan_file =~ m{/Time-HiRes-}msx ) {
+			$self->_install_cpan_module( $module, 1 );
+			next MODULE;
+		}
+
 		if (    ( $module->cpan_file() =~ m{/Module-Install-\d}msx )
 			and ( $module->cpan_version() > 0.79 ) )
 		{
@@ -220,27 +232,17 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 
 	if ( -e $cpanp_config_location ) {
 
-		# Installing 0.89_02 because of accumulated fixes,
-		# including one in which the config set
-		# by us works better.
-		$self->install_distribution(
-			name             => 'BINGOS/CPANPLUS-0.89_02.tar.gz',
-			mod_name         => 'CPANPLUS',
-			makefilepl_param => ['INSTALLDIRS=perl'],
-			buildpl_param    => [ '--installdirs', 'core' ],
-		);
-
 		$self->trace_line( 1,
 			"Getting CPANPLUS config file ready for patching\n" );
 
 		$self->patch_file(
 			'perl/lib/CPANPLUS/Config.pm' => $self->image_dir(),
 			{ dist => $self, } );
-	} ## end if ( -e $cpanp_config_location)
+	}
 
 	if ( not $self->fragment_exists('CPAN') ) {
 		$self->install_distribution(
-			name             => 'ANDK/CPAN-1.94_52.tar.gz',
+			name             => 'ANDK/CPAN-1.94_54.tar.gz',
 			mod_name         => 'CPAN',
 			makefilepl_param => ['INSTALLDIRS=perl'],
 			buildpl_param    => [ '--installdirs', 'core' ],
@@ -358,6 +360,27 @@ END_PERL
 	return $cpan_info_file;
 } ## end sub _get_cpan_upgrades_list
 
+sub _install_location {
+	my ( $self, $core ) = @_;
+	my $portable = $self->portable();
+	if ($core) {
+		return (
+			makefilepl_param => ['INSTALLDIRS=perl'],
+			buildpl_param    => [ '--installdirs', 'core' ],
+		);
+	} elsif ($portable) {
+		return (
+			makefilepl_param => ['INSTALLDIRS=site'],
+			buildpl_param    => [ '--installdirs', 'site' ],
+		);
+	} else {
+		return (
+			makefilepl_param => ['INSTALLDIRS=vendor'],
+			buildpl_param    => [ '--installdirs', 'vendor' ],
+		);
+	}
+} ## end sub _install_location
+
 sub _install_cpan_module {
 	my ( $self, $module, $force ) = @_;
 	$force = $force or $self->force();
@@ -372,15 +395,7 @@ sub _install_cpan_module {
 	$self->install_distribution(
 		name     => $module_file,
 		mod_name => $module_id,
-		$core
-		  ? (
-		      makefilepl_param => ['INSTALLDIRS=perl'],
-			  buildpl_param => ['--installdirs', 'core'],
-		    )
-		  : (
-		      makefilepl_param => ['INSTALLDIRS=vendor'],
-			  buildpl_param => ['--installdirs', 'vendor'],
-		    ),
+		$self->_install_location($core),
 		$force
 		  ? ( force => 1 )
 		  : (),
@@ -413,6 +428,12 @@ sub _skip_upgrade {
 
 	# This code is in here for safety as of yet.
 	return 1 if $module->cpan_file() =~ m{/ExtUtils-MakeMaker-6 [.] 50}msx;
+
+	# Skip Test-Harness 3.19, waiting on RT#53912.
+	return 1 if $module->cpan_file() =~ m{/Test-Harness-3 [.] 19}msx;
+
+	# Skip B::C, it does not install on 5.8.9.
+	return 1 if $module->cpan_file() =~ m{/B-C-1 [.]}msx;
 
 	return 0;
 } ## end sub _skip_upgrade
@@ -527,7 +548,7 @@ sub install_perl_589 {
 	$self->_set_toolchain($toolchain);
 
 	# Make the perl directory if it hasn't been made alreafy.
-	$self->make_path( $self->_dir('perl') );
+	$self->_make_path( $self->_dir('perl') );
 
 	# Install the main perl distributions
 	$self->install_perl_bin(
@@ -605,7 +626,7 @@ sub install_perl_5100 {
 	$self->_set_toolchain($toolchain);
 
 	# Make the perl directory if it hasn't been made already.
-	$self->make_path( $self->_dir('perl') );
+	$self->_make_path( $self->_dir('perl') );
 
 	# Install the main binary
 	$self->install_perl_bin(
@@ -717,6 +738,7 @@ sub install_perl_git {
 	$self->install_perl_bin(
 		name       => 'perl',
 		url        => URI::file->new($checkout)->as_string(),
+		file       => $checkout,
 		unpack_to  => 'perl',
 		install_to => 'perl',
 		toolchain  => $toolchain,
@@ -799,12 +821,17 @@ sub install_perl_toolchain {
 			# Upgrading to this version, instead...
 			$dist = 'STSI/TermReadKey-2.30.01.tar.gz';
 		}
+		if ( $dist =~ /Test-Harness-3 [.] 20/msx ) {
+
+			# 3.20 has a test bug... waiting for RT#54028
+			$force = 1;
+		}
 		if ( $dist =~ /CPAN-1 [.] 9402/msx ) {
 
 			# 1.9402 fails its tests... ANDK says it's a test bug.
 			# Alias agrees that we include 1.94_51 because of the fix
 			# for the Win32 file:// bug.
-			$dist  = 'ANDK/CPAN-1.94_52.tar.gz';
+			$dist  = 'ANDK/CPAN-1.94_53.tar.gz';
 			$force = 1;
 		}
 		if ( $dist =~ /ExtUtils-ParseXS-2[.]20(?:02)?[.]tar[.]gz/msx ) {
@@ -816,11 +843,6 @@ sub install_perl_toolchain {
 
 			# 0.31 does not include a Makefile.PL.
 			$dist = 'BLM/Win32API-Registry-0.30.tar.gz';
-		}
-		if ( $dist =~ /Module-Build-/msx ) {
-
-			#
-			$dist = 'DAGOLDEN/Module-Build-0.3500_01.tar.gz';
 		}
 		if ( $dist =~ /ExtUtils-MakeMaker-/msx ) {
 
@@ -850,15 +872,7 @@ sub install_perl_toolchain {
 			automated_testing => $automated_testing,
 			release_testing   => $release_testing,
 			overwritable      => $overwritable,
-			$core
-			  ? (
-				  makefilepl_param => ['INSTALLDIRS=perl'],
-				  buildpl_param => ['--installdirs', 'core'],
-				)
-			  : (
-				  makefilepl_param => ['INSTALLDIRS=vendor'],
-				  buildpl_param => ['--installdirs', 'vendor'],
-			    ),
+			$self->_install_location($core),
 		);
 #>>>
 	} ## end foreach my $dist ( $toolchain...)
@@ -922,7 +936,7 @@ L<http://ali.as/>, L<http://csjewell.comyr.com/perl/>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2009 Curtis Jewell.
+Copyright 2009 - 2010 Curtis Jewell.
 
 Copyright 2008 - 2009 Adam Kennedy.
 

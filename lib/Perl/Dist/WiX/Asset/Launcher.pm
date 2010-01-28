@@ -6,8 +6,8 @@ use MooseX::Types::Moose qw( Str );
 use File::Spec::Functions qw( catfile );
 use Perl::Dist::WiX::Exceptions;
 
-our $VERSION = '1.101_001';
-$VERSION = eval $VERSION; ## no critic (ProhibitStringyEval)
+our $VERSION = '1.102';
+$VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::NonURLAsset';
 
@@ -35,6 +35,15 @@ sub install {
 	  catfile( $self->_get_image_dir(), 'perl', 'bin', $bin . '.bat' );
 	unless ( -f $to ) {
 		PDWiX->throw(qq{The script "$bin" does not exist});
+	}
+
+	my $icons     = $self->_get_icons();
+	my $icon_type = ref $icons;
+	$icon_type ||= 'undefined type';
+	if ( 'Perl::Dist::WiX::IconArray' ne $icon_type ) {
+		PDWiX->throw(
+"Icons array is of type $icon_type, not a Perl::Dist::WiX::IconArray"
+		);
 	}
 
 	my $icon_id =
@@ -185,7 +194,7 @@ L<Perl::Dist::WiX>, L<Perl::Dist::WiX::Role::Asset>
 
 =head1 COPYRIGHT
 
-Copyright 2009 Curtis Jewell.
+Copyright 2009 - 2010 Curtis Jewell.
 
 Copyright 2007 - 2009 Adam Kennedy.
 

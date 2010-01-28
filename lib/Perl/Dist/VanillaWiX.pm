@@ -8,15 +8,11 @@ Perl::Dist::VanillaWiX - Minimal distribution of Perl, useful only for testing.
 
 =head1 VERSION
 
-This document describes Perl::Dist::VanillaWiX version 1.101.
+This document describes Perl::Dist::VanillaWiX version 1.102.
 
 =head1 DESCRIPTION
 
-This package is the upgrade to Perl::Dist based on Windows Installer XML 
-technology, instead of Inno Setup.
-
-Perl distributions built with this module have the option of being created
-as Windows Installer databases (otherwise known as .msi files)
+This package is a basic test of Perl::Dist::WiX functionality.
 
 =head1 SYNOPSIS
 
@@ -43,18 +39,26 @@ use strict;
 use warnings;
 use parent qw(Perl::Dist::WiX);
 
-our $VERSION = '1.101_001';
+our $VERSION = '1.102';
 $VERSION =~ s/_//ms;
 
 #####################################################################
 # Constructor
+
+=pod
+
+=head2 new
+
+See L<Perl::Dist::WiX-E<gt>new|Perl::Dist::WiX/new>.
+
+=cut
 
 sub new {
 	my $class = shift;
 	my %args;
 
 	# Check for the correct version of Perl::Dist::WiX.
-	Perl::Dist::WiX->VERSION(1.100);
+	Perl::Dist::WiX->VERSION(1.102);
 
 	if ( @_ == 1 && 'HASH' eq ref $_[0] ) {
 		%args = %{ $_[0] };
@@ -83,20 +87,25 @@ sub new {
 sub _build_app_ver_name {
 	my $self = shift;
 
-	return $self->{app_ver_name} =
-	  'Vanilla Perl version ' . $self->build_number();
+	my $string = 'Vanilla Perl version ' . $self->build_number();
+
+	return $string;
 }
 
 # Default the output filename to the id plus the current date
 sub _build_output_base_filename {
 	my $self = shift;
 
-	return $self->{output_base_filename} =
+	my $bits = ( 64 == $self->bits() ) ? q{-64bit} : q{};
+
+	my $string =
 	    $self->app_id() . q{-}
 	  . $self->build_number() . q{-}
 	  . $self->output_date_string()
-	  . ( 64 == $self->bits ) ? q{-64bit} : q{};
-}
+	  . $bits;
+
+	return $string;
+} ## end sub _build_output_base_filename
 
 1;
 
@@ -137,7 +146,7 @@ L<Perl::Dist::WiX|Perl::Dist::WiX>, L<http://csjewell.comyr.com/perl/>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2009 Curtis Jewell.
+Copyright 2009 - 2010 Curtis Jewell.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.

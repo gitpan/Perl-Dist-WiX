@@ -4,7 +4,7 @@ package Perl::Dist::WiX::Fragment::StartMenu;
 # Perl::Dist::WiX::Fragment::StartMenu - A <Fragment> and <DirectoryRef> tag that
 # contains <Icon> elements.
 #
-# Copyright 2009 Curtis Jewell
+# Copyright 2009 - 2010 Curtis Jewell
 #
 # License is the same as perl. See WiX.pm for details.
 #
@@ -21,7 +21,7 @@ require WiX3::XML::RemoveFolder;
 require WiX3::XML::DirectoryRef;
 require WiX3::XML::Shortcut;
 
-our $VERSION = '1.101_001';
+our $VERSION = '1.102';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::Fragment';
@@ -105,9 +105,42 @@ sub add_shortcut {
 	my $self = shift;
 	my %args = @_;
 
+	if ( not defined $args{id} ) {
+		PDWiX::Parameter->throw(
+			parameter => 'id',
+			where     => 'P::D::W::Fragment::StartMenu->add_shortcut'
+		);
+	}
+
+	if ( not defined $args{name} ) {
+		PDWiX::Parameter->throw(
+			parameter => 'name',
+			where     => 'P::D::W::Fragment::StartMenu->add_shortcut'
+		);
+	}
+
+	if ( not defined $args{target} ) {
+		PDWiX::Parameter->throw(
+			parameter => 'target',
+			where     => 'P::D::W::Fragment::StartMenu->add_shortcut'
+		);
+	}
+
+	if ( not defined $args{working_dir} ) {
+		PDWiX::Parameter->throw(
+			parameter => 'working_dir',
+			where     => 'P::D::W::Fragment::StartMenu->add_shortcut'
+		);
+	}
+
 	# TODO: Validate arguments.
 
 	$args{id} =~ s{[^A-Za-z0-9]}{_}msgx;
+
+	my $icon_id = undef;
+	if ( defined $args{icon_id} ) {
+		$icon_id = "I_$args{icon_id}";
+	}
 
 	my $component = WiX3::XML::Component->new( id => "S_$args{id}" );
 	my $shortcut = WiX3::XML::Shortcut->new(
@@ -115,7 +148,7 @@ sub add_shortcut {
 		name             => $args{name},
 		description      => $args{description},
 		target           => $args{target},
-		icon             => "I_$args{icon_id}",
+		icon             => $icon_id,
 		workingdirectory => "D_$args{working_dir}",
 	);
 

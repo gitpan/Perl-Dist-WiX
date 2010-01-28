@@ -99,8 +99,8 @@ use File::HomeDir qw();
 use List::MoreUtils qw( none );
 use Perl::Dist::WiX::Exceptions;
 
-our $VERSION = '1.101_001';
-$VERSION = eval $VERSION; ## no critic(ProhibitStringyEval)
+our $VERSION = '1.102';
+$VERSION =~ s/_//ms;
 
 has class => (
 	is       => 'ro',
@@ -193,9 +193,8 @@ sub BUILDARGS {
 	} elsif ( 0 == @_ % 2 ) {
 		%args = (@_);
 	} else {
-		PDWiX->throw(
-'Parameters incorrect (not a hashref or hash) for Perl::Dist::WiX::Util::Machine'
-		);
+		PDWiX->throw( 'Parameters incorrect (not a hashref or hash)'
+			  . 'for Perl::Dist::WiX::Util::Machine' );
 	}
 
 	if ( _HASH0( $args{common} ) ) {
@@ -328,6 +327,7 @@ distribution that is configured for this machine.
 =cut
 
 sub next { ## no critic (ProhibitBuiltinHomonyms)
+	## no critic (ProhibitExplicitReturnUndef)
 	my $self = shift;
 	if ( $self->_get_eos() ) {
 
@@ -411,16 +411,20 @@ sub run {
 	while ( my $dist = $self->next() ) {
 		$dist->prepare();
 		$num++;
-		if ( none { $_ == $num } $self->_get_skip_values ) {
+		if ( none { $_ == $num } $self->_get_skip_values() ) {
 			$success = eval { $dist->run(); 1; };
 
 			if ($success) {
 
 				# Copy the output products for this run to the
 				# main output area.
-				foreach my $file ( @{ $dist->output_file() } ) {
+				foreach my $file ( $dist->get_output_files() ) {
 					File::Copy::move( $file, $output_dir );
 				}
+				File::Copy::Recursive::dircopy( $dist->output_dir(),
+					catdir( $output_dir, "success-output-$num" ) );
+				File::Copy::Recursive::dircopy( $dist->fragment_dir(),
+					catdir( $output_dir, "success-fragments-$num" ) );
 			} else {
 				print $EVAL_ERROR;
 				File::Copy::Recursive::dircopy( $dist->output_dir(),
@@ -432,7 +436,7 @@ sub run {
 
 		print "\n\n\n\n\n";
 		print q{-} x 60;
-		print "\n\n\n\n\n\n";
+		print "\n\n\n\n\n";
 
 		# Flush out the image dir for the next run
 		File::Remove::remove( \1, $dist->image_dir() );
@@ -460,7 +464,7 @@ Adam Kennedy E<lt>adamk@cpan.orgE<gt>
 
 =head1 COPYRIGHT
 
-Copyright 2009 Curtis Jewell.
+Copyright 2009 - 2010 Curtis Jewell.
 
 Copyright 2007 - 2009 Adam Kennedy.
 

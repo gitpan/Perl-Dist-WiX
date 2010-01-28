@@ -15,7 +15,7 @@ require Perl::Dist::WiX::Exceptions;
 require URI;
 require URI::file;
 
-our $VERSION = '1.101_001';
+our $VERSION = '1.102';
 $VERSION =~ s/_//ms;
 
 has parent => (
@@ -152,6 +152,8 @@ sub BUILDARGS {
 	);
 	delete @args{ 'url', 'file', 'parent' };
 
+	# Miscaught by Perl::Critic.
+	## no critic (ProhibitCommaSeparatedStatements)
 	return { (%default_args), (%args) };
 } ## end sub BUILDARGS
 
@@ -310,7 +312,7 @@ L<Perl::Dist::WiX|Perl::Dist::WiX>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2009 Curtis Jewell.
+Copyright 2009 - 2010 Curtis Jewell.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.

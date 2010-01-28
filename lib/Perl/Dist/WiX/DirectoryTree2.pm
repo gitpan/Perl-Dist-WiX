@@ -1,13 +1,5 @@
 package Perl::Dist::WiX::DirectoryTree2;
 
-#####################################################################
-# Perl::Dist::WiX::DirectoryTree2 - Class containing initial tree of
-#   <Directory> tag objects.
-#
-# Copyright 2009 Curtis Jewell
-#
-# License is the same as perl. See Wix.pm for details.
-#
 use 5.008001;
 
 #use metaclass (
@@ -22,7 +14,7 @@ use MooseX::Types::Moose qw( Str );
 use Perl::Dist::WiX::Tag::Directory;
 use WiX3::Exceptions;
 
-our $VERSION = '1.101_001';
+our $VERSION = '1.102';
 $VERSION =~ s/_//sm;
 
 with 'WiX3::Role::Traceable';
@@ -74,7 +66,10 @@ sub BUILDARGS {
 	}
 
 	my $app_dir = $args{'app_dir'}
-	  or PDWiX::Parameter->throw('No app_dir parameter');
+	  or PDWiX::Parameter->throw(
+		parameter => 'app_dir',
+		where     => 'Perl::Dist::WiX::DirectoryTree2->new'
+	  );
 
 	my $root = Perl::Dist::WiX::Tag::Directory->new(
 		id       => 'TARGETDIR',
@@ -133,6 +128,12 @@ sub initialize_tree {
 	) if ('589' ne $ver);
 #>>>
 
+	my $perl = $self->get_directory_object('D_Perl');
+	$perl->add_directories_id( 'PerlSite', 'site' );
+
+	my $cpan = $self->get_directory_object('D_Cpan');
+	$cpan->add_directories_id( 'CpanSources', 'sources' );
+
 	my @list = qw(
 	  c\\bin
 	  c\\include
@@ -145,7 +146,6 @@ sub initialize_tree {
 	  perl\\site\\lib\\auto
 	  perl\\vendor\\lib\\auto\\share\\dist
 	  perl\\vendor\\lib\\auto\\share\\module
-	  cpan\\sources
 	);
 
 	foreach my $dir (@list) {
@@ -358,7 +358,7 @@ L<Perl::Dist|Perl::Dist>, L<http://ali.as/>, L<http://csjewell.comyr.com/perl/>
 
 =head1 COPYRIGHT
 
-Copyright 2009 Curtis Jewell.
+Copyright 2009 - 2010 Curtis Jewell.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.
