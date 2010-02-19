@@ -7,7 +7,7 @@ use File::Spec::Functions qw( catdir abs2rel );
 use Params::Util qw( _STRING _INSTANCE );
 require Perl::Dist::WiX::Tag::Directory;
 
-our $VERSION = '1.102';
+our $VERSION = '1.102_100';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::DirectoryRef';
@@ -44,8 +44,8 @@ sub search_dir {
 		%args = @_;
 	} else {
 
-#		print "Argument problem\n";
-		# Throw error.
+		# TODO: Throw error.
+		PDWiX->throw('Parameters passed to search_dir not a hash or hashref.');
 	}
 
 	# Set defaults for parameters.
@@ -60,7 +60,6 @@ sub search_dir {
 
 	return undef unless defined $path;
 
-# TODO: Make trace_line work.
 #	$self->trace_line( 3, "Looking for $path_to_find\n" );
 #	$self->trace_line( 4, "  in:      $path.\n" );
 #	$self->trace_line( 5, "  descend: $descend exact: $exact.\n" );
@@ -69,7 +68,6 @@ sub search_dir {
 	if ( ( defined $path ) && ( $path_to_find eq $path ) ) {
 
 #		$self->trace_line( 4, "Found $path.\n" );
-#print "Found $path.\n" ;
 		return $self;
 	}
 
@@ -174,7 +172,7 @@ Perl::Dist::WiX::Tag::DirectoryRef - <DirectoryRef> tag that knows how to search
 
 	my $ref_tag = Perl::Dist::WiX::Tag::DirectoryRef->new(
 		id => 'Perl'
-		# TODO.
+		# TODO: Document
 	);
 
 	# Parameters can be passed as a hash, or a hashref.

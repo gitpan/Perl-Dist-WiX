@@ -18,13 +18,18 @@ meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
   version: 1.4
 name: Perl-Dist-WiX
+no_index:
+  directory:
+    - inc
+    - share
+    - t
 provides:
   Perl::Dist::VanillaWiX:
     file: lib/Perl/Dist/VanillaWiX.pm
     version: 1.102
   Perl::Dist::WiX:
     file: lib/Perl/Dist/WiX.pm
-    version: 1.102001
+    version: 1.102_100
   Perl::Dist::WiX::Asset::Binary:
     file: lib/Perl/Dist/WiX/Asset/Binary.pm
     version: 1.102
@@ -48,7 +53,7 @@ provides:
     version: 1.102
   Perl::Dist::WiX::Asset::Module:
     file: lib/Perl/Dist/WiX/Asset/Module.pm
-    version: 1.102
+    version: 1.102_100
   Perl::Dist::WiX::Asset::PAR:
     file: lib/Perl/Dist/WiX/Asset/PAR.pm
     version: 1.102
@@ -57,7 +62,7 @@ provides:
     version: 1.102
   Perl::Dist::WiX::Asset::Website:
     file: lib/Perl/Dist/WiX/Asset/Website.pm
-    version: 1.102
+    version: 1.102_100
   Perl::Dist::WiX::BuildPerl:
     file: lib/Perl/Dist/WiX/BuildPerl.pm
     version: 1.102
@@ -66,7 +71,7 @@ provides:
     version: 1.102
   Perl::Dist::WiX::DirectoryCache:
     file: lib/Perl/Dist/WiX/DirectoryCache.pm
-    version: 1.102
+    version: 1.102_100
   Perl::Dist::WiX::DirectoryTree2:
     file: lib/Perl/Dist/WiX/DirectoryTree2.pm
     version: 1.102
@@ -84,13 +89,13 @@ provides:
     version: 1.102
   Perl::Dist::WiX::Fragment::Files:
     file: lib/Perl/Dist/WiX/Fragment/Files.pm
-    version: 1.102
+    version: 1.102_100
   Perl::Dist::WiX::Fragment::StartMenu:
     file: lib/Perl/Dist/WiX/Fragment/StartMenu.pm
     version: 1.102
   Perl::Dist::WiX::IconArray:
     file: lib/Perl/Dist/WiX/IconArray.pm
-    version: 1.102
+    version: 1.102_100
   Perl::Dist::WiX::Installation:
     file: lib/Perl/Dist/WiX/Installation.pm
     version: 1.102001
@@ -102,7 +107,7 @@ provides:
     version: 1.102
   Perl::Dist::WiX::ReleaseNotes:
     file: lib/Perl/Dist/WiX/ReleaseNotes.pm
-    version: 1.102
+    version: 1.102_100
   Perl::Dist::WiX::Role::Asset:
     file: lib/Perl/Dist/WiX/Role/Asset.pm
     version: 1.102
@@ -114,7 +119,7 @@ provides:
     version: 1.102
   Perl::Dist::WiX::Tag::DirectoryRef:
     file: lib/Perl/Dist/WiX/Tag/DirectoryRef.pm
-    version: 1.102
+    version: 1.102_100
   Perl::Dist::WiX::Tag::Icon:
     file: lib/Perl/Dist/WiX/Tag/Icon.pm
     version: 1.102
@@ -163,11 +168,11 @@ requires:
   List::MoreUtils: 0.07
   Module::CoreList: 2.18
   Moose: 0.90
-  MooseX::AttributeHelpers: 0
   MooseX::Meta::TypeConstraint::Intersection: 0.01
   MooseX::NonMoose: 0.05
   MooseX::Singleton: 0
   MooseX::Types: 0
+  MooseX::Types::URI: 0
   PAR::Dist: 0.42
   Params::Util: 0.35
   Portable::Dist: 0.03
@@ -190,4 +195,4 @@ resources:
   homepage: http://csjewell.comyr.com/perl/
   license: http://dev.perl.org/licenses/
   repository: http://svn.ali.as/cpan/trunk/Perl-Dist-WiX/
-version: 1.102001
+version: 1.102_100

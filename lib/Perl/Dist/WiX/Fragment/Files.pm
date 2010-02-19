@@ -15,7 +15,7 @@ use MooseX::Types::Moose qw( Bool );
 use Params::Util qw( _INSTANCE );
 use File::Spec::Functions qw( abs2rel splitpath catpath catdir splitdir );
 use List::MoreUtils qw( uniq );
-use Digest::CRC qw( crc32_base64 );
+use Digest::CRC qw( crc32_base64 crc16_hex );
 require Perl::Dist::WiX::Exceptions;
 require Perl::Dist::WiX::Tag::DirectoryRef;
 require Perl::Dist::WiX::DirectoryCache;
@@ -28,7 +28,7 @@ require WiX3::Exceptions;
 require File::List::Object;
 require Win32::Exe;
 
-our $VERSION = '1.102';
+our $VERSION = '1.102_100';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::Fragment';
@@ -56,11 +56,26 @@ has feature => (
 	builder  => '_build_feature',
 );
 
+sub _shorten_id {
+	my $self = shift;
+	my $longid = shift;
+
+	# Feature/@Id cannot be longer than 38 characters in length.
+	if ( 32 < length($longid) ) {
+		my $id = substr $longid, 0, 28;
+		$id .= q{_};
+		$id .= uc crc16_hex($longid . 'Perl::Dist::WiX::PrivateTypes');
+		return $id;
+	} else {
+		return $longid;
+	}
+}
+
 sub _build_feature {
 	my $self = shift;
 	if ( not $self->in_merge_module() ) {
 		my $feat = WiX3::XML::Feature->new(
-			id      => $self->get_id(),
+			id      => $self->_shorten_id($self->get_id()),
 			level   => 1,
 			display => 'hidden',
 		);
@@ -107,7 +122,7 @@ sub regenerate {
 			$self->add_child_tag( $self->_get_feature() );
 		}
 	}
-
+	
 	return uniq @fragment_ids;
 } ## end sub regenerate
 
@@ -159,6 +174,7 @@ sub _add_file_to_fragment {
 
 			$found_step1 = 1;
 			$self->_add_file_component( $directory_step1, $file_path );
+
 			return ();
 		}
 	} ## end while ( $i_step1 < $child_tags_count...)
@@ -186,7 +202,9 @@ sub _add_file_to_fragment {
 			directory_object => $directory_step2 );
 
 		$self->add_child_tag($directory_ref_step2);
+
 		$self->_add_file_component( $directory_ref_step2, $file_path );
+
 		return ();
 	} ## end if ( defined $directory_step2)
 
@@ -226,7 +244,9 @@ sub _add_file_to_fragment {
 			( $directory_final, @fragment_ids ) =
 			  $self->_add_directory_recursive( $directory_step3,
 				$path_to_find );
+			
 			$self->_add_file_component( $directory_final, $file_path );
+			
 			return @fragment_ids;
 		} ## end if ( defined $directory_step3)
 	} ## end while ( $i_step3 < $child_tags_count...)
@@ -259,7 +279,9 @@ sub _add_file_to_fragment {
 		( $directory_final, @fragment_ids ) =
 		  $self->_add_directory_recursive( $directory_ref_step4,
 			$path_to_find );
+
 		$self->_add_file_component( $directory_final, $file_path );
+
 		return @fragment_ids;
 	} ## end if ( defined $directory_step4)
 
@@ -391,7 +413,7 @@ sub _add_file_component {
 		);
 	}
 
-	$component->add_child_tag($file_obj);
+	$component->add_child_tag($file_obj);	
 	$tag->add_child_tag($component);
 
 	return 1;
