@@ -6,7 +6,7 @@ use MooseX::Types::Moose qw( Str Int Maybe );
 use File::Spec::Functions qw( catfile splitpath );
 use English qw( -no_match_vars );
 
-our $VERSION = '1.102_100';
+our $VERSION = '1.102002';
 $VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::Asset';

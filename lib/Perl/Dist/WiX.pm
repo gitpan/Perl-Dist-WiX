@@ -4,7 +4,7 @@ package Perl::Dist::WiX;
 
 =begin readme text
 
-Perl-Dist-WiX version 1.102_100
+Perl-Dist-WiX version 1.102002
 
 =end readme
 
@@ -135,7 +135,7 @@ require WiX3::XML::GeneratesGUID::Object;
 require WiX3::Traceable;
 #>>>
 
-our $VERSION = '1.102_100';
+our $VERSION = '1.102002';
 $VERSION =~ s/_//ms;
 
 
@@ -4379,8 +4379,8 @@ sub _run3 {
 	$self->trace_line( 3, "Path during _run3: $ENV{PATH}\n" );
 
 	# Execute the child process
-	return IPC::Run3::run3( [@_], \undef, $self->debug_stdout(),
-		$self->debug_stderr(), );
+	return IPC::Run3::run3( [@_], \undef, $self->debug_stdout,
+		$self->debug_stderr, );
 } ## end sub _run3
 
 sub _convert_name {

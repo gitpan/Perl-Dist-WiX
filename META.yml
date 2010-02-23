@@ -29,7 +29,7 @@ provides:
     version: 1.102
   Perl::Dist::WiX:
     file: lib/Perl/Dist/WiX.pm
-    version: 1.102_100
+    version: 1.102002
   Perl::Dist::WiX::Asset::Binary:
     file: lib/Perl/Dist/WiX/Asset/Binary.pm
     version: 1.102
@@ -47,40 +47,40 @@ provides:
     version: 1.102
   Perl::Dist::WiX::Asset::Launcher:
     file: lib/Perl/Dist/WiX/Asset/Launcher.pm
-    version: 1.102
+    version: 1.102002
   Perl::Dist::WiX::Asset::Library:
     file: lib/Perl/Dist/WiX/Asset/Library.pm
-    version: 1.102
+    version: 1.102002
   Perl::Dist::WiX::Asset::Module:
     file: lib/Perl/Dist/WiX/Asset/Module.pm
-    version: 1.102_100
+    version: 1.102002
   Perl::Dist::WiX::Asset::PAR:
     file: lib/Perl/Dist/WiX/Asset/PAR.pm
     version: 1.102
   Perl::Dist::WiX::Asset::Perl:
     file: lib/Perl/Dist/WiX/Asset/Perl.pm
-    version: 1.102
+    version: 1.102002
   Perl::Dist::WiX::Asset::Website:
     file: lib/Perl/Dist/WiX/Asset/Website.pm
-    version: 1.102_100
+    version: 1.102002
   Perl::Dist::WiX::BuildPerl:
     file: lib/Perl/Dist/WiX/BuildPerl.pm
-    version: 1.102
+    version: 1.102002
   Perl::Dist::WiX::Checkpoint:
     file: lib/Perl/Dist/WiX/Checkpoint.pm
     version: 1.102
   Perl::Dist::WiX::DirectoryCache:
     file: lib/Perl/Dist/WiX/DirectoryCache.pm
-    version: 1.102_100
+    version: 1.102002
   Perl::Dist::WiX::DirectoryTree2:
     file: lib/Perl/Dist/WiX/DirectoryTree2.pm
     version: 1.102
   Perl::Dist::WiX::Exceptions:
     file: lib/Perl/Dist/WiX/Exceptions.pm
-    version: 1.102
+    version: 1.102002
   Perl::Dist::WiX::FeatureTree2:
     file: lib/Perl/Dist/WiX/FeatureTree2.pm
-    version: 1.102
+    version: 1.102002
   Perl::Dist::WiX::Fragment::CreateFolder:
     file: lib/Perl/Dist/WiX/Fragment/CreateFolder.pm
     version: 1.102
@@ -89,13 +89,13 @@ provides:
     version: 1.102
   Perl::Dist::WiX::Fragment::Files:
     file: lib/Perl/Dist/WiX/Fragment/Files.pm
-    version: 1.102_100
+    version: 1.102002
   Perl::Dist::WiX::Fragment::StartMenu:
     file: lib/Perl/Dist/WiX/Fragment/StartMenu.pm
     version: 1.102
   Perl::Dist::WiX::IconArray:
     file: lib/Perl/Dist/WiX/IconArray.pm
-    version: 1.102_100
+    version: 1.102002
   Perl::Dist::WiX::Installation:
     file: lib/Perl/Dist/WiX/Installation.pm
     version: 1.102001
@@ -107,7 +107,7 @@ provides:
     version: 1.102
   Perl::Dist::WiX::ReleaseNotes:
     file: lib/Perl/Dist/WiX/ReleaseNotes.pm
-    version: 1.102_100
+    version: 1.102
   Perl::Dist::WiX::Role::Asset:
     file: lib/Perl/Dist/WiX/Role/Asset.pm
     version: 1.102
@@ -116,10 +116,10 @@ provides:
     version: 1.102
   Perl::Dist::WiX::Tag::Directory:
     file: lib/Perl/Dist/WiX/Tag/Directory.pm
-    version: 1.102
+    version: 1.102002
   Perl::Dist::WiX::Tag::DirectoryRef:
     file: lib/Perl/Dist/WiX/Tag/DirectoryRef.pm
-    version: 1.102_100
+    version: 1.102002
   Perl::Dist::WiX::Tag::Icon:
     file: lib/Perl/Dist/WiX/Tag/Icon.pm
     version: 1.102
@@ -128,7 +128,7 @@ provides:
     version: 1.102
   Perl::Dist::WiX::Toolchain:
     file: lib/Perl/Dist/WiX/Toolchain.pm
-    version: 1.102
+    version: 1.102002
   Perl::Dist::WiX::Types:
     file: lib/Perl/Dist/WiX/Types.pm
     version: 1.102
@@ -195,4 +195,4 @@ resources:
   homepage: http://csjewell.comyr.com/perl/
   license: http://dev.perl.org/licenses/
   repository: http://svn.ali.as/cpan/trunk/Perl-Dist-WiX/
-version: 1.102_100
+version: 1.102002

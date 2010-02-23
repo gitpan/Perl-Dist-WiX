@@ -1,13 +1,10 @@
 Changes for Perl extension Perl-Dist-WiX
 
-1.102_100   Fri 19 Feb 2010
-    1. Used to build Strawberry Perl Professional 5.10.1.1 Alpha 1.
-    2. Allow more than one DISTRIBUTIONS.txt file.
-
-1.102002   Sat 30 Jan 2010
+1.102002   Mon 22 Feb 2010
     1. Allow use of previously created merge modules.
     2. Removal of MooseX::AttributeHelpers as a
        prerequisite.
+	3. Updates for new toolchain modules not working.
 
 1.102001   Fri 29 Jan 2010
     1. Changes to get Bootstrap to build.

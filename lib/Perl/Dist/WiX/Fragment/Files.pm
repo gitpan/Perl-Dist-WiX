@@ -15,7 +15,7 @@ use MooseX::Types::Moose qw( Bool );
 use Params::Util qw( _INSTANCE );
 use File::Spec::Functions qw( abs2rel splitpath catpath catdir splitdir );
 use List::MoreUtils qw( uniq );
-use Digest::CRC qw( crc32_base64 crc16_hex );
+use Digest::CRC qw( crc32_base64 );
 require Perl::Dist::WiX::Exceptions;
 require Perl::Dist::WiX::Tag::DirectoryRef;
 require Perl::Dist::WiX::DirectoryCache;
@@ -28,7 +28,7 @@ require WiX3::Exceptions;
 require File::List::Object;
 require Win32::Exe;
 
-our $VERSION = '1.102_100';
+our $VERSION = '1.102002';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::Fragment';
@@ -56,26 +56,11 @@ has feature => (
 	builder  => '_build_feature',
 );
 
-sub _shorten_id {
-	my $self = shift;
-	my $longid = shift;
-
-	# Feature/@Id cannot be longer than 38 characters in length.
-	if ( 32 < length($longid) ) {
-		my $id = substr $longid, 0, 28;
-		$id .= q{_};
-		$id .= uc crc16_hex($longid . 'Perl::Dist::WiX::PrivateTypes');
-		return $id;
-	} else {
-		return $longid;
-	}
-}
-
 sub _build_feature {
 	my $self = shift;
 	if ( not $self->in_merge_module() ) {
 		my $feat = WiX3::XML::Feature->new(
-			id      => $self->_shorten_id($self->get_id()),
+			id      => $self->get_id(),
 			level   => 1,
 			display => 'hidden',
 		);

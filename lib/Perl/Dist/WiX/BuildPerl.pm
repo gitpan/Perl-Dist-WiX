@@ -40,7 +40,7 @@ require Perl::Dist::WiX::Asset::Perl;
 require Perl::Dist::WiX::Toolchain;
 require File::List::Object;
 
-our $VERSION = '1.102';
+our $VERSION = '1.102002';
 $VERSION =~ s/_//sm;
 
 Readonly my %CORE_MODULE_FIX => (
@@ -135,34 +135,47 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 
 		# Net::Ping seems to require that a web server be
 		# available on localhost in order to pass tests.
-		if ( $module->cpan_file =~ m{/Net-Ping-\d}msx ) {
+		if ( $module->cpan_file() =~ m{/Net-Ping-\d}msx ) {
 			$self->_install_cpan_module( $module, 1 );
 			next MODULE;
 		}
 
 		# Safe seems to have problems inside a build VM, but
 		# not outside.  Forcing to be safe.
-		if ( $module->cpan_file =~ m{/Safe-\d}msx ) {
+		if ( $module->cpan_file() =~ m{/Safe-\d}msx ) {
 			$self->_install_cpan_module( $module, 1 );
 			next MODULE;
 		}
 
 		# Locale::Maketext::Simple 0.20 has a test bug. Forcing.
-		if ( $module->cpan_file =~ m{/Locale-Maketext-Simple-0 [.] 20}msx )
+		if ( $module->cpan_file() =~ m{/Locale-Maketext-Simple-0 [.] 20}msx )
 		{
 			$self->_install_cpan_module( $module, 1 );
 			next MODULE;
 		}
 
 		# IPC-System-Simple's t\win32.t has the wrong number of tests.
-		if ( $module->cpan_file =~ m{/IPC-System-Simple-1 [.] 19\d}msx ) {
+		if ( $module->cpan_file() =~ m{/IPC-System-Simple-1 [.] 19\d}msx ) {
 			$self->_install_cpan_module( $module, 1 );
 			next MODULE;
 		}
 
 		# Time-HiRes is timing-dependent, of course.
-		if ( $module->cpan_file =~ m{/Time-HiRes-}msx ) {
+		if ( $module->cpan_file() =~ m{/Time-HiRes-}msx ) {
 			$self->_install_cpan_module( $module, 1 );
+			next MODULE;
+		}
+
+		# autodie 2.08/2.09 has a failing test (RT#54525).
+		# It's skipped on 5.10.1+, which already has this version.
+		if ( $module->cpan_file() =~ m{/autodie-2 [.] 0 [89]}msx ) {
+			$self->install_distribution(
+				name             => 'PJF/autodie-2.06_01.tar.gz',
+				mod_name         => 'autodie',
+				makefilepl_param => ['INSTALLDIRS=perl'],
+				buildpl_param    => [ '--installdirs', 'core' ],
+				force            => $force,
+			);
 			next MODULE;
 		}
 
@@ -176,8 +189,8 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 			next MODULE;
 		}
 
-		if (    ( $module->cpan_file =~ m{/ExtUtils-MakeMaker-\d}msx )
-			and ( $module->cpan_version > 6.50 ) )
+		if (    ( $module->cpan_file() =~ m{/ExtUtils-MakeMaker-\d}msx )
+			and ( $module->cpan_version() > 6.50 ) )
 		{
 			$self->remove_file(qw{perl lib ExtUtils MakeMaker bytes.pm});
 			$self->remove_file(qw{perl lib ExtUtils MakeMaker vmsish.pm});
@@ -185,17 +198,17 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 			next MODULE;
 		}
 
-		if (    ( $module->cpan_file =~ m{/podlators-\d}msx )
-			and ( $module->cpan_version > 2.00 )
-			and ( $self->perl_version < 5100 ) )
+		if (    ( $module->cpan_file() =~ m{/podlators-\d}msx )
+			and ( $module->cpan_version() > 2.00 )
+			and ( $self->perl_version() < 5100 ) )
 		{
 			$self->install_modules(qw( Pod::Escapes Pod::Simple ));
 			$self->_install_cpan_module( $module, $force );
 			next MODULE;
 		}
 
-		if (    ( $module->cpan_file =~ m{/CGI [.] pm-\d}msx )
-			and ( $module->cpan_version > 3.45 ) )
+		if (    ( $module->cpan_file() =~ m{/CGI [.] pm-\d}msx )
+			and ( $module->cpan_version() > 3.45 ) )
 		{
 			$self->install_modules(qw( FCGI ));
 			$self->_install_cpan_module( $module, $force );
@@ -426,6 +439,10 @@ sub _skip_upgrade {
 	# install_cpan_upgrades thinks that it needs to upgrade
 	# those files using it.
 
+	# DON'T try to install ExtUtils::CBuilder, we
+	# already upgraded it as far as we can. RT#54728.
+	return 1 if $module->cpan_file() =~ m{/ExtUtils-CBuilder-0 [.] 2701}msx;
+
 	# This code is in here for safety as of yet.
 	return 1 if $module->cpan_file() =~ m{/ExtUtils-MakeMaker-6 [.] 50}msx;
 
@@ -434,6 +451,13 @@ sub _skip_upgrade {
 
 	# Skip B::C, it does not install on 5.8.9.
 	return 1 if $module->cpan_file() =~ m{/B-C-1 [.]}msx;
+
+	# Skip autodie 2.08 and 2.09, waiting on RT#54525.
+	if (($module->cpan_file() =~ m{/autodie-2 [.] 0 [89]}msx) and
+	    (($self->perl_version() eq '5101') or 
+		 ($self->perl_version() eq 'git'))) {
+		return 1;
+	}
 
 	return 0;
 } ## end sub _skip_upgrade
@@ -838,6 +862,11 @@ sub install_perl_toolchain {
 
 			# 2.20 and 2.2002 are buggy on 5.8.9.
 			$dist = 'DAGOLDEN/ExtUtils-ParseXS-2.20_05.tar.gz';
+		}
+		if ( $dist =~ /ExtUtils-CBuilder-0[.]2701[.]tar[.]gz/msx ) {
+
+			# 0.2701 does not pass tests on 5.10.1. RT#54728.
+			$dist = 'DAGOLDEN/ExtUtils-CBuilder-0.27.tar.gz';
 		}
 		if ( $dist =~ /Win32API-Registry-0 [.] 31/msx ) {
 

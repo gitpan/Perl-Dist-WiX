@@ -41,7 +41,11 @@ lib/Perl/Dist/WiX/Tag/MergeModule.pm
 lib/Perl/Dist/WiX/Toolchain.pm
 lib/Perl/Dist/WiX/Types.pm
 lib/Perl/Dist/WiX/Util/Machine.pm
+LICENSE
+Makefile.PL
 MANIFEST			This list of files
+META.yml
+README
 script/minicpan_pdwix
 script/perldist_w
 share/ClearFolderCA.dll
@@ -70,15 +74,7 @@ share/default/perl-git/win32/makefile.mk.tt
 share/default/perl/lib/CPANPLUS/Config.pm.tt
 share/default/perl/site/lib/sitecustomize.pl
 share/DISTRIBUTIONS.txt.tt
-share/distroprefs/ace.yml
-share/distroprefs/AcePerl-1.92.patch
-share/distroprefs/bio-perl.yml
-share/distroprefs/BioPerl-1.6.1.patch
 share/distroprefs/cpan-disabled.yml
-share/distroprefs/Devel-Cover-0.65.patch
-share/distroprefs/devel-cover.yml
-share/distroprefs/SOAP-Lite-0.710.10.patch
-share/distroprefs/soap-lite.yml
 share/License.rtf
 share/Main.wxs.tt
 share/Merge-Module.wxs.tt
@@ -132,7 +128,3 @@ t/data/cpan/authors/id/readme.txt
 t/lib/MachineTest.pm
 t/settings/perlcritic.txt
 t/settings/perltidy.txt
-Makefile.PL
-README
-LICENSE
-META.yml

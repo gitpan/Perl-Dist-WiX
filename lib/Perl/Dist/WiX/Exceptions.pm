@@ -5,7 +5,7 @@ use strict;
 use warnings;
 require WiX3::Traceable;
 
-our $VERSION = '1.102';
+our $VERSION = '1.102002';
 $VERSION =~ s/_//ms;
 
 
