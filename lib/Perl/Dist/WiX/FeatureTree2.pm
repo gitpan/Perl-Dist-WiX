@@ -28,7 +28,7 @@ use 5.008001;
 use Moose 0.90;
 require WiX3::XML::Feature;
 
-our $VERSION = '1.102002';
+our $VERSION = '1.102';
 $VERSION =~ s/_//ms;
 
 #####################################################################

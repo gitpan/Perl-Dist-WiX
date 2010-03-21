@@ -15,7 +15,7 @@ require Perl::Dist::WiX::Exceptions;
 require URI;
 require URI::file;
 
-our $VERSION = '1.102';
+our $VERSION = '1.102_101';
 $VERSION =~ s/_//ms;
 
 has parent => (
@@ -52,6 +52,8 @@ has parent => (
 		'_patch_file'       => 'patch_file',
 		'_build'            => '_build',
 		'_make'             => '_make',
+		'_gcc_version'      => 'gcc_version',
+		'_relocatable'      => 'relocatable',
 		'_add_to_distributions_installed' =>
 		  '_add_to_distributions_installed',
 	},

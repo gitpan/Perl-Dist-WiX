@@ -7,7 +7,7 @@ use File::Spec::Functions qw( catdir abs2rel );
 use Params::Util qw( _STRING _INSTANCE );
 require Perl::Dist::WiX::Tag::Directory;
 
-our $VERSION = '1.102002';
+our $VERSION = '1.102_101';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::DirectoryRef';
@@ -33,6 +33,8 @@ sub get_directory_object {
 	return undef;
 } ## end sub get_directory_object
 
+
+
 sub search_dir {
 	## no critic (ProhibitExplicitReturnUndef)
 	my $self = shift;
@@ -44,8 +46,8 @@ sub search_dir {
 		%args = @_;
 	} else {
 
-		# TODO: Throw error.
-		PDWiX->throw('Parameters passed to search_dir not a hash or hashref.');
+		PDWiX->throw(
+			'Parameters passed to search_dir not a hash or hashref.');
 	}
 
 	# Set defaults for parameters.
@@ -60,14 +62,14 @@ sub search_dir {
 
 	return undef unless defined $path;
 
-	$self->trace_line( 3, "Looking for $path_to_find\n" );
-	$self->trace_line( 4, "  in:      $path.\n" );
-	$self->trace_line( 5, "  descend: $descend exact: $exact.\n" );
+#	$self->trace_line( 3, "Looking for $path_to_find\n" );
+#	$self->trace_line( 4, "  in:      $path.\n" );
+#	$self->trace_line( 5, "  descend: $descend exact: $exact.\n" );
 
 	# If we're at the correct path, exit with success!
 	if ( ( defined $path ) && ( $path_to_find eq $path ) ) {
 
-		$self->trace_line( 4, "Found $path.\n" );
+#		$self->trace_line( 4, "Found $path.\n" );
 		return $self;
 	}
 
@@ -78,8 +80,8 @@ sub search_dir {
 	my $subset = "$path_to_find\\" =~ m{\A\Q$path\E\\}msx;
 	if ( not $subset ) {
 
-		$self->trace_line( 4, "Not a subset in: $path.\n" );
-		$self->trace_line( 5, "  To find: $path_to_find.\n" );
+#		$self->trace_line( 4, "Not a subset in: $path.\n" );
+#		$self->trace_line( 5, "  To find: $path_to_find.\n" );
 		return undef;
 	}
 
@@ -103,6 +105,8 @@ sub search_dir {
 	# If we get here, we did not find a lower directory.
 	return $exact ? undef : $self;
 } ## end sub search_dir
+
+
 
 sub _add_directory_recursive {
 	my $self         = shift;
@@ -153,6 +157,14 @@ sub add_directory {
 
 	return $new_dir;
 }
+
+
+
+sub get_id {
+	my $self = shift;
+	return $self->get_directory_id();
+}
+
 
 
 no Moose;
@@ -233,6 +245,11 @@ Returns a L<Perl::Dist::WiX::Tag::Directory|Perl::Dist::WiX::Tag::Directory>
 tag with the given parameters and adds it as a child of this tag.
 
 The C<parent> parameter does not need to be given, as it is added as this object.
+
+=head2 get_id
+
+Redirects to C<get_directory_id>.
+
 
 =head1 SUPPORT
 

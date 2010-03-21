@@ -2,11 +2,11 @@ use inc::latest Module::Build;
 
 # CPAN version test.
 require CPAN;
-if ($CPAN::VERSION < 1.9454) {
+if ($CPAN::VERSION < 1.9456) {
 	print <<'EOF';
 To install the rest of the prerequisites, you need to run
 
-	cpan ANDK/CPAN-1.94_54.tar.gz
+	cpan ANDK/CPAN-1.94_56.tar.gz
 
 before installing this. 
 
@@ -51,7 +51,7 @@ my $requires = {
 	'LWP::UserAgent'            => '5.823',
 	'LWP::UserAgent::WithCache' => '0.06',
 	'LWP::Online'               => '1.07',
-	'Module::CoreList'          => '2.18',
+	'Module::CoreList'          => '2.26',
 	'Moose'                     => '0.90',
 	'MooseX::NonMoose'          => '0.05',
 	'MooseX::Singleton'         => '0',
@@ -75,7 +75,51 @@ my $requires = {
 	'Win32API::File'            => '0.1001',
 };
 
-my $builder = Module::Build->new(
+my $class = Module::Build->subclass(
+	class => 'PDWiX::Builder',
+	code  => <<'END_CODE',
+sub ACTION_authortest {
+    my ($self) = @_;
+
+    $self->depends_on('build');
+    $self->depends_on('manifest');
+    $self->depends_on('distmeta');
+
+    $self->test_files( qw< t xt > );
+    $self->depends_on('test');
+
+    return;
+}
+
+
+sub ACTION_releasetest {
+    my ($self) = @_;
+
+    $self->depends_on('build');
+    $self->depends_on('manifest');
+    $self->depends_on('distmeta');
+
+    $self->test_files( qw< t xt rt > );
+    $self->depends_on('test');
+
+    return;
+}
+
+
+sub ACTION_manifest {
+    my ($self, @arguments) = @_;
+
+    if (-e 'MANIFEST') {
+        unlink 'MANIFEST' or die "Can't unlink MANIFEST: $!";
+    }
+
+    return $self->SUPER::ACTION_manifest(@arguments);
+}
+END_CODE
+);
+
+
+my $builder = $class->new(
 	module_name         => 'Perl::Dist::WiX',
 	license             => 'perl',
 	dist_author         => 'Curtis Jewell <csjewell@cpan.org>',
@@ -94,7 +138,7 @@ my $builder = Module::Build->new(
 		'Test::LongString'          => '0.11',
 		'Test::More'                => '0.86',
 		'Test::Output'              => '0.11',
-		'Test::Perl::Dist'          => '0.202',
+		'Test::Perl::Dist'          => '0.203',
 		'Test::Script'              => '1.03',
 		'Test::UseAllModules'       => '0.09',
 	},

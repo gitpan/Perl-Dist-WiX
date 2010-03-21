@@ -8,7 +8,7 @@ use Params::Util qw ( _INSTANCE );
 require URI;
 require File::Spec::Unix;
 
-our $VERSION = '1.102';
+our $VERSION = '1.102_101';
 $VERSION =~ s/_//ms;
 
 sub _configure {
