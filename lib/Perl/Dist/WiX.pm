@@ -4,7 +4,7 @@ package Perl::Dist::WiX;
 
 =begin readme text
 
-Perl-Dist-WiX version 1.102_101
+Perl-Dist-WiX version 1.102_102
 
 =end readme
 
@@ -16,7 +16,7 @@ Perl::Dist::WiX - 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 1.102_101.
+This document describes Perl::Dist::WiX version 1.102_102.
 
 =for readme continue
 
@@ -114,7 +114,7 @@ use     IO::Handle            qw();
 use     IPC::Run3             qw();
 use     LWP::UserAgent        qw();
 use     LWP::Online           qw();
-use     Module::CoreList 2.18 qw();
+use     Module::CoreList 2.27 qw();
 use     PAR::Dist             qw();
 use     Probe::Perl           qw();
 use     SelectSaver           qw();
@@ -135,7 +135,7 @@ require WiX3::XML::GeneratesGUID::Object;
 require WiX3::Traceable;
 #>>>
 
-our $VERSION = '1.102_101';
+our $VERSION = '1.102_102';
 $VERSION =~ s/_//ms;
 
 
@@ -1592,9 +1592,9 @@ has 'perl_debug' => (
 =head3 perl_version
 
 The C<perl_version> parameter specifies what version of perl is downloaded 
-and built.  Legal values for this parameter are 'git', '589', '5100', and 
-'5101' (for a version from perl5.git.perl.org, 5.8.9, 5.10.0, and 5.10.1, 
-respectively.)
+and built.  Legal values for this parameter are 'git', '589', '5100', '5101', 
+'5115', and '5120' (for a version from perl5.git.perl.org, 5.8.9, 5.10.0, 
+5.10.1, 5.11.5, and 5.12.0-RC0, respectively.)
 
 This parameter defaults to '5101' if not specified.
 
@@ -2270,6 +2270,7 @@ sub _build_perl_version_literal {
 		'5100' => '5.010000',
 		'5101' => '5.010001',
 		'5115' => '5.011005',
+		'5120' => '5.012000',
 		'git'  => '5.011005',
 	  }->{ $self->perl_version() }
 	  || 0;
@@ -2311,6 +2312,7 @@ sub _build_perl_version_human {
 		'5100' => '5.10.0',
 		'5101' => '5.10.1',
 		'5115' => '5.11.5',
+		'5120' => '5.12.0-RC0',
 		'git'  => 'git',
 	  }->{ $self->perl_version() }
 	  || 0;
@@ -2628,6 +2630,7 @@ sub msi_perl_version {
 		'5100' => [ 5, 10, 0 ],
 		'5101' => [ 5, 10, 1 ],
 		'5115' => [ 5, 11, 5 ],
+		'5120' => [ 5, 12, 0 ],
 		'git'  => [ 5, 0,  0 ],
 	  }->{ $self->perl_version() }
 	  || [ 0, 0, 0 ];
@@ -2656,9 +2659,10 @@ sub msi_perl_major_version {
 	# Get perl version arrayref.
 	my $ver = {
 		'589'  => [ 5, 8,  0 ],
-		'5100' => [ 5, 9,  255 ],
+		'5100' => [ 5, 9,  127 ],
 		'5101' => [ 5, 10, 0 ],
 		'5115' => [ 5, 11, 4 ],
+		'5120' => [ 5, 11, 127 ],
 		'git'  => [ 5, 11, 0 ],
 	  }->{ $self->perl_version() }
 	  || [ 0, 0, 0 ];
@@ -2687,15 +2691,7 @@ Returns a command line to use in Main.wxs.tt for relocation purposes.
 sub msi_relocation_commandline {
 	my $self = shift;
 
-	my $perl_id =
-	  $self->fileid_perl() . q{.} . $self->msm_package_id_property();
-	my $script_id =
-	    $self->fileid_relocation_pl() . q{.}
-	  . $self->msm_package_id_property();
-
-	my $answer = join q{ }, "&quot;[#$perl_id]&quot;", "[#$script_id]",
-	  '--location', '[#INSTALLDIR]', '--quiet';
-
+	my $answer;
 	my %files = $self->msi_relocation_commandline_files();
 
 	my ( $fragment, $file, $id );
@@ -2721,12 +2717,7 @@ Returns a command line to use in Merge-Module.wxs.tt for relocation purposes.
 sub msm_relocation_commandline {
 	my $self = shift;
 
-	my $perl_id   = $self->fileid_perl();
-	my $script_id = $self->fileid_relocation_pl();
-
-	my $answer = join q{ }, "&quot;[#$perl_id]&quot;", "[#$script_id]",
-	  '--location', '[#INSTALLDIR]', '--quiet';
-
+	my $answer;
 	my %files = $self->msm_relocation_commandline_files();
 
 	my ( $fragment, $file, $id );
@@ -3021,7 +3012,7 @@ sub final_initialization {
 
 	# Check for architectures that we can't build 64-bit on.
 	if ( 64 == $self->bits() ) {
-		$self->_check_64_bit_arch();
+		$self->_check_64_bit();
 	}
 
 	# Redirect $ENV{TEMP} to within our build directory.
@@ -3130,6 +3121,12 @@ EOF
 		Perl::Dist::WiX::Fragment::CreateFolder->new(
 			directory_id => 'PerlSiteBin',
 			id           => 'PerlSiteBinFolder',
+		) );
+	$self->_add_fragment(
+		'CreatePerlSiteLib',
+		Perl::Dist::WiX::Fragment::CreateFolder->new(
+			directory_id => 'PerlSiteLib',
+			id           => 'PerlSiteLibFolder',
 		) );
 	$self->_add_fragment(
 		'CreateCpanplus',
@@ -3291,9 +3288,9 @@ sub initialize_using_msm {
 	$self->_set_bin_dlltool( $self->_file(qw/c bin dlltool.exe/) );
 
 	# Do the same for the environment variables
-	$self->add_path( 'perl', 'bin' );
-	$self->add_path( 'perl', 'site', 'bin' );
 	$self->add_path( 'c',    'bin' );
+	$self->add_path( 'perl', 'site', 'bin' );
+	$self->add_path( 'perl', 'bin' );
 
 	return 1;
 } ## end sub initialize_using_msm
@@ -3418,7 +3415,7 @@ sub install_relocatable {
 	return 1 unless $self->relocatable();
 
 	# Copy the relocation information in.
-	$self->_copy( catfile( $self->dist_dir(), 'relocation.pl' ),
+	$self->_copy( catfile( $self->wix_dist_dir(), 'relocation.pl' ),
 		$self->image_dir() );
 
 	# Make sure it gets installed.
@@ -3527,6 +3524,13 @@ sub install_win32_extras {
 			id          => 'PerlCmdLine',
 			working_dir => 'PersonalFolder',
 		);
+
+		$self->add_to_fragment(
+			'Win32Extras',
+			[   catfile( $self->image_dir(), qw(win32 win32.ico) ),
+				catfile( $self->image_dir(), qw(win32 cpan.ico) ),
+			] );
+
 	} ## end if ( $self->msi() )
 
 	return $self;
@@ -3785,8 +3789,12 @@ Returns true or throws an exception or error.
 sub _write_zip {
 	my $self = shift;
 	my $file =
-	  catfile( $self->output_dir, $self->output_base_filename . '.zip' );
+	  catfile( $self->output_dir(), $self->output_base_filename . '.zip' );
 	$self->trace_line( 1, "Generating zip at $file\n" );
+
+	# Make directories.
+	$self->_remake_path( catdir( $self->image_dir(), qw(cpan sources) ) );
+	$self->_remake_path( catdir( $self->image_dir(), qw(cpanplus    ) ) );
 
 	# Create the archive
 	my $zip = Archive::Zip->new();

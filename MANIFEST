@@ -73,6 +73,13 @@ share/default/perl-5.11.5/win32/config_H.gc
 share/default/perl-5.11.5/win32/config_H.gc64nox
 share/default/perl-5.11.5/win32/config_sh.PL
 share/default/perl-5.11.5/win32/makefile.mk.tt
+share/default/perl-5.12.0-RC0/lib/CPAN/Config.pm.tt
+share/default/perl-5.12.0-RC0/win32/config.gc.tt
+share/default/perl-5.12.0-RC0/win32/config.gc64nox.tt
+share/default/perl-5.12.0-RC0/win32/config_H.gc
+share/default/perl-5.12.0-RC0/win32/config_H.gc64nox
+share/default/perl-5.12.0-RC0/win32/config_sh.PL
+share/default/perl-5.12.0-RC0/win32/makefile.mk.tt
 share/default/perl-5.8.9/lib/CPAN/Config.pm.tt
 share/default/perl-5.8.9/win32/config.gc.tt
 share/default/perl-5.8.9/win32/config_H.gc
@@ -95,8 +102,6 @@ share/distroprefs/Crypt-IDEA-1.08.patch
 share/distroprefs/crypt-idea.yml
 share/distroprefs/Devel-Cover-0.65.patch
 share/distroprefs/devel-cover.yml
-share/distroprefs/SOAP-Lite-0.710.10.patch
-share/distroprefs/soap-lite.yml
 share/License.rtf
 share/Main.wxs.tt
 share/Merge-Module.documentation.html.tt
