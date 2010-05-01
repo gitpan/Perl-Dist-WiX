@@ -1,27 +1,97 @@
 package Perl::Dist::WiX::Tag::Directory;
 
+=pod
+
+=head1 NAME
+
+Perl::Dist::WiX::Tag::Directory - <Directory> tag that knows how to search its children.
+
+=head1 VERSION
+
+This document describes Perl::Dist::WiX::Tag::Directory version 1.200.
+
+=head1 SYNOPSIS
+
+	my $dir_tag = Perl::Dist::WiX::Tag::Directory->new(
+		id => 'Perl',
+		name => 'perl',
+		path => 'C:\strawberry\perl',
+	);
+
+	# Parameters can be passed as a hash, or a hashref.
+	# A hashref is shown.
+	my $dir_tag_2 = $dir_tag->add_directory({
+		id => 'Vendor',
+		name => 'vendor',
+		path => 'C:\strawberry\perl\vendor',
+	});
+	
+	my $dir_tag_3 = $dir_tag->get_directory_object('Vendor');
+
+	my $dir_tag_4 = $dir_tag->search_dir({
+		path_to_find => 'C:\strawberry\perl\vendor',
+		descend => 1,
+		exact => 1,
+	});
+	
+=head1 DESCRIPTION
+
+This is an XML tag that refers to a directory that is used in a Perl::Dist::WiX 
+based distribution.
+
+=cut
+
 use 5.008001;
 use Moose;
 
-# TODO: May or may not need this. Needs to be tested.
+# CHECK: May or may not need this. Needs to be tested.
 # use WiX3::Util::StrictConstructor;
 use File::Spec::Functions qw( catpath catdir splitpath splitdir );
 use Params::Util qw( _STRING );
 use Digest::CRC qw( crc32_base64 );
 require Perl::Dist::WiX::Exceptions;
 
-our $VERSION = '1.102';
+our $VERSION = '1.200';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::Directory';
 
-########################################
-# add_directories_id(($id, $name)...)
-# Parameters: [repeatable in pairs]
-#   $id:   ID of directory object to create.
-#   $name: Name of directory to create object for.
-# Returns:
-#   Object being operated on. (chainable)
+=head1 METHODS
+
+This class is a L<WiX3::XML::DirectoryRef|WiX3::XML::DirectoryRef> and 
+inherits its API, so only additional API is documented here.
+
+=head2 new
+
+The C<new> constructor takes a series of parameters, validates them
+and returns a new B<Perl::Dist::WiX::Tag::Directory> object.
+
+If an error occurs, it throws an exception.
+
+It inherits all the parameters described in the 
+L<< WiX3::XML::Directory->new()|WiX3::XML::Directory/new >> method 
+documentation.
+
+=head2 add_directories_id
+
+    $dir_obj = $dir_obj->add_directories_id(
+		'Perl',    'perl',
+		'License', 'licenses',
+	);
+    #   id          directory
+
+The C<add_directories_id> method adds multiple directories objects as 
+children of the current object. 
+
+Each directory object to be created is specified by the id to be used and 
+the directory to be referred to, which is a subdirectory of the directory 
+referred to by the current tag.
+
+It returns the object that is being operated on, so that methods can be chained.
+
+=cut
+
+
 
 sub add_directories_id {
 	my ( $self, @params ) = @_;
@@ -39,8 +109,8 @@ sub add_directories_id {
 		$id   = shift @params;
 		$name = shift @params;
 		if ( $name =~ m{\\}ms ) {
-
-			# TODO: Throw an error.
+			PDWiX->throw( 'Name of directory to add in '
+				  . 'add_directories_id had a slash in it.' );
 		} else {
 			$self->add_directory( {
 					id   => $id,
@@ -52,6 +122,20 @@ sub add_directories_id {
 
 	return $self;
 } ## end sub add_directories_id
+
+
+
+=head2 get_directory_object
+
+get_directory_object returns the C<Perl::Dist::WiX::Tag::Directory> object
+with the id that was passed in as the only parameter, as long as it is a 
+child tag of this tag, or a grandchild/great-grandchild/etc. of this tag.
+
+If you pass the ID of THIS object in, it gets returned.
+
+An undefined value is returned if no object with that ID could be found. 
+
+=cut
 
 sub get_directory_object {
 	my $self = shift;
@@ -73,6 +157,29 @@ sub get_directory_object {
 	## no critic (ProhibitExplicitReturnUndef)
 	return undef;
 } ## end sub get_directory_object
+
+
+
+=head2 search_dir
+
+	my $perl_bin_directory_tag = $directory->search_dir(
+		path_to_find => 'C:\strawberry\perl\bin',
+		descend => 1,
+		exact => 0,
+	);
+
+Attempts to find the C<path_to_find> in this directory tag (and in the 
+children of this tag, if C<descend> is true.)
+
+If C<exact> is false, this method is allowed to return an object that
+defines a subpath of the C<path_to_find>.
+
+C<path_to_find> is required. C<descend> defaults to true, and C<exact>
+defaults to false.
+
+=cut
+
+
 
 sub search_dir {
 	## no critic (ProhibitExplicitReturnUndef)
@@ -169,8 +276,6 @@ sub _add_directory_recursive {
 		return $directory->add_directory(
 			name => $dir_to_add,
 			id   => crc32_base64( $path_to_find . $dir_to_add ),
-
-			# TODO: Check for other needs.
 		);
 	} else {
 		my ( $volume, $dirs, undef ) = splitpath( $path_to_find, 1 );
@@ -201,75 +306,6 @@ __PACKAGE__->meta->make_immutable;
 
 __END__
 
-=pod
-
-=head1 NAME
-
-Perl::Dist::WiX::Tag::Directory - <Directory> tag that knows how to search its children.
-
-=head1 SYNOPSIS
-
-	my $ref_tag = Perl::Dist::WiX::Tag::Directory->new(
-		id => 'Perl'
-		# TODO: Finish documenting
-	);
-
-	# Parameters can be passed as a hash, or a hashref.
-	# A hashref is shown.
-	my $dir_tag = $ref_tag->add_directory({
-		id => 'Vendor',
-		name => 'vendor',
-		path => 'C:\strawberry\perl\vendor',
-	});
-	
-	my $dir_tag_2 = $ref_tag->get_directory_object('Vendor');
-
-	my $dir_tag = $ref_tag->search_dir({
-		path_to_find => 'C:\strawberry\perl\vendor',
-		descend => 1,
-		exact => 1,
-	});
-	
-=head1 DESCRIPTION
-
-This is an XML tag that refers to a directory that is used in a Perl::Dist::WiX 
-based distribution.
-
-=head1 METHODS
-
-This class is a L<WiX3::XML::DirectoryRef> and inherits its API, so only 
-additional API is documented here.
-
-=head2 new
-
-The C<new> constructor takes a series of parameters, validates them
-and returns a new B<Perl::Dist::WiX::Tag::Directory> object.
-
-If an error occurs, it throws an exception.
-
-It inherits all the parameters described in the 
-L<WiX3::XML::Directory> C<new> method documentation.
-
-=head2 get_directory_object
-
-get_directory_object returns the L<Perl::Dist::WiX::Tag::Directory> object
-with the id that was passed in as the only parameter, as long as it is a 
-child tag of this tag, or a grandchild/great-grandchild/etc. tag.
-
-If you pass the ID of THIS object in, it gets returned.
-
-An undefined value is returned if no object with that ID could be found. 
-
-=head2 search_dir
-
-TODO: Document
-
-=head2 add_directories_id
-
-Adds a set of directories defined as id => name pairs as children of the 
-current tag. (The names should be names of subdirectories of the 
-directory that the current tag defines.)
-
 =head1 SUPPORT
 
 Bugs should be reported via the CPAN bug tracker at
@@ -284,7 +320,7 @@ Curtis Jewell E<lt>csjewell@cpan.orgE<gt>
 
 =head1 SEE ALSO
 
-L<Perl::Dist::WiX>, 
+L<Perl::Dist::WiX|Perl::Dist::WiX>, 
 L<http://wix.sourceforge.net/manual-wix3/wix_xsd_directory.htm>,
 
 =head1 COPYRIGHT

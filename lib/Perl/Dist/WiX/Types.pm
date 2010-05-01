@@ -4,43 +4,37 @@ package Perl::Dist::WiX::Types;
 
 Perl::Dist::WiX::Types - Public types used in Perl::Dist::WiX.
 
+=head1 VERSION
+
+This document describes Perl::Dist::WiX::Types version 1.200.
+
 =head1 SYNOPSIS
 
-	use Perl::Dist::WiX::Types qw( Directory ExistingDirectory );
+	use Perl::Dist::WiX::Types qw( ExistingDirectory ExistingFile TemplateObj );
 
 =head1 DESCRIPTION
 
 This module exists to provide Moose types that Perl::Dist::WiX and subclasses can use.
+
+It may be updated or replaced at any time.
 
 =head1 TYPES PROVIDED
 
 =cut
 
 use 5.008001;
-use MooseX::Types -declare =>
-  [qw( Directory ExistingDirectory ExistingFile MaybeExistingDirectory )];
-use MooseX::Types::Moose qw( Str );
+use MooseX::Types -declare => [ qw(
+	  ExistingDirectory ExistingFile TemplateObj
+	  _NoDoubleSlashes _NoSpaces _NoForwardSlashes _NoSlashAtEnd _NotRootDir
+	  ExistingSubdirectory ExistingDirectory_Spaceless
+	  ExistingDirectory_SaneSlashes
+	  ) ];
+use MooseX::Types::Moose qw( Str Object ArrayRef );
+use MooseX::Types::Path::Class qw( Dir File );
+use Template qw();
 
-our $VERSION = '1.102';
+our $VERSION = '1.200';
 $VERSION =~ s/_//ms;
-
-=head2 Directory
-
-	has foo => (
-		is => 'ro',
-		isa => Directory,
-		#...
-	);
-
-This type specifies that this is a directory that can be created (i.e.
-its drive exists.)
-
-=cut
-
-subtype Directory,
-  as Str,
-  where { ( $_ =~ m{\\}ms ) or ( $_ =~ m{\w*}ms ) },
-  message {'Not a valid directory'};
 
 =head2 ExistingDirectory
 
@@ -54,9 +48,52 @@ subtype Directory,
 =cut
 
 subtype ExistingDirectory,
-  as Directory,
-  where { -d $_ },
+  as Dir,
+  where { -d "$_" },
   message {'Directory does not exist'};
+
+subtype _NoDoubleSlashes,
+  as ExistingDirectory,
+  where { "$_" !~ m{\\\\}ms },
+  message {'cannot contain two consecutive slashes'};
+
+subtype _NoForwardSlashes,
+  as _NoDoubleSlashes,
+  where { "$_" !~ m{/}ms },
+  message {'Forward slashes are not allowed'};
+
+subtype _NoSlashAtEnd,
+  as _NoForwardSlashes,
+  where { "$_" !~ m{\\\z}ms },
+  message {'Cannot have a slash at the end'};
+
+subtype ExistingDirectory_SaneSlashes, as _NoSlashAtEnd;
+
+coerce ExistingDirectory_SaneSlashes,
+  from Str,      via { to_Dir($_) },
+  from ArrayRef, via { to_Dir($_) };
+
+subtype _NoSpaces,
+  as _NoSlashAtEnd,
+  where { "$_" !~ m{\s}ms },
+  message {'Spaces are not allowed'};
+
+subtype ExistingDirectory_Spaceless, as _NoSlashAtEnd;
+
+coerce ExistingDirectory_Spaceless,
+  from Str,      via { to_Dir($_) },
+  from ArrayRef, via { to_Dir($_) };
+
+subtype _NotRootDir,
+  as _NoSlashAtEnd,
+  where { "$_" !~ m{:\z}ms },
+  message {'Cannot be a root directory'};
+
+subtype ExistingSubdirectory, as _NoSlashAtEnd;
+
+coerce ExistingSubdirectory,
+  from Str,      via { to_Dir($_) },
+  from ArrayRef, via { to_Dir($_) };
 
 =head2 ExistingFile
 
@@ -70,20 +107,52 @@ subtype ExistingDirectory,
 =cut
 
 subtype ExistingFile,
-  as Str,
-  where { -f $_ },
+  as File,
+  where { -f "$_" },
   message {'File does not exist'};
 
+coerce ExistingFile,
+  from Str,      via { to_File($_) },
+  from ArrayRef, via { to_File($_) };
+
+=head2 Template
+
+	has bar => (
+		is => 'ro',
+		isa => Template,
+		#...
+	);
+
+
+=cut
+
+subtype TemplateObj,
+  as Object,
+  where { $_->isa('Template') },
+  message {'Template is not the correct type of object'};
+
 1;
+
+__END__
 
 =pod
 
 =head1 SUPPORT
 
-No support is available
+No support is available for this class.
 
 =head1 AUTHOR
 
+Curtis Jewell E<lt>csjewell@cpan.orgE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
 Copyright 2009 - 2010 Curtis Jewell.
+
+This program is free software; you can redistribute
+it and/or modify it under the same terms as Perl itself.
+
+The full text of the license can be found in the
+LICENSE file included with this distribution.
 
 =cut

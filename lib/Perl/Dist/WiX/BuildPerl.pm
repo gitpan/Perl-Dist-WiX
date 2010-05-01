@@ -8,7 +8,7 @@ Perl::Dist::WiX::BuildPerl - 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::BuildPerl version 1.102.
+This document describes Perl::Dist::WiX::BuildPerl version 1.200.
 
 =head1 DESCRIPTION
 
@@ -18,6 +18,7 @@ build Perl itself.
 =head1 SYNOPSIS
 
 	# This module is not to be used independently.
+	# It provides methods to be called on a Perl::Dist::WiX object.
 
 =head1 INTERFACE
 
@@ -33,23 +34,17 @@ use Storable qw( retrieve );
 use File::Spec::Functions qw(
   catdir catfile catpath tmpdir splitpath rel2abs curdir
 );
-use Module::CoreList 2.27 qw();
+use Module::CoreList 2.29 qw();
+use Perl::Dist::WiX::Asset::Perl qw();
+use Perl::Dist::WiX::Toolchain qw();
+use File::List::Object qw();
 
-require Perl::Dist::WiX::Asset::Perl;
-require Perl::Dist::WiX::Toolchain;
-require File::List::Object;
-
-our $VERSION = '1.102_102';
+our $VERSION = '1.200';
 $VERSION =~ s/_//sm;
 
-# The commented lines are needed for 5.12, but may break 5.8.
-# Will check.
-
 Readonly my %CORE_MODULE_FIX => (
-	'IO::Compress' => 'IO::Compress::Base',
-	'Filter'       => 'Filter::Util::Call',
-
-#	'autodie'              => 'Fatal',
+	'IO::Compress'         => 'IO::Compress::Base',
+	'Filter'               => 'Filter::Util::Call',
 	'Pod'                  => 'Pod::Man',
 	'Text'                 => 'Text::Tabs',
 	'PathTools'            => 'Cwd',
@@ -62,9 +57,7 @@ Readonly my %CORE_MODULE_FIX => (
 );
 
 Readonly my %DIST_TO_MODULE_FIX => (
-	'CGI.pm' => 'CGI',
-
-#	'Fatal'                => 'autodie',
+	'CGI.pm'               => 'CGI',
 	'Locale::Maketext'     => 'Locale-Maketext',
 	'Pod::Man'             => 'Pod',
 	'Text::Tabs'           => 'Text',
@@ -128,7 +121,7 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 	my $self = shift;
 
 	# Check for Perl - we can't do things out of order.
-	unless ( $self->bin_perl() ) {
+	if ( not $self->bin_perl() ) {
 		PDWiX->throw(
 			'Cannot install CPAN modules yet, perl is not installed');
 	}
@@ -136,7 +129,7 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 	# Get list of modules to be upgraded.
 	# (The list is saved as a Storable arrayref of CPAN::Module objects.)
 	my $cpan_info_file = $self->_get_cpan_upgrades_list();
-	my $module_info    = retrieve $cpan_info_file;
+	my $module_info    = retrieve($cpan_info_file);
 
 	# Now go through the loop for each module.
 	my $force;
@@ -145,7 +138,7 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
   MODULE:
 
 	for my $module ( @{$module_info} ) {
-		$force = $self->force;
+		$force = $self->force();
 
 		# Skip modules that we want to skip.
 		next MODULE if $self->_skip_upgrade($module);
@@ -172,28 +165,9 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 			next MODULE;
 		}
 
-		# IPC-System-Simple's t\win32.t has the wrong number of tests.
-		if ( $module->cpan_file() =~ m{/IPC-System-Simple-1 [.] 19\d}msx ) {
-			$self->_install_cpan_module( $module, 1 );
-			next MODULE;
-		}
-
 		# Time-HiRes is timing-dependent, of course.
 		if ( $module->cpan_file() =~ m{/Time-HiRes-}msx ) {
 			$self->_install_cpan_module( $module, 1 );
-			next MODULE;
-		}
-
-		# autodie 2.08/2.09 has a failing test (RT#54525).
-		# It's skipped on 5.10.1+, which already has this version.
-		if ( $module->cpan_file() =~ m{/autodie-2 [.] 0 [89]}msx ) {
-			$self->install_distribution(
-				name             => 'PJF/autodie-2.06_01.tar.gz',
-				mod_name         => 'autodie',
-				makefilepl_param => ['INSTALLDIRS=perl'],
-				buildpl_param    => [ '--installdirs', 'core' ],
-				force            => $force,
-			);
 			next MODULE;
 		}
 
@@ -205,6 +179,36 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 			$self->_install_cpan_module( $module, $force );
 			next MODULE;
 		}
+
+		# There's a problem with extracting these two files, so
+		# upgrading to these versions, instead...
+		if ( $module->cpan_file() =~
+			/Unicode-Collate-0 [.] 53-withoutworldwriteables/msx )
+		{
+			$self->install_distribution(
+				name     => 'SADAHIRO/Unicode-Collate-0.53.tar.gz',
+				mod_name => 'Unicode::Collate',
+				$self->_install_location(1),
+				$force
+				? ( force => 1 )
+				: (),
+			);
+			next MODULE;
+		} ## end if ( $module->cpan_file...)
+
+		if ( $module->cpan_file() =~
+			/Unicode-Normalize-1 [.] 06-withoutworldwriteables/msx )
+		{
+			$self->install_distribution(
+				name     => 'SADAHIRO/Unicode-Normalize-1.06.tar.gz',
+				mod_name => 'Unicode::Normalize',
+				$self->_install_location(1),
+				$force
+				? ( force => 1 )
+				: (),
+			);
+			next MODULE;
+		} ## end if ( $module->cpan_file...)
 
 		# Get rid of the old ExtUtils::MakeMaker files.
 		if (    ( $module->cpan_file() =~ m{/ExtUtils-MakeMaker-\d}msx )
@@ -253,7 +257,7 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 	# Yes, I know that technically it's a core module with
 	# non-core dependencies, and that's ugly. I've just got
 	# to live with it.
-	my $autodie_location = $self->_file(qw(perl lib autodie.pm));
+	my $autodie_location = $self->file(qw(perl lib autodie.pm));
 
 	if ( -e $autodie_location ) {
 		$self->install_modules(qw( Win32::Process IPC::System::Simple ));
@@ -261,7 +265,7 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 
 	# Getting CPANPLUS config file installed if required.
 	my $cpanp_config_location =
-	  $self->_file(qw(perl lib CPANPLUS Config.pm));
+	  $self->file(qw(perl lib CPANPLUS Config.pm));
 	if ( -e $cpanp_config_location ) {
 
 		$self->trace_line( 1,
@@ -290,7 +294,6 @@ sub _get_cpan_upgrades_list {
 
 	# Get the CPAN url.
 	my $url = $self->cpan()->as_string();
-	$url =~ s{file:///C:/}{file://C:/}msx;
 
 	# Generate the CPAN installation script
 	my $cpan_string = <<"END_PERL";
@@ -384,7 +387,7 @@ END_PERL
 		close $CPAN_FILE
 		  or PDWiX->throw("CPAN script close failed: $OS_ERROR");
 	}
-	$self->_run3( $self->bin_perl(), $cpan_file )
+	$self->execute_perl($cpan_file)
 	  or PDWiX->throw('CPAN script execution failed');
 	PDWiX->throw('Failure detected during cpan upgrade, stopping')
 	  if $CHILD_ERROR;
@@ -473,7 +476,8 @@ sub _skip_upgrade {
 	# If the ID is ExtUtils::MakeMaker, we've already installed it.
 	# There were some files gotten rid of after 6.50, so
 	# install_cpan_upgrades thinks that it needs to upgrade
-	# those files using it.
+	# those files using it when using perl versions that
+	# still had those files.
 
 	# This code is in here for safety as of yet.
 	return 1 if $module->cpan_file() =~ m{/ExtUtils-MakeMaker-6 [.] 50}msx;
@@ -508,7 +512,7 @@ sub install_perl {
 
 	# Check for the method, then call it.
 	my $install_perl_method = 'install_perl_' . $self->perl_version();
-	unless ( $self->can($install_perl_method) ) {
+	if ( not $self->can($install_perl_method) ) {
 		PDWiX->throw(
 			"Cannot generate perl, missing $install_perl_method method in "
 			  . ref $self );
@@ -517,14 +521,47 @@ sub install_perl {
 
 	# Add the perllocal.pod to the perl fragment.
 	$self->add_to_fragment( 'perl',
-		[ $self->_file(qw(perl lib perllocal.pod)) ] );
+		[ $self->file(qw(perl lib perllocal.pod)) ] );
 
 	return 1;
 } ## end sub install_perl
 
 
 
-=head2 install_perl_* (* = git, 589, 5100, 5101, 5115, or 5120)
+sub _create_perl_toolchain {
+	my $self = shift;
+
+	# Prefetch and predelegate the toolchain so that it
+	# fails early if there's a problem
+	$self->trace_line( 1, "Pregenerating toolchain...\n" );
+	my $toolchain = Perl::Dist::WiX::Toolchain->new(
+		perl_version => $self->perl_version_literal(),
+		cpan         => $self->cpan()->as_string(),
+		bits         => $self->bits(),
+	) or PDWiX->throw('Failed to resolve toolchain modules');
+	if ( not eval { $toolchain->delegate(); 1; } ) {
+		PDWiX::Caught->throw(
+			message => 'Delegation error occured',
+			info    => defined($EVAL_ERROR) ? $EVAL_ERROR : 'Unknown error',
+		);
+	}
+	if ( defined $toolchain->get_error() ) {
+		PDWiX::Caught->throw(
+			message => 'Failed to generate toolchain distributions',
+			info    => $toolchain->get_error() );
+	}
+
+	$self->_set_toolchain($toolchain);
+
+	# Make the perl directory if it hasn't been made already.
+	$self->make_path( $self->dir('perl') );
+
+	return $toolchain;
+} ## end sub _create_perl_toolchain
+
+
+
+=head2 install_perl_* (* = git, 589, 5100, 5101, or 5120)
 
 	$self->install_perl_5100;
 
@@ -560,7 +597,7 @@ A short summary of the process would be that it downloads or otherwise
 fetches the named package, unpacks it, copies out any license files from
 the source code, then tweaks the Win32 makefile to point to the specific
 build directory, and then runs make/make test/make install. It also
-registers some environment variables for addition to the Inno Setup
+registers some environment variables for addition to the installer
 script.
 
 It is normally called directly by C<install_perl_*> rather than
@@ -573,45 +610,22 @@ error.
 
 =cut
 
+
+
 #####################################################################
 # Perl 5.8.9 Support
 
 sub install_perl_589 {
 	my $self = shift;
 
-	# Prefetch and predelegate the toolchain so that it
-	# fails early if there's a problem
-	$self->trace_line( 1, "Pregenerating toolchain...\n" );
-	my $toolchain = Perl::Dist::WiX::Toolchain->new(
-		perl_version => $self->perl_version_literal(),
-		cpan         => $self->cpan()->as_string(),
-		bits         => $self->bits(),
-	) or PDWiX->throw('Failed to resolve toolchain modules');
-	unless ( eval { $toolchain->delegate(); 1; } ) {
-		PDWiX::Caught->throw(
-			message => 'Delegation error occured',
-			info    => defined($EVAL_ERROR) ? $EVAL_ERROR : 'Unknown error',
-		);
-	}
-	if ( defined $toolchain->get_error() ) {
-		PDWiX::Caught->throw(
-			message => 'Failed to generate toolchain distributions',
-			info    => $toolchain->get_error() );
-	}
-
-	$self->_set_toolchain($toolchain);
-
-	# Make the perl directory if it hasn't been made already.
-	$self->_make_path( $self->_dir('perl') );
+	# Get the information required for Perl's toolchain.
+	my $toolchain = $self->_create_perl_toolchain();
 
 	# Install the main perl distribution.
 	$self->install_perl_bin(
-		name       => 'perl',
-		url        => 'http://strawberryperl.com/package/perl-5.8.9.tar.gz',
-		unpack_to  => 'perl',
-		install_to => 'perl',
-		toolchain  => $toolchain,
-		patch      => [ qw{
+		url       => 'http://strawberryperl.com/package/perl-5.8.9.tar.gz',
+		toolchain => $toolchain,
+		patch     => [ qw{
 			  lib/CPAN/Config.pm
 			  win32/config.gc
 			  win32/config_sh.PL
@@ -630,28 +644,26 @@ sub install_perl_589 {
 
 
 
-
 sub install_perl_bin {
 	my $self = shift;
 
 	# Check for an error in the object.
-	unless ( $self->bin_make() ) {
+	if ( not $self->bin_make() ) {
 		PDWiX->throw('Cannot build Perl yet, no bin_make defined');
 	}
 
 	# Install perl.
 	my $perl = Perl::Dist::WiX::Asset::Perl->new(
 		parent => $self,
-		force  => $self->forceperl() || $self->force(),
 		@_,
 	);
 	$perl->install();
 
 	# Should have a perl to use now.
-	$self->_set_bin_perl( $self->_file(qw/perl bin perl.exe/) );
+	$self->_set_bin_perl( $self->file(qw/perl bin perl.exe/) );
 
 	# Create the site/bin path so we can add it to the PATH.
-	$self->_make_path( catdir( $self->image_dir(), qw(perl site bin) ) );
+	$self->make_path( catdir( $self->image_dir(), qw(perl site bin) ) );
 
 	# Add to the environment variables
 	$self->add_path( 'perl', 'site', 'bin' );
@@ -663,43 +675,19 @@ sub install_perl_bin {
 
 
 #####################################################################
-# Perl 5.10.0 Support
+# Perl 5.10.x Support
 
 sub install_perl_5100 {
 	my $self = shift;
 
-	# Prefetch and predelegate the toolchain so that it
-	# fails early if there's a problem
-	$self->trace_line( 1, "Pregenerating toolchain...\n" );
-	my $toolchain = Perl::Dist::WiX::Toolchain->new(
-		perl_version => $self->perl_version_literal(),
-		cpan         => $self->cpan()->as_string(),
-		bits         => $self->bits(),
-	) or PDWiX->throw('Failed to resolve toolchain modules');
-	unless ( eval { $toolchain->delegate(); 1; } ) {
-		PDWiX::Caught->throw(
-			message => 'Delegation error occured',
-			info    => defined($EVAL_ERROR) ? $EVAL_ERROR : 'Unknown error',
-		);
-	}
-	if ( defined $toolchain->get_error() ) {
-		PDWiX::Caught->throw(
-			message => 'Failed to generate toolchain distributions',
-			info    => $toolchain->get_error() );
-	}
-	$self->_set_toolchain($toolchain);
-
-	# Make the perl directory if it hasn't been made already.
-	$self->_make_path( $self->_dir('perl') );
+	# Get the information required for Perl's toolchain.
+	my $toolchain = $self->_create_perl_toolchain();
 
 	# Install the main binary
 	$self->install_perl_bin(
-		name      => 'perl',
 		url       => 'http://strawberryperl.com/package/perl-5.10.0.tar.gz',
-		unpack_to => 'perl',
-		install_to => 'perl',
-		toolchain  => $toolchain,
-		patch      => [ qw{
+		toolchain => $toolchain,
+		patch     => [ qw{
 			  lib/ExtUtils/Command.pm
 			  lib/CPAN/Config.pm
 			  win32/config.gc
@@ -722,38 +710,14 @@ sub install_perl_5100 {
 sub install_perl_5101 {
 	my $self = shift;
 
-	# Prefetch and predelegate the toolchain so that it
-	# fails early if there's a problem
-	$self->trace_line( 1, "Pregenerating toolchain...\n" );
-	my $toolchain = Perl::Dist::WiX::Toolchain->new(
-		perl_version => $self->perl_version_literal,
-		cpan         => $self->cpan->as_string,
-		bits         => $self->bits(),
-	) or PDWiX->throw('Failed to resolve toolchain modules');
-	unless ( eval { $toolchain->delegate; 1; } ) {
-		PDWiX::Caught->throw(
-			message => 'Delegation error occured',
-			info    => defined($EVAL_ERROR) ? $EVAL_ERROR : 'Unknown error',
-		);
-	}
-	if ( defined $toolchain->get_error() ) {
-		PDWiX::Caught->throw(
-			message => 'Failed to generate toolchain distributions',
-			info    => $toolchain->get_error() );
-	}
-	$self->_set_toolchain($toolchain);
-
-	# Make the perl directory if it hasn't been made already.
-	$self->_make_path( $self->_dir('perl') );
+	# Get the information required for Perl's toolchain.
+	my $toolchain = $self->_create_perl_toolchain();
 
 	# Install the main binary
 	$self->install_perl_bin(
-		name      => 'perl',
 		url       => 'http://strawberryperl.com/package/perl-5.10.1.tar.gz',
-		unpack_to => 'perl',
-		install_to => 'perl',
-		toolchain  => $toolchain,
-		patch      => [ qw{
+		toolchain => $toolchain,
+		patch     => [ qw{
 			  lib/CPAN/Config.pm
 			  win32/config.gc
 			  win32/config_sh.PL
@@ -772,98 +736,20 @@ sub install_perl_5101 {
 
 
 
-sub install_perl_5115 {
-	my $self = shift;
-
-	# Prefetch and predelegate the toolchain so that it
-	# fails early if there's a problem
-	$self->trace_line( 1, "Pregenerating toolchain...\n" );
-	my $toolchain = Perl::Dist::WiX::Toolchain->new(
-		perl_version => $self->perl_version_literal,
-		cpan         => $self->cpan->as_string,
-		bits         => $self->bits(),
-	) or PDWiX->throw('Failed to resolve toolchain modules');
-	unless ( eval { $toolchain->delegate; 1; } ) {
-		PDWiX::Caught->throw(
-			message => 'Delegation error occured',
-			info    => defined($EVAL_ERROR) ? $EVAL_ERROR : 'Unknown error',
-		);
-	}
-	if ( defined $toolchain->get_error() ) {
-		PDWiX::Caught->throw(
-			message => 'Failed to generate toolchain distributions',
-			info    => $toolchain->get_error() );
-	}
-	$self->_set_toolchain($toolchain);
-
-	# Make the perl directory if it hasn't been made already.
-	$self->_make_path( $self->_dir('perl') );
-
-	# Install the main binary
-	$self->install_perl_bin(
-		name => 'perl',
-		url =>
-'http://search.cpan.org/CPAN/authors/id/S/SH/SHAY/perl-5.11.5.tar.gz',
-		unpack_to  => 'perl',
-		install_to => 'perl',
-		toolchain  => $toolchain,
-		patch      => [ qw{
-			  lib/CPAN/Config.pm
-			  win32/config.gc
-			  win32/config.gc64nox
-			  win32/config_sh.PL
-			  win32/config_H.gc
-			  win32/config_H.gc64nox
-			  }
-		],
-		license => {
-			'perl-5.11.5/Readme'   => 'perl/Readme',
-			'perl-5.11.5/Artistic' => 'perl/Artistic',
-			'perl-5.11.5/Copying'  => 'perl/Copying',
-		},
-	);
-
-	return 1;
-} ## end sub install_perl_5115
-
-
+#####################################################################
+# Perl 5.12.0 Support
 
 sub install_perl_5120 {
 	my $self = shift;
 
-	# Prefetch and predelegate the toolchain so that it
-	# fails early if there's a problem
-	$self->trace_line( 1, "Pregenerating toolchain...\n" );
-	my $toolchain = Perl::Dist::WiX::Toolchain->new(
-		perl_version => $self->perl_version_literal,
-		cpan         => $self->cpan->as_string,
-		bits         => $self->bits(),
-	) or PDWiX->throw('Failed to resolve toolchain modules');
-	unless ( eval { $toolchain->delegate; 1; } ) {
-		PDWiX::Caught->throw(
-			message => 'Delegation error occured',
-			info    => defined($EVAL_ERROR) ? $EVAL_ERROR : 'Unknown error',
-		);
-	}
-	if ( defined $toolchain->get_error() ) {
-		PDWiX::Caught->throw(
-			message => 'Failed to generate toolchain distributions',
-			info    => $toolchain->get_error() );
-	}
-	$self->_set_toolchain($toolchain);
-
-	# Make the perl directory if it hasn't been made already.
-	$self->_make_path( $self->_dir('perl') );
+	# Get the information required for Perl's toolchain.
+	my $toolchain = $self->_create_perl_toolchain();
 
 	# Install the main binary
 	$self->install_perl_bin(
-		name => 'perl',
-		url =>
-'http://search.cpan.org/CPAN/authors/id/J/JE/JESSE/perl-5.12.0-RC0.tar.gz',
-		unpack_to  => 'perl',
-		install_to => 'perl',
-		toolchain  => $toolchain,
-		patch      => [ qw{
+		url => 'http://strawberryperl.com/package/perl-5.12.0.tar.bz2',
+		toolchain => $toolchain,
+		patch     => [ qw{
 			  lib/CPAN/Config.pm
 			  win32/config.gc
 			  win32/config.gc64nox
@@ -873,9 +759,9 @@ sub install_perl_5120 {
 			  }
 		],
 		license => {
-			'perl-5.12.0-RC0/Readme'   => 'perl/Readme',
-			'perl-5.12.0-RC0/Artistic' => 'perl/Artistic',
-			'perl-5.12.0-RC0/Copying'  => 'perl/Copying',
+			'perl-5.12.0/Readme'   => 'perl/Readme',
+			'perl-5.12.0/Artistic' => 'perl/Artistic',
+			'perl-5.12.0/Copying'  => 'perl/Copying',
 		},
 	);
 
@@ -884,44 +770,24 @@ sub install_perl_5120 {
 
 
 
+#####################################################################
+# Git checkout support
+
 sub install_perl_git {
 	my $self = shift;
 
-	# Prefetch and predelegate the toolchain so that it
-	# fails early if there's a problem
-	$self->trace_line( 1, "Pregenerating toolchain...\n" );
-	my $toolchain = Perl::Dist::WiX::Toolchain->new(
-		perl_version => $self->perl_version_literal,
-		cpan         => $self->cpan->as_string,
-		bits         => $self->bits(),
-	) or PDWiX->throw('Failed to resolve toolchain modules');
-	unless ( eval { $toolchain->delegate; 1; } ) {
-		PDWiX::Caught->throw(
-			message => 'Delegation error occured',
-			info    => defined($EVAL_ERROR) ? $EVAL_ERROR : 'Unknown error',
-		);
-	}
-	if ( defined $toolchain->get_error() ) {
-		PDWiX::Caught->throw(
-			message => 'Failed to generate toolchain distributions',
-			info    => $toolchain->get_error() );
-	}
-	$self->_set_toolchain($toolchain);
+	# Get the information required for Perl's toolchain.
+	my $toolchain = $self->_create_perl_toolchain();
 
-	# Make the perl directory if it hasn't been made already.
-	$self->_make_path( $self->_dir('perl') );
-
+	# Get where the git checkout is.
 	my $checkout = $self->git_checkout();
 
 	# Install the main binary
 	$self->install_perl_bin(
-		name       => 'perl',
-		url        => URI::file->new($checkout)->as_string(),
-		file       => $checkout,
-		unpack_to  => 'perl',
-		install_to => 'perl',
-		toolchain  => $toolchain,
-		patch      => [ qw{
+		url       => URI::file->new($checkout)->as_string(),
+		file      => $checkout,
+		toolchain => $toolchain,
+		patch     => [ qw{
 			  lib/CPAN/Config.pm
 			  win32/config.gc
 			  win32/config_sh.PL
@@ -960,7 +826,7 @@ the default tasklist after the perl interpreter is installed.
 sub install_perl_toolchain {
 	my $self = shift;
 
-	#
+	# Retrieves and verifies the toolchain.
 	my $toolchain = $self->_get_toolchain();
 	if ( 0 == $toolchain->dist_count() ) {
 		PDWiX->throw('Toolchain did not get collected');
@@ -1032,7 +898,8 @@ sub install_perl_toolchain {
 			$force = 1;
 		}
 
- # Actually DO the installation, now that we've got the information we need.
+		# Actually DO the installation, now
+		# that we've got the information we need.
 		$module_id = $self->_module_fix( $self->_name_to_module($dist) );
 		$core =
 		  exists $Module::CoreList::version{ $self->perl_version_literal() }
@@ -1075,8 +942,6 @@ sub _name_to_module {
 	return $module;
 } ## end sub _name_to_module
 
-
-
 1;
 
 __END__
@@ -1107,7 +972,7 @@ Adam Kennedy E<lt>adamk@cpan.orgE<gt>
 
 =head1 SEE ALSO
 
-L<Perl::Dist|Perl::Dist>, L<Perl::Dist::WiX|Perl::Dist::WiX>, 
+L<Perl::Dist::WiX|Perl::Dist::WiX>, 
 L<http://ali.as/>, L<http://csjewell.comyr.com/perl/>
 
 =head1 COPYRIGHT AND LICENSE

@@ -17,18 +17,6 @@ EOF
 	die "Please upgrade CPAN as instructed above.\n\n";
 }
 
-# CPAN version test.
-require Module::CoreList;
-if ($Module::CoreList::VERSION < 2.27) {
-	print <<'EOF';
-To install the version of Module::CoreList required, you'll need to
-download perl-5.12.0-RC0 and cd to its dist/Module-CoreList directory
-and run 'cpan .' there before installing this. 
-
-EOF
-	die "Please upgrade Module::Corelist as instructed above.\n\n";
-}
-
 die "OS unsupported\n" unless 'MSWin32' eq $^O;
 
 # These are the main requirements.
@@ -38,7 +26,8 @@ my $requires = {
 	'Alien::WiX'                => '0.300000',
 	'Archive::Tar'              => '1.42',
 	'Archive::Zip'              => '1.26',
-	'CPAN'                      => '1.9454',
+	'CPAN'                      => '1.9456',
+	'Clone'                     => '0.31',
 	'Data::Dump::Streamer'      => '2.08',
 	'Data::UUID'                => '1.149',
 	'Digest::CRC'               => '0.14',
@@ -63,13 +52,13 @@ my $requires = {
 	'LWP::UserAgent'            => '5.823',
 	'LWP::UserAgent::WithCache' => '0.06',
 	'LWP::Online'               => '1.07',
-	'Module::CoreList'          => '2.27',
+	'Module::CoreList'          => '2.29',
 	'Moose'                     => '0.90',
 	'MooseX::NonMoose'          => '0.05',
 	'MooseX::Singleton'         => '0',
 	'MooseX::Types'             => '0',
-	'MooseX::Types::URI'        => '0',
-	'MooseX::Meta::TypeConstraint::Intersection' => '0.01',
+	'MooseX::Types::URI'        => '0.02',
+	'MooseX::Types::Path::Class' => '0.05',
 	'PAR::Dist'                 => '0.42',
 	'Params::Util'              => '0.35',
 	'Portable::Dist'            => '0.03',
@@ -79,7 +68,7 @@ my $requires = {
 	# Template 2.21 will not install on Windows, anyway.
 	'Template'                  => '2.22',
 	'URI'                       => '1.35',
-	'WiX3'                      => '0.008',
+	'WiX3'                      => '0.009',
 	'YAML::Tiny'                => '1.36',
 	'Win32'                     => '0.35',
 	'Win32::Exe'                => '0.11',
@@ -143,14 +132,14 @@ my $builder = $class->new(
 #	sign                => 1,
 	configure_requires => {
 		'Module::Build'             => '0.36',
-		'CPAN'                      => '1.9454',
+		'CPAN'                      => '1.9456',
 	},
 	requires => $requires,
 	build_requires => {
 		'Test::LongString'          => '0.11',
 		'Test::More'                => '0.86',
 		'Test::Output'              => '0.11',
-		'Test::Perl::Dist'          => '0.203',
+		'Test::Perl::Dist'          => '0.300',
 		'Test::Script'              => '1.03',
 		'Test::UseAllModules'       => '0.09',
 	},

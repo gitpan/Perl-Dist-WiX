@@ -1,14 +1,81 @@
 package Perl::Dist::WiX::Asset::Binary;
 
+=pod
+
+=head1 NAME
+
+Perl::Dist::WiX::Asset::Binary - "Binary Package" asset for a Win32 Perl
+
+=head1 VERSION
+
+This document describes Perl::Dist::WiX::Asset::Binary version 1.200.
+
+=head1 SYNOPSIS
+
+  my $binary = Perl::Dist::WiX::Asset::Binary->new(
+      name       => 'dmake',
+      license    => {
+          'dmake/COPYING'            => 'dmake/COPYING',
+          'dmake/readme/license.txt' => 'dmake/license.txt',
+      },
+      install_to => {
+          'dmake/dmake.exe' => 'c/bin/dmake.exe',	
+          'dmake/startup'   => 'c/bin/startup',
+      },
+  );
+  
+=head1 DESCRIPTION
+
+B<Perl::Dist::WiX::Asset::Binary> is a data class that provides encapsulation
+and error checking for a "binary package" to be installed in a
+L<Perl::Dist::WiX|Perl::Dist::WiX>-based Perl distribution.
+
+It is normally created on the fly by the 
+L<Perl::Dist::WiX::Installation|Perl::Dist::WiX::Installation> 
+C<install_binary> method (and other things that call it).
+
+These packages will be simple zip or tar.gz files that are local files,
+installed in a CPAN distribution's 'share' directory, or retrieved from
+the internet via a URI.
+
+The specification of the location to retrieve the package is done via
+the standard mechanism implemented in 
+L<Perl::Dist::WiX::Role::Asset|Perl::Dist::WiX::Role::Asset>.
+
+=cut
+
 use 5.008001;
 use Moose;
 use MooseX::Types::Moose qw( Str HashRef Maybe );
 use File::Spec::Functions qw( catdir );
 
-our $VERSION = '1.102';
+our $VERSION = '1.200';
 $VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::Asset';
+
+=head1 METHODS
+
+This class inherits from L<Perl::Dist::WiX::Role::Asset|Perl::Dist::WiX::Role::Asset> 
+and shares its API.
+
+=head2 new
+
+The C<new> constructor takes a series of parameters, validates then
+and returns a new C<Perl::Dist::WiX::Asset::Binary> object.
+
+It inherits all the parameters described in the 
+L<< Perl::Dist::WiX::Role::Asset->new()|Perl::Dist::WiX::Role::Asset/new >> 
+method documentation, and adds the additional parameters described below.
+
+=head3 name
+
+The required C<name> parameter is the name of the package for the purposes 
+of identification in messages.
+
+=cut
+
+
 
 has name => (
 	is       => 'ro',
@@ -17,12 +84,55 @@ has name => (
 	required => 1,
 );
 
+
+
+=head3 install_to
+
+The required C<install_to> parameter allows you to specify which 
+directories or files get installed in which subdirectories of the image 
+directory of the distribution.
+
+If a string is passed in, it is a location relative to the image directory, 
+and the whole binary is extracted to that location.
+
+If a hash reference is passed in, the keys are the directories or files 
+to extract from the archive file, while the values are the locations to 
+extract the directories or files to, relative to the image directory of 
+the distribution.
+
+Although this param does not default when called directly, in practice
+the L<Perl::Dist::WiX|Perl::Dist::WiX> C<install_binary> method will 
+default this value to "c", as most binary installations are for C toolchain 
+tools or pre-compiled C libraries.
+
+=cut
+
+
+
 has install_to => (
 	is      => 'ro',
 	isa     => Str | HashRef,
 	reader  => '_get_install_to',
 	default => 'c',
 );
+
+
+
+=head3 license
+
+The C<license> parameter allows you to specify which files get 
+copied to the license directory of the distribution.
+
+The keys are the files to copy, as relative filenames from the subdirectory
+named in C<unpack_to>. If the tarball is properly made, the filenames will 
+include the name and version of the library.
+
+The values are the locations to copy them to, relative to the license 
+directory of the distribution.
+
+=cut
+
+
 
 has license => (
 	is      => 'ro',
@@ -31,6 +141,17 @@ has license => (
 	default => undef,
 );
 
+
+
+=head2 install
+
+The C<install> method extracts and installs the archive file using the 
+directions described in the C<Perl::Dist::WiX::Asset::Binary> object.
+
+=cut
+
+
+
 sub install {
 	my $self = shift;
 
@@ -38,7 +159,8 @@ sub install {
 	$self->_trace_line( 1, "Preparing $name\n" );
 
 	# Download the file
-	my $tgz = $self->_mirror( $self->_get_url, $self->_get_download_dir, );
+	my $tgz =
+	  $self->_mirror( $self->_get_url(), $self->_get_download_dir(), );
 
 	# Unpack the archive
 	my @files;
@@ -73,103 +195,9 @@ sub install {
 no Moose;
 __PACKAGE__->meta->make_immutable;
 
-
 1;
 
 __END__
-
-=pod
-
-=head1 NAME
-
-Perl::Dist::WiX::Asset::Binary - "Binary Package" asset for a Win32 Perl
-
-=head1 SYNOPSIS
-
-  my $binary = Perl::Dist::WiX::Asset::Binary->new(
-      name       => 'dmake',
-      license    => {
-          'dmake/COPYING'            => 'dmake/COPYING',
-          'dmake/readme/license.txt' => 'dmake/license.txt',
-      },
-      install_to => {
-          'dmake/dmake.exe' => 'c/bin/dmake.exe',	
-          'dmake/startup'   => 'c/bin/startup',
-      },
-  );
-  
-=head1 DESCRIPTION
-
-B<Perl::Dist::WiX::Asset::Binary> is a data class that provides encapsulation
-and error checking for a "binary package" to be installed in a
-L<Perl::Dist::WiX>-based Perl distribution.
-
-It is normally created on the fly by the L<Perl::Dist::WiX::Installation> 
-C<install_binary> method (and other things that call it).
-
-These packages will be simple zip or tar.gz files that are local files,
-installed in a CPAN distribution's 'share' directory, or retrieved from
-the internet via a URI.
-
-The specification of the location to retrieve the package is done via
-the standard mechanism implemented in L<Perl::Dist::WiX::Asset>.
-
-=head1 METHODS
-
-This class inherits from L<Perl::Dist::WiX::Asset> and shares its API.
-
-=head2 new
-
-The C<new> constructor takes a series of parameters, validates then
-and returns a new B<Perl::Dist::WiX::Asset::Binary> object.
-
-It inherits all the params described in the L<Perl::Dist::WiX::Asset> C<new>
-method documentation, and adds some additional params.
-
-=over 4
-
-=item name
-
-The required C<name> param is the logical (arbitrary) name of the package
-for the purposes of identification.
-
-=item license
-
-During the installation build process, licenses files are pulled from
-the various source packages and written to a single dedicated directory.
-
-The optional C<license> param should be a reference to a HASH, where the keys
-are the location of license files within the package, and the values are
-locations within the "licenses" subdirectory of the final installation.
-
-=item install_to
-
-The required C<install_to> param describes the location that the package
-will be installed to.
-
-If the C<install_to> param is a single string, such as "c" or "perl\foo"
-the entire binary package will be installed, with the root of the package
-archive being placed in the directory specified.
-
-If the C<install_to> param is a reference to a HASH, it is taken to mean
-that only some parts of the original binary package are required in the
-final install. In this case, the keys should be the file or directories
-desired, and the values are the names of the file or directory in the
-final Perl installation.
-
-Although this param does not default when called directly, in practice
-the L<Perl::Dist::WiX> C<install_binary> method will default this value
-to "c", as most binary installations are for C toolchain tools or 
-pre-compiled C libraries.
-
-=back
-
-The C<new> constructor returns a B<Perl::Dist::Asset::Binary> object,
-or throws an exception (dies) if an invalid param is provided.
-
-=head2 install
-
-The C<install> method extracts and installs the archive file.
 
 =head1 SUPPORT
 
@@ -185,7 +213,8 @@ Curtis Jewell E<lt>csjewell@cpan.orgE<gt>
 
 =head1 SEE ALSO
 
-L<Perl::Dist::WiX>, L<Perl::Dist::WiX::Asset>
+L<Perl::Dist::WiX|Perl::Dist::WiX>, 
+L<Perl::Dist::WiX::Role::Asset|Perl::Dist::WiX::Role::Asset>
 
 =head1 COPYRIGHT AND LICENSE
 

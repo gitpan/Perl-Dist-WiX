@@ -1,5 +1,23 @@
 package Perl::Dist::WiX::Role::NonURLAsset;
 
+=pod
+
+=head1 NAME
+
+Perl::Dist::WiX::Role::NonURLAsset - Role for assets that do not require URL's.
+
+=head1 SYNOPSIS
+
+	# Since this is a role, it is composed into classes that use it.
+  
+=head1 DESCRIPTION
+
+B<Perl::Dist::WiX::Role::NonURLAsset> is a role that provides methods,
+attributes, and error checking for assets to be installed in a 
+L<Perl::Dist::WiX|Perl::Dist::WiX>-based Perl distribution.
+
+=cut
+
 # Convenience role for Perl::Dist::WiX assets
 
 use 5.008001;
@@ -15,8 +33,28 @@ require Perl::Dist::WiX::Exceptions;
 require URI;
 require URI::file;
 
-our $VERSION = '1.102';
+our $VERSION = '1.200';
 $VERSION =~ s/_//sm;
+
+
+
+=head1 ATTRIBUTES
+
+Attributes of this role also become parameters to the new() constructor for 
+classes that use this role.
+
+=head2 parent
+
+This is the L<Perl::Dist::WiX|Perl::Dist::WiX> object that uses an asset 
+object that uses this role.  The Perl::Dist::WiX object handles a number 
+of private methods for the asset object.
+
+It is required, and has no default, so an error will be thrown if it is not 
+given.
+
+=cut
+
+
 
 has parent => (
 	is       => 'ro',
@@ -38,36 +76,46 @@ has parent => (
 		'_get_pv_human'     => 'perl_version_human',
 		'_module_fix'       => '_module_fix',
 		'_trace_line'       => 'trace_line',
-		'_mirror'           => '_mirror',
-		'_run3'             => '_run3',
+		'_mirror'           => 'mirror_url',
+		'_run3'             => 'execute_any',
 		'_filters'          => '_filters',
 		'_add_icon'         => 'add_icon',
 		'_dll_to_a'         => '_dll_to_a',
-		'_copy'             => '_copy',
-		'_extract'          => '_extract',
+		'_copy'             => 'copy_file',
+		'_extract'          => 'extract_archive',
 		'_extract_filemap'  => '_extract_filemap',
 		'_insert_fragment'  => 'insert_fragment',
-		'_pushd'            => '_pushd',
-		'_perl'             => '_perl',
+		'_pushd'            => 'push_dir',
+		'_perl'             => 'execute_perl',
 		'_patch_file'       => 'patch_file',
-		'_build'            => '_build',
-		'_make'             => '_make',
+		'_build'            => 'execute_build',
+		'_make'             => 'execute_make',
 		'_add_to_distributions_installed' =>
 		  '_add_to_distributions_installed',
 	},
 	required => 1,
 );
 
+
+
+=head1 METHODS
+
+=head2 install
+
+This role requires that classes that use it implement an C<install> method
+that installs the asset.
+
+It does not provide the method itself, but makes classes that use the role
+implement the method based on their needs.
+
+=cut
+
+
+
 # An asset knows how to install itself.
 requires 'install';
 
-sub cpan {
 
-	WiX3::Exception::Unimplemented->throw(
-		'Perl::Dist::WiX::Role::Asset->cpan');
-
-	return;
-}
 
 sub _search_packlist {
 	my ( $self, $module ) = @_;
@@ -84,6 +132,7 @@ packlist => 0.
 EOF
 	chomp $error;
 
+	# Get all the filenames and directory names required.
 	my $image_dir   = $self->_get_image_dir();
 	my @module_dirs = split /::/ms, $module;
 	my @dirs        = (
@@ -92,6 +141,7 @@ EOF
 		catdir( $image_dir, qw{perl        lib auto}, @module_dirs ),
 	);
 
+	# What file exists, if any?
 	my $packlist;
   DIR:
 	foreach my $dir (@dirs) {
@@ -101,24 +151,26 @@ EOF
 
 	my $filelist;
 	if ( -r $packlist ) {
+
+		# Load a filelist object from the packlist if one exists.
 		$filelist =
 		  File::List::Object->new()->load_file($packlist)
 		  ->add_file($packlist);
 	} else {
 
-		my $output = catfile( $self->_get_output_dir, 'debug.out' );
-
-		# Trying to use the output to make an array.
+		# Read the output from installing the module.
+		my $output = catfile( $self->_get_output_dir(), 'debug.out' );
 		$self->_trace_line( 3,
 			"Attempting to use debug.out file to make filelist\n" );
-
 		my $fh = IO::File->new( $output, 'r' );
+
 		if ( not defined $fh ) {
 			PDWiX->throw("Error reading output file $output: $OS_ERROR");
 		}
 		my @output_list = <$fh>;
 		$fh->close();
 
+		# Parse the output read in for filenames.
 		my @files_list =
 		  map { ## no critic 'ProhibitComplexMappings'
 			my $t = $_;
@@ -126,7 +178,10 @@ EOF
 			( $t =~ / \A Installing [ ] (.*) \z /msx ) ? ($1) : ();
 		  } @output_list;
 
+		# Load the filenames into the filelist object.
 		if ( $#files_list == 0 ) {
+
+			# Throw an error if no files were found.
 			PDWiX->throw($error);
 		} else {
 			$self->_trace_line( 4, "Adding files:\n" );
@@ -135,57 +190,14 @@ EOF
 		}
 	} ## end else [ if ( -r $packlist ) ]
 
-	return $filelist->filter( $self->_filters );
+	# Return the filelist processed therough the filters.
+	return $filelist->filter( $self->_filters() );
 } ## end sub _search_packlist
 
 1;
 
 __END__
 
-=pod
-
-=head1 NAME
-
-Perl::Dist::WiX::Role::NonURLAsset - Role for assets that do not require URL's.
-
-=head1 SYNOPSIS
-
-	# Since this is a role, it is composed into classes that use it.
-  
-=head1 DESCRIPTION
-
-B<Perl::Dist::WiX::Role::NonURLAsset> is a role that provides methods,
-attributes, and error checking for assets to be installed in a 
-L<Perl::Dist::WiX>-based Perl distribution.
-
-=head1 ATTRIBUTES
-
-Attributes of this role also become parameters to the new() constructor for 
-classes that use this role.
-
-=head2 parent
-
-This is the L<Perl::Dist::WiX> object that uses an asset object that uses 
-this role.  The Perl::Dist::WiX object handles a number of private methods 
-for the asset object.
-
-It is required, and has no default, so an error will be thrown if it is not 
-given.
-
-=head1 METHODS
-
-=head2 cpan
-
-The C<cpan> routine is a stub, as it is not used, and will throw an error.
-
-It will be removed in the future.
-
-=head2 install
-
-This role requires that classes that use it implement an C<install> method
-that installs the asset.
-
-It does not provide the method itself.
 
 =head1 SUPPORT
 

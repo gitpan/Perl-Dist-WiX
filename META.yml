@@ -6,11 +6,11 @@ build_requires:
   Test::LongString: 0.11
   Test::More: 0.86
   Test::Output: 0.11
-  Test::Perl::Dist: 0.203
+  Test::Perl::Dist: 0.300
   Test::Script: 1.03
   Test::UseAllModules: 0.09
 configure_requires:
-  CPAN: 1.9454
+  CPAN: 1.9456
   Module::Build: 0.36
 generated_by: 'Module::Build version 0.3603'
 license: perl
@@ -26,122 +26,123 @@ no_index:
 provides:
   Perl::Dist::VanillaWiX:
     file: lib/Perl/Dist/VanillaWiX.pm
-    version: 1.102_101
+    version: 1.200
   Perl::Dist::WiX:
     file: lib/Perl/Dist/WiX.pm
-    version: 1.102_102
+    version: 1.200
   Perl::Dist::WiX::Asset::Binary:
     file: lib/Perl/Dist/WiX/Asset/Binary.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::Asset::DistBase:
     file: lib/Perl/Dist/WiX/Asset/DistBase.pm
-    version: 1.102_101
+    version: 1.200
   Perl::Dist::WiX::Asset::DistFile:
     file: lib/Perl/Dist/WiX/Asset/DistFile.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::Asset::Distribution:
     file: lib/Perl/Dist/WiX/Asset/Distribution.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::Asset::File:
     file: lib/Perl/Dist/WiX/Asset/File.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::Asset::Launcher:
     file: lib/Perl/Dist/WiX/Asset/Launcher.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::Asset::Library:
     file: lib/Perl/Dist/WiX/Asset/Library.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::Asset::Module:
     file: lib/Perl/Dist/WiX/Asset/Module.pm
-    version: 1.102_100
+    version: 1.200
   Perl::Dist::WiX::Asset::PAR:
     file: lib/Perl/Dist/WiX/Asset/PAR.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::Asset::Perl:
     file: lib/Perl/Dist/WiX/Asset/Perl.pm
-    version: 1.102_101
+    version: 1.200
   Perl::Dist::WiX::Asset::Website:
     file: lib/Perl/Dist/WiX/Asset/Website.pm
-    version: 1.102_101
+    version: 1.200
   Perl::Dist::WiX::BuildPerl:
     file: lib/Perl/Dist/WiX/BuildPerl.pm
-    version: 1.102_102
+    version: 1.200
   Perl::Dist::WiX::Checkpoint:
     file: lib/Perl/Dist/WiX/Checkpoint.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::DirectoryCache:
     file: lib/Perl/Dist/WiX/DirectoryCache.pm
-    version: 1.102_101
+    version: 1.200
   Perl::Dist::WiX::DirectoryTree2:
     file: lib/Perl/Dist/WiX/DirectoryTree2.pm
-    version: 1.102_102
+    version: 1.200
   Perl::Dist::WiX::Exceptions:
     file: lib/Perl/Dist/WiX/Exceptions.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::FeatureTree2:
     file: lib/Perl/Dist/WiX/FeatureTree2.pm
     version: 1.102
   Perl::Dist::WiX::Fragment::CreateFolder:
     file: lib/Perl/Dist/WiX/Fragment/CreateFolder.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::Fragment::Environment:
     file: lib/Perl/Dist/WiX/Fragment/Environment.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::Fragment::Files:
     file: lib/Perl/Dist/WiX/Fragment/Files.pm
-    version: 1.102_101
+    version: 1.200
   Perl::Dist::WiX::Fragment::StartMenu:
     file: lib/Perl/Dist/WiX/Fragment/StartMenu.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::IconArray:
     file: lib/Perl/Dist/WiX/IconArray.pm
-    version: 1.102_101
+    version: 1.200
   Perl::Dist::WiX::Installation:
     file: lib/Perl/Dist/WiX/Installation.pm
-    version: 1.102001
+    version: 1.200
   Perl::Dist::WiX::Libraries:
     file: lib/Perl/Dist/WiX/Libraries.pm
-    version: 1.102_101
-  Perl::Dist::WiX::PrivateTypes:
-    file: lib/Perl/Dist/WiX/PrivateTypes.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::ReleaseNotes:
     file: lib/Perl/Dist/WiX/ReleaseNotes.pm
-    version: 1.102_101
+    version: 1.200
   Perl::Dist::WiX::Role::Asset:
     file: lib/Perl/Dist/WiX/Role/Asset.pm
-    version: 1.102_101
+    version: 1.200
   Perl::Dist::WiX::Role::NonURLAsset:
     file: lib/Perl/Dist/WiX/Role/NonURLAsset.pm
-    version: 1.102
+    version: 1.200
+  Perl::Dist::WiX::Support:
+    file: lib/Perl/Dist/WiX/Support.pm
+    version: 1.200
   Perl::Dist::WiX::Tag::Directory:
     file: lib/Perl/Dist/WiX/Tag/Directory.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::Tag::DirectoryRef:
     file: lib/Perl/Dist/WiX/Tag/DirectoryRef.pm
-    version: 1.102_101
+    version: 1.200
   Perl::Dist::WiX::Tag::Icon:
     file: lib/Perl/Dist/WiX/Tag/Icon.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::Tag::MergeModule:
     file: lib/Perl/Dist/WiX/Tag/MergeModule.pm
     version: 1.102
   Perl::Dist::WiX::Toolchain:
     file: lib/Perl/Dist/WiX/Toolchain.pm
-    version: 1.102_102
+    version: 1.200
   Perl::Dist::WiX::Types:
     file: lib/Perl/Dist/WiX/Types.pm
-    version: 1.102
+    version: 1.200
   Perl::Dist::WiX::Util::Machine:
     file: lib/Perl/Dist/WiX/Util/Machine.pm
-    version: 1.102
+    version: 1.200
 recommends:
   Readonly::XS: 1.05
 requires:
   Alien::WiX: 0.300000
   Archive::Tar: 1.42
   Archive::Zip: 1.26
-  CPAN: 1.9454
+  CPAN: 1.9456
+  Clone: 0.31
   Data::Dump::Streamer: 2.08
   Data::UUID: 1.149
   Devel::StackTrace: 1.20
@@ -166,13 +167,13 @@ requires:
   LWP::UserAgent: 5.823
   LWP::UserAgent::WithCache: 0.06
   List::MoreUtils: 0.07
-  Module::CoreList: 2.27
+  Module::CoreList: 2.29
   Moose: 0.90
-  MooseX::Meta::TypeConstraint::Intersection: 0.01
   MooseX::NonMoose: 0.05
   MooseX::Singleton: 0
   MooseX::Types: 0
-  MooseX::Types::URI: 0
+  MooseX::Types::Path::Class: 0.05
+  MooseX::Types::URI: 0.02
   PAR::Dist: 0.42
   Params::Util: 0.35
   Portable::Dist: 0.03
@@ -181,7 +182,7 @@ requires:
   Readonly: 1.03
   Template: 2.22
   URI: 1.35
-  WiX3: 0.008
+  WiX3: 0.009
   Win32: 0.35
   Win32::Exe: 0.11
   Win32::File::Object: 0.01
@@ -195,4 +196,4 @@ resources:
   homepage: http://csjewell.comyr.com/perl/
   license: http://dev.perl.org/licenses/
   repository: http://svn.ali.as/cpan/trunk/Perl-Dist-WiX/
-version: 1.102_102
+version: 1.200

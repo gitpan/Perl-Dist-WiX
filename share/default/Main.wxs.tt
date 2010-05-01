@@ -70,8 +70,14 @@
     <UIRef Id='WixUI_ErrorProgressText' />
     <UIRef Id='WixUI_Common' />
 
-    <Property Id='INSTALLDIR'>[% dist.image_dir %]</Property>
-    
+[% IF dist.relocatable %]
+	<Property Id="UPGRADEDIR">
+		<RegistrySearch Id="InstallDir" Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\[OLDERVERSIONBEINGUPGRADED]" Name="InstallLocation" Type="raw" />
+	</Property>
+[% END %]
+
+    <Property Id='INSTALLDIR' Value='[% dist.image_dir.stringify %]' />
+
 [% directory_tree %]
 
 [% dist.feature_tree_object.as_string %]
@@ -84,10 +90,10 @@
 [% END %]
     <InstallExecuteSequence>
       <Custom Action='CA_ClearSiteFolder' Before='InstallInitialize'>
-        <![CDATA[UNINSTALL_SITE OR (Installed AND NOT OLDERVERSIONBEINGUPGRADED)]]>
+        <![CDATA[(UNINSTALL_SITE OR (Installed AND NOT OLDERVERSIONBEINGUPGRADED)) AND NOT VersionNT64]]>
       </Custom>
 [% IF not dist.msm %]
-      <Custom Action='CA_ClearFolder' Before='InstallInitialize'>REMOVE="ALL"</Custom>
+      <Custom Action='CA_ClearFolder' Before='InstallInitialize'>REMOVE="ALL" AND NOT VersionNT64</Custom>
 [% END %]
     </InstallExecuteSequence>
 
@@ -101,6 +107,34 @@
     </UI>
 
 [% IF dist.relocatable %]
+	<Property Id="NO_RELOCATE" Secure="yes"/>
+	<Property Id="NO_RELOCATE.[% dist.msm_package_id_property %]" Secure="yes"/>
+	<CustomAction Id="CA_SetARPInstallLoc" Property="ARPINSTALLLOCATION" Value="[INSTALLDIR]"  Execute="immediate"/>
+	<CustomAction Id="CA_GetARPInstallLoc" Property="INSTALLDIR" Value="[UPGRADEDIR]"  Execute="immediate"/>
+	<InstallUISequence>
+		<Custom Action="CA_GetARPInstallLoc" Before="CostInitialize">
+			OLDERVERSIONBEINGUPGRADED AND UPGRADEDIR
+		</Custom>
+	</InstallUISequence>
+	
+	[% IF dist.use_dll_relocation %]
+	<CustomAction Id="CA_NoRelocate" Property="NO_RELOCATE.[% dist.msm_package_id_property %]"
+				  Value="[NO_RELOCATE]" Execute="immediate"/>
+	<CustomAction Id="CA_FileList" Property="CA_Relocate"
+				  Value="MSI;[INSTALLDIR];[% dist.msi_relocation_idlist %]" Return="check" />
+	<CustomAction Id="CA_Relocate" BinaryKey="B_ClearFolder" DllEntry="Relocate" Return="check" Execute="deferred" />
+
+	<InstallExecuteSequence>
+		<Custom Action="CA_SetARPInstallLoc" Before="RegisterProduct" />
+		<Custom Action="CA_NoRelocate" After="CostFinalize"/>
+		<Custom Action="CA_FileList" After="InstallFiles"/>	
+		<Custom Action="CA_Relocate" After="CA_FileList">
+			<![CDATA[NOT (NO_RELOCATE OR Installed)]]>
+		</Custom>
+	</InstallExecuteSequence>
+	<Property Id="RELOCFILE" Secure="yes"/>
+	<Property Id="RELOCFILE.[% dist.msm_package_id_property %]" Secure="yes"/>
+	[% ELSE %]
 	<CustomAction Id="CA_Rlc_1" Property="P_Rlc_1"
 				  Value="&quot;[#[% dist.fileid_perl %].[% dist.msm_package_id_property %]]&quot;" Execute="immediate"/>
 	<CustomAction Id="CA_Rlc_2" Property="P_Rlc_2"
@@ -109,26 +143,26 @@
 				  Value="[P_Rlc_1] [P_Rlc_2] --location [INSTALLDIR] --quiet" Execute="immediate"/>
 	<CustomAction Id="CA_Rlc_4" Property="P_Rlc_4"
 				  Value="[% dist.msi_relocation_commandline %]" Execute="immediate"/>
-	<CustomAction Id="CA_Rlc_5" Property="NO_RELOCATE.[% dist.msm_package_id_property %]"
-				  Value="[NO_RELOCATE]" Execute="immediate"/>
+	<CustomAction Id="CA_NoRelocate" Property="NO_RELOCATE.[% dist.msm_package_id_property %]"
+ 				  Value="[NO_RELOCATE]" Execute="immediate"/>
 	<CustomAction Id="CA_Relocate_Cmd" Property="CA_Relocate"
 				  Value="[P_Rlc_3][P_Rlc_4]" Execute="immediate"/>
 	<CustomAction Id="CA_Relocate" BinaryKey="WixCA" DllEntry="[% dist.msi_relocation_ca %]"
-				  Execute="deferred" Return="check" Impersonate="no"/>
+				  Execute="deferred" Return="check" Impersonate="no" />
 
 	<InstallExecuteSequence>
+ 		<Custom Action="CA_SetARPInstallLoc" Before="RegisterProduct" />
 		<Custom Action="CA_Rlc_1" After="CostFinalize"/>
 		<Custom Action="CA_Rlc_2" After="CA_Rlc_1"/>
 		<Custom Action="CA_Rlc_3" After="CA_Rlc_2"/>
 		<Custom Action="CA_Rlc_4" After="CA_Rlc_3"/>
-		<Custom Action="CA_Rlc_5" After="CA_Rlc_4"/>		
-		<Custom Action="CA_Relocate_Cmd" After="CA_Rlc_4"/>
+		<Custom Action="CA_NoRelocate" After="CA_Rlc_4"/>		
+		<Custom Action="CA_Relocate_Cmd" After="CA_NoRelocate"/>
 		<Custom Action="CA_Relocate" After="PublishProduct">
 			<![CDATA[NOT (NO_RELOCATE OR Installed)]]>
 		</Custom>
 	</InstallExecuteSequence>
-	<Property Id="NO_RELOCATE" Secure="yes"/>
-	<Property Id="NO_RELOCATE.[% dist.msm_package_id_property %]" Secure="yes"/>
+	[% END %]
 
     <UI>
    	  <ProgressText Action="CA_Relocate">Relocating [% dist.app_name %]...</ProgressText>
@@ -208,9 +242,7 @@
 			<Publish Event="EndDialog" Value="Return">1</Publish>
 		  </Control>
 		  <Control Id="Text" Type="Text" X="48" Y="15" Width="194" Height="30" TabSkip="no">
-			<Text>
-			  [% dist.app_name %] cannot be installed in a directory with spaces.
-			</Text>
+			<Text>[% dist.app_name %] cannot be installed in a directory with spaces.</Text>
 		  </Control>
 		</Dialog>
 	</UI>
@@ -229,13 +261,14 @@
     <Property Id='ARPCOMMENTS'>[% dist.app_name %] [% dist.perl_version_human %]</Property>
     <Property Id='ARPCONTACT'>[% dist.app_publisher %]</Property>
     <Property Id='ARPURLINFOABOUT'>[% dist.app_publisher_url %]</Property>
+	
 [% IF dist.msi_help_url.defined %]
     <Property Id='ARPHELPLINK'>[% dist.msi_help_url %]</Property>
 [% END %]
 [% IF dist.msi_readme_file.defined %]
     <Property Id='ARPREADME'>[% dist.msi_readme_file %]</Property>
 [% END %]
-[% IF dist.msi_product_icon_id.defined %]
+[% IF dist.msi_product_icon.defined %]
     <Property Id='ARPPRODUCTICON'>[% dist.msi_product_icon_id %]</Property>
 [% END %]
 [% IF dist.msi_banner_top.defined %]

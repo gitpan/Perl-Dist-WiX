@@ -8,29 +8,35 @@ Perl::Dist::WiX::Checkpoint - Checkpoint support for Perl::Dist::WiX
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Checkpoint version 1.102.
+This document describes Perl::Dist::WiX::Checkpoint version 1.200.
+
+=head1 SYNOPSIS
+
+	# This module is not to be used independently.
+	# It provides methods to be called on a Perl::Dist::WiX object.
+
+	$dist = Perl::Dist::WiX->new(
+		# ...
+		checkpoint_before => 5,
+		checkpoint_after => [8, 9],
+		checkpoint_stop => 9,
+		# ...
+	);
 
 =head1 DESCRIPTION
 
 This module provides the routines that Perl::Dist::WiX uses in order to
 support checkpointing.
 
-=head1 SYNOPSIS
-
-	# This module is not to be used independently.
-	$dist = Perl::Dist::WiX->new(
-		# ...
-		checkpoint_before => 5
-		checkpoint_after => [8, 9],
-		checkpoint_stop => 9,
-		# ...
-	);
-
 =head1 INTERFACE
 
 There are 2 portions to the interface to this module - the parameters to 
 L<new()|Perl::Dist::WiX/new> (documented in that module), and the 
-object calls that Perl::Dist::WiX uses to coordinate checkpointing.
+object methods that Perl::Dist::WiX uses to coordinate checkpointing, as
+described below.
+
+These routines are not meant to be called from external classes.  
+L<Perl::Dist::WiX|Perl::Dist::WiX> calls these routines as required.
 
 =cut
 
@@ -40,15 +46,11 @@ use English qw( -no_match_vars );
 use List::Util qw( first );
 use File::Spec::Functions qw( catdir catfile );
 use File::Remove qw();
+use Storable qw();
+use Clone qw(clone);
 
-our $VERSION = '1.102';
+our $VERSION = '1.200';
 $VERSION =~ s/_//ms;
-
-#####################################################################
-# Checkpoint Support
-
-# NOTE: "The object that called it" is supposed to be a Perl::Dist::WiX
-# object.
 
 =head2 checkpoint_task
 
@@ -59,6 +61,10 @@ The first parameter is the name of the subroutine to be executed.
 The second parameter is the task number that goes with that subroutine.
 
 Returns true (technically, the object that called it), or throws an exception.
+
+This routine is called for each task (a task is a method on 
+C<Perl::Dist::WiX> or a subclass of it) defined in the 
+L<tasklist|Perl::Dist::WiX/tasklist> parameter to C<Perl::Dist::WiX->new()>.
 
 =cut
 
@@ -99,7 +105,8 @@ sub checkpoint_task {
 
 =head2 checkpoint_file
 
-Returns the file that the Perl::Dist::WiX object is stored in.
+Returns the file that the Perl::Dist::WiX object is stored in when
+C<checkpoint_save> is called.
 
 =cut
 
@@ -121,7 +128,7 @@ sub checkpoint_self {
 =head2 checkpoint_save
 
 Saves a checkpoint within the checkpoint subdirectory of 
-L<Perl::Dist::WiX-E<gt>temp_dir|Perl::Dist::WiX/temp_dir>
+L<< Perl::Dist::WiX->temp_dir|Perl::Dist::WiX/temp_dir >>
 
 =cut
 
@@ -140,25 +147,27 @@ sub checkpoint_save {
 	foreach my $dir (qw{ build_dir download_dir image_dir output_dir }) {
 		my $from = $self->$dir();
 		my $to = catdir( $self->checkpoint_dir(), $dir );
-		$self->_copy( $from => $to );
+		$self->copy_file( $from => $to );
 	}
 
-	# Store the main object.
 	# Blank the checkpoint values to prevent load/save loops, and remove
 	# things we can recreate later.
-	my $copy = {
-		%{$self},
-		checkpoint_before => 0,
-		checkpoint_after  => [0],
-		checkpoint_stop   => 0,
-		patch_template    => undef,
-		user_agent        => undef,
-		'_guidgen'        => undef,
-		'_trace_object'   => undef,
-	};
+	my $copy = clone($self);
+	$copy->_clear_patch_template();
+	$copy->_clear_guidgen();
+	$copy->_clear_user_agent();
+	$copy->_clear_trace_object();
+	$copy->_set_checkpoint_before(0);
+	$copy->_set_checkpoint_after( [0] );
+	$copy->_set_checkpoint_stop(0);
 
+	# Store the main object.
 	local $Storable::Deparse = 1;
-	Storable::nstore( $copy, $self->checkpoint_file() );
+	eval { Storable::nstore( $copy, $self->checkpoint_file() ); 1; }
+	  or PDWiX::Caught::Storable->throw(
+		message => $EVAL_ERROR,
+		object  => $copy
+	  );
 
 	return 1;
 } ## end sub checkpoint_save
@@ -166,23 +175,33 @@ sub checkpoint_save {
 =head2 checkpoint_load
 
 Restores a checkpoint saved to the checkpoint subdirectory of 
-L<Perl::Dist::WiX-E<gt>temp_dir|Perl::Dist::WiX/temp_dir> with 
+L<< Perl::Dist::WiX->temp_dir|Perl::Dist::WiX/temp_dir >> with 
 L</checkpoint_save>.
 
 =cut
 
 sub checkpoint_load {
-	my $self = shift;
+	## no critic(ProtectPrivateSubs)
+	my $self  = shift;
+	my $class = ref $self;
 
 	# Does the checkpoint exist?
-	$self->trace_line( 1, "Removing old checkpoint\n" );
 	unless ( -d $self->checkpoint_dir() ) {
 		PDWiX->throw('Failed to find checkpoint directory');
 	}
 
+	$self->trace_line( 1, "Preparing to restore checkpoint\n" );
+
 	# If we want a future checkpoint, save it.
 	my $checkpoint_after = $self->checkpoint_after() || 0;
 	my $checkpoint_stop  = $self->checkpoint_stop()  || 0;
+
+	# Save off the user agent for later restoration.
+	my $user_agent = $self->user_agent();
+
+	# Clear the directory tree.
+	$self->_clear_directory_tree();
+	Perl::Dist::WiX::DirectoryTree2->_clear_instance();
 
 	# Load the stored hash over our object
 	local $Storable::Eval = 1;
@@ -193,27 +212,50 @@ sub checkpoint_load {
 	$self->_set_checkpoint_after($checkpoint_after);
 	$self->_set_checkpoint_stop($checkpoint_stop);
 
-	## no critic(ProtectPrivateSubs)
+	# Grab the directory tree stuff before we clear it.
+	my $directory_tree_root = $self->{_directories}->{_root};
+	my $app_name            = $self->{_directories}->{app_name};
+	my $app_dir             = $self->{_directories}->{app_dir};
+
+	# Clear the directory tree instance again, then
+	# recreate it with the saved stuff.
+	$self->_clear_directory_tree();
+	Perl::Dist::WiX::DirectoryTree2->_clear_instance();
+	$self->_set_directories(
+		Perl::Dist::WiX::DirectoryTree2->new(
+			app_dir  => $app_dir,
+			app_name => $app_name,
+			_root    => $directory_tree_root,
+		) );
+
 	# Reload the misc object.
-	$self->_set_trace_object(undef);
+	$self->_clear_trace_object();
 	WiX3::Trace::Object->_clear_instance();
 	WiX3::Traceable->_clear_instance();
 	$self->_set_trace_object(
 		WiX3::Traceable->new( tracelevel => $self->trace() ) );
 
-	$self->_set_guidgen(undef);
+	# Reload GUID generator.
+	$self->_clear_guidgen();
 	WiX3::XML::GeneratesGUID::Object->_clear_instance();
 	$self->_set_guidgen(
 		WiX3::XML::GeneratesGUID::Object->new(
 			_sitename => $self->sitename() ) );
 
+	# Reload LWP user agent.
+	$self->_clear_user_agent();
+	$self->_set_user_agent($user_agent);
+
+	# Clear other objects for reloading.
+	$self->_clear_patch_template();
+
 	# Pull all the directories out of the storage.
 	$self->trace_line( 0, "Restoring checkpoint directories...\n" );
 	foreach my $dir (qw{ build_dir download_dir image_dir output_dir }) {
-		my $from = File::Spec->catdir( $self->checkpoint_dir, $dir );
+		my $from = File::Spec->catdir( $self->checkpoint_dir(), $dir );
 		my $to = $self->$dir();
 		File::Remove::remove($to);
-		$self->_copy( $from => $to );
+		$self->copy_file( $from => $to );
 	}
 
 	return 1;
