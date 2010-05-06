@@ -29,7 +29,7 @@ provides:
     version: 1.200
   Perl::Dist::WiX:
     file: lib/Perl/Dist/WiX.pm
-    version: 1.200
+    version: 1.200001
   Perl::Dist::WiX::Asset::Binary:
     file: lib/Perl/Dist/WiX/Asset/Binary.pm
     version: 1.200
@@ -65,10 +65,10 @@ provides:
     version: 1.200
   Perl::Dist::WiX::BuildPerl:
     file: lib/Perl/Dist/WiX/BuildPerl.pm
-    version: 1.200
+    version: 1.200001
   Perl::Dist::WiX::Checkpoint:
     file: lib/Perl/Dist/WiX/Checkpoint.pm
-    version: 1.200
+    version: 1.200001
   Perl::Dist::WiX::DirectoryCache:
     file: lib/Perl/Dist/WiX/DirectoryCache.pm
     version: 1.200
@@ -80,7 +80,7 @@ provides:
     version: 1.200
   Perl::Dist::WiX::FeatureTree2:
     file: lib/Perl/Dist/WiX/FeatureTree2.pm
-    version: 1.102
+    version: 1.200001
   Perl::Dist::WiX::Fragment::CreateFolder:
     file: lib/Perl/Dist/WiX/Fragment/CreateFolder.pm
     version: 1.200
@@ -89,13 +89,13 @@ provides:
     version: 1.200
   Perl::Dist::WiX::Fragment::Files:
     file: lib/Perl/Dist/WiX/Fragment/Files.pm
-    version: 1.200
+    version: 1.200001
   Perl::Dist::WiX::Fragment::StartMenu:
     file: lib/Perl/Dist/WiX/Fragment/StartMenu.pm
     version: 1.200
   Perl::Dist::WiX::IconArray:
     file: lib/Perl/Dist/WiX/IconArray.pm
-    version: 1.200
+    version: 1.200001
   Perl::Dist::WiX::Installation:
     file: lib/Perl/Dist/WiX/Installation.pm
     version: 1.200
@@ -128,7 +128,7 @@ provides:
     version: 1.102
   Perl::Dist::WiX::Toolchain:
     file: lib/Perl/Dist/WiX/Toolchain.pm
-    version: 1.200
+    version: 1.200001
   Perl::Dist::WiX::Types:
     file: lib/Perl/Dist/WiX/Types.pm
     version: 1.200
@@ -184,10 +184,11 @@ requires:
   URI: 1.35
   WiX3: 0.009
   Win32: 0.35
-  Win32::Exe: 0.11
+  Win32::Exe: 0.13
   Win32::File::Object: 0.01
   Win32API::File: 0.1001
   YAML::Tiny: 1.36
+  namespace::autoclean: 0.10
   parent: 0.221
   perl: 5.008001
 resources:
@@ -196,4 +197,4 @@ resources:
   homepage: http://csjewell.comyr.com/perl/
   license: http://dev.perl.org/licenses/
   repository: http://svn.ali.as/cpan/trunk/Perl-Dist-WiX/
-version: 1.200
+version: 1.200001
