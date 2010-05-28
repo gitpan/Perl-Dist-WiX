@@ -8,7 +8,7 @@ Perl::Dist::WiX::Tag::DirectoryRef - <DirectoryRef> tag that knows how to search
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Tag::DirectoryRef version 1.200.
+This document describes Perl::Dist::WiX::Tag::DirectoryRef version 1.200_100.
 
 =head1 SYNOPSIS
 
@@ -46,7 +46,7 @@ use File::Spec::Functions qw( catdir abs2rel );
 use Params::Util qw( _STRING _INSTANCE );
 require Perl::Dist::WiX::Tag::Directory;
 
-our $VERSION = '1.200';
+our $VERSION = '1.200_100';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::DirectoryRef';
@@ -138,18 +138,21 @@ sub search_dir {
 	  );
 	my $descend = $args{descend} || 1;
 	my $exact   = $args{exact}   || 0;
-	my $path    = $self->get_path();
+
+	# This would be $self->get_path(), but hopefully quicker.
+	# This is hit enough to take up a lot of time when profiling.
+	my $path = $self->{directory_object}->{path};
 
 	return undef unless defined $path;
 
-#	$self->trace_line( 3, "Looking for $path_to_find\n" );
-#	$self->trace_line( 4, "  in:      $path.\n" );
-#	$self->trace_line( 5, "  descend: $descend exact: $exact.\n" );
+	$self->trace_line( 3, "Looking for $path_to_find\n" );
+	$self->trace_line( 4, "  in:      $path.\n" );
+	$self->trace_line( 5, "  descend: $descend exact: $exact.\n" );
 
 	# If we're at the correct path, exit with success!
 	if ( ( defined $path ) && ( $path_to_find eq $path ) ) {
 
-#		$self->trace_line( 4, "Found $path.\n" );
+		$self->trace_line( 4, "Found $path.\n" );
 		return $self;
 	}
 
@@ -160,8 +163,8 @@ sub search_dir {
 	my $subset = "$path_to_find\\" =~ m{\A\Q$path\E\\}msx;
 	if ( not $subset ) {
 
-#		$self->trace_line( 4, "Not a subset in: $path.\n" );
-#		$self->trace_line( 5, "  To find: $path_to_find.\n" );
+		$self->trace_line( 4, "Not a subset in: $path.\n" );
+		$self->trace_line( 5, "  To find: $path_to_find.\n" );
 		return undef;
 	}
 
@@ -242,13 +245,14 @@ sub add_directory {
 	my $self = shift;
 
 	my $new_dir = Perl::Dist::WiX::Tag::Directory->new(
-		parent => $self,
+
+#		parent => $self,
 		@_
 	);
 	$self->add_child_tag($new_dir);
 
 	return $new_dir;
-}
+} ## end sub add_directory
 
 
 

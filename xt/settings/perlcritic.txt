@@ -61,4 +61,4 @@ version = 5.008001
 [-Editor::RequireEmacsFileVariables]
 
 # Excluded because Moose builder subroutines get hit by this.
-[-Subroutines::ProhibitUnusedPrivateSubroutines]
+#[-Subroutines::ProhibitUnusedPrivateSubroutines]

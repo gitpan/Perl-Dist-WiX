@@ -8,7 +8,7 @@ Perl::Dist::WiX::Toolchain - Compiles the initial toolchain for a Win32 perl dis
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Toolchain version 1.200001.
+This document describes Perl::Dist::WiX::Toolchain version 1.200_100.
 
 =head1 SYNOPSIS
 
@@ -58,12 +58,12 @@ use Moose::Util::TypeConstraints;
 use English qw( -no_match_vars );
 use Carp qw();
 use Params::Util qw( _HASH );
-use Module::CoreList 2.29 qw();
+use Module::CoreList 2.32 qw();
 use IO::Capture::Stdout qw();
 use IO::Capture::Stderr qw();
 use vars qw(@DELEGATE);
 
-our $VERSION = '1.200001';
+our $VERSION = '1.200_100';
 $VERSION =~ s/_//ms;
 
 extends qw(
@@ -267,6 +267,7 @@ sub _modules_build {
 	$modules{'5.010001'} = $modules{'5.008009'};
 	$modules{'5.011001'} = $modules{'5.008009'};
 	$modules{'5.012000'} = $modules{'5.008009'};
+	$modules{'5.012001'} = $modules{'5.008009'};
 
 	return \%modules;
 } ## end sub _modules_build
@@ -296,6 +297,7 @@ sub _corelist_version_build {
 		'5.010001' => '5.010001',
 		'5.011001' => '5.011001',
 		'5.012000' => '5.012000',
+		'5.012001' => '5.012001',
 	);
 
 	return \%corelist;

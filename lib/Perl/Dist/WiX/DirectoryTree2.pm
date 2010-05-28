@@ -8,13 +8,13 @@ Perl::Dist::WiX::DirectoryTree2 - Base directory tree for Perl::Dist::WiX.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::DirectoryTree2 version 1.200.
+This document describes Perl::Dist::WiX::DirectoryTree2 version 1.200_100.
 
 =head1 SYNOPSIS
 
 	$tree = Perl::Dist::WiX::DirectoryTree2->instance();
 	
-	# TODO: Add more.
+	# See each method for examples.
 
 =head1 DESCRIPTION
 
@@ -40,7 +40,7 @@ use MooseX::Types::Path::Class qw( Dir );
 use Perl::Dist::WiX::Tag::Directory;
 use WiX3::Exceptions;
 
-our $VERSION = '1.200';
+our $VERSION = '1.200_100';
 $VERSION =~ s/_//sm;
 
 with 'WiX3::Role::Traceable';
@@ -165,8 +165,8 @@ Returns the previously created directory tree.
 
 	my $directory_object = $tree->get_root();
 	
-Gets the L<Perl::Dist::WiX::Directory|Perl::Dist::WiX::Directory> object at
-the root of the tree.
+Gets the L<Perl::Dist::WiX::Tag::Directory|Perl::Dist::WiX::Tag::Directory> 
+object at the root of the tree.
 	
 =head2 as_string
 
@@ -186,7 +186,7 @@ sub as_string {
 
 =head2 initialize_tree
 
-	$tree->initialize_tree($perl_version);
+	$tree->initialize_tree($perl_version, $bits, $gcc_version);
 
 Adds a basic directory structure to the directory tree object.
 
@@ -195,6 +195,8 @@ Adds a basic directory structure to the directory tree object.
 sub initialize_tree {
 	my $self = shift;
 	my $ver  = shift;
+	my $bits = shift || 32;
+	my $gcc  = shift || 3;
 
 	$self->trace_line( 2, "Initializing directory tree.\n" );
 
@@ -204,7 +206,7 @@ sub initialize_tree {
 			noprefix => 1,
 			path     => $self->_get_app_dir()->stringify(),
 		} );
-	$self->get_root()->add_directory( {
+	my $app_menu = $self->get_root()->add_directory( {
 			id       => 'ProgramMenuFolder',
 			noprefix => 1,
 		}
@@ -214,6 +216,11 @@ sub initialize_tree {
 		} );
 
 #<<<
+	$app_menu->add_directories_id(
+		'App_Menu_Tools',    'Tools',
+		'App_Menu_Websites', 'Related Websites',
+	);
+
 	$branch->add_directories_id(
 		'Perl',      'perl',
 		'Toolchain', 'c',
@@ -251,6 +258,13 @@ sub initialize_tree {
 	  perl\\vendor\\lib\\auto\\share\\module
 	);
 
+# We have to get every possibility of directories immediately under
+# the 'c' directory, or linking errors occur, as c is found first in later files.
+	if ( 64 == $bits ) {
+		push @list, 'c\\lib64';
+		push @list, 'c\\x86_64-w64-mingw32';
+	}
+
 	foreach my $dir (@list) {
 		$self->add_directory(
 			$self->_get_app_dir()->subdir($dir)->stringify() );
@@ -286,7 +300,7 @@ sub initialize_short_tree {
 			noprefix => 1,
 			path     => $self->_get_app_dir()->stringify(),
 		} );
-	$self->get_root()->add_directory( {
+	my $app_menu = $self->get_root()->add_directory( {
 			id       => 'ProgramMenuFolder',
 			noprefix => 1,
 		}
@@ -296,6 +310,11 @@ sub initialize_short_tree {
 		} );
 
 #<<<
+	$app_menu->add_directories_id(
+		'App_Menu_Tools',    'Tools',
+		'App_Menu_Websites', 'Related Websites',
+	);
+
 	$branch->add_directories_id(
 		'Win32',     'win32',
 		'Perl',      'perl',
@@ -358,8 +377,11 @@ sub add_directory {
 
 =head2 add_root_directory
 
-TODO
+	$self->add_root_directory('Id', 'directory');
 
+Adds a directory entry with the ID and directory name given
+immediately under the main installation directory.
+	
 =cut
 
 
@@ -406,7 +428,7 @@ sub add_merge_module {
 
 	$directory_object->add_child_tag($mm);
 
-	return;
+	return 1;
 } ## end sub add_merge_module
 
 

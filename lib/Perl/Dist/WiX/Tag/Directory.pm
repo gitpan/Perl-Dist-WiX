@@ -8,7 +8,7 @@ Perl::Dist::WiX::Tag::Directory - <Directory> tag that knows how to search its c
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Tag::Directory version 1.200.
+This document describes Perl::Dist::WiX::Tag::Directory version 1.200_100.
 
 =head1 SYNOPSIS
 
@@ -51,14 +51,14 @@ use Params::Util qw( _STRING );
 use Digest::CRC qw( crc32_base64 );
 require Perl::Dist::WiX::Exceptions;
 
-our $VERSION = '1.200';
+our $VERSION = '1.200_100';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::Directory';
 
 =head1 METHODS
 
-This class is a L<WiX3::XML::DirectoryRef|WiX3::XML::DirectoryRef> and 
+This class is a L<WiX3::XML::Directory|WiX3::XML::Directory> and 
 inherits its API, so only additional API is documented here.
 
 =head2 new
@@ -104,17 +104,20 @@ sub add_directories_id {
 	}
 
 	# Add each individual id and name.
-	my ( $id, $name );
+	my ( $id, $name, $path );
 	while ( $#params > 0 ) {
 		$id   = shift @params;
 		$name = shift @params;
+		if ( defined $self->get_path() ) {
+			$path = $self->get_path() . q{\\} . $name;
+		}
 		if ( $name =~ m{\\}ms ) {
 			PDWiX->throw( 'Name of directory to add in '
 				  . 'add_directories_id had a slash in it.' );
 		} else {
 			$self->add_directory( {
 					id   => $id,
-					path => $self->get_path() . q{\\} . $name,
+					path => $path,
 					name => $name,
 				} );
 		}
@@ -207,8 +210,8 @@ sub search_dir {
 	return undef unless defined $path;
 
 	$self->trace_line( 3, "Looking for $path_to_find\n" );
-	$self->trace_line( 4, "  in:      $path.\n" );
-	$self->trace_line( 5, "  descend: $descend exact: $exact.\n" );
+	$self->trace_line( 4, "   in:      $path.\n" );
+	$self->trace_line( 5, "   descend: $descend exact: $exact.\n" );
 
 	# If we're at the correct path, exit with success!
 	if ( ( defined $path ) && ( $path_to_find eq $path ) ) {
@@ -232,6 +235,8 @@ sub search_dir {
 		$self->trace_line( 4, "Not a subset in: $path.\n" );
 		$self->trace_line( 5, "  To find: $path_to_find.\n" );
 		return undef;
+	} else {
+		$self->trace_line( 4, "Subset of $path_to_find in $path.\n" );
 	}
 
 	# Check each of our branches.
@@ -251,7 +256,14 @@ sub search_dir {
 	}
 
 	# If we get here, we did not find a lower directory.
-	return $exact ? undef : $self;
+	$self->trace_line( 4, "Did not find lower directory than $path.\n" );
+	if ($exact) {
+		$self->trace_line( 5, "Returning undef.\n" );
+		return undef;
+	} else {
+		$self->trace_line( 5, "Returning object for $path.\n" );
+		return $self;
+	}
 } ## end sub search_dir
 
 sub _add_directory_recursive {
@@ -266,7 +278,8 @@ sub _add_directory_recursive {
 		return undef;
 	}
 
-	my $directory = $self->search_dir(
+	my $path_to_add = $path_to_find . q{\\} . $dir_to_add;
+	my $directory   = $self->search_dir(
 		path_to_find => $path_to_find,
 		descend      => 1,
 		exact        => 1,
@@ -275,7 +288,8 @@ sub _add_directory_recursive {
 	if ( defined $directory ) {
 		return $directory->add_directory(
 			name => $dir_to_add,
-			id   => crc32_base64( $path_to_find . $dir_to_add ),
+			id   => crc32_base64($path_to_add),
+			path => $path_to_add,
 		);
 	} else {
 		my ( $volume, $dirs, undef ) = splitpath( $path_to_find, 1 );
@@ -293,7 +307,8 @@ sub _add_directory_recursive {
 		}
 		return $dir->add_directory(
 			name => $dir_to_add,
-			id   => crc32_base64( $path_to_find . $dir_to_add ),
+			id   => crc32_base64($path_to_add),
+			path => $path_to_add,
 		);
 
 	} ## end else [ if ( defined $directory)]
