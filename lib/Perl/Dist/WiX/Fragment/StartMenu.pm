@@ -8,7 +8,7 @@ Perl::Dist::WiX::Fragment::StartMenu - A <Fragment> tag that handles the Start m
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Fragment::StartMenu version 1.200_100.
+This document describes Perl::Dist::WiX::Fragment::StartMenu version 1.200.
 
 =head1 SYNOPSIS
 
@@ -33,20 +33,19 @@ so that the Start Menu is created when the .msi is installed.
 =cut
 
 use 5.008001;
-use Moose 0.90;
-use MooseX::Types::Moose qw( Str Bool HashRef );
-use Perl::Dist::WiX::Types qw( DirectoryRef );
+use Moose;
+use MooseX::Types::Moose qw( Str Bool );
 use WiX3::Exceptions;
-use Perl::Dist::WiX::IconArray qw();
-use Perl::Dist::WiX::DirectoryTree2 qw();
-use Perl::Dist::WiX::Tag::DirectoryRef qw();
-use WiX3::XML::Component qw();
-use WiX3::XML::CreateFolder qw();
-use WiX3::XML::RemoveFolder qw();
-use WiX3::XML::DirectoryRef qw();
-use WiX3::XML::Shortcut qw();
+require Perl::Dist::WiX::IconArray;
+require Perl::Dist::WiX::DirectoryTree2;
+require Perl::Dist::WiX::Tag::DirectoryRef;
+require WiX3::XML::Component;
+require WiX3::XML::CreateFolder;
+require WiX3::XML::RemoveFolder;
+require WiX3::XML::DirectoryRef;
+require WiX3::XML::Shortcut;
 
-our $VERSION = '1.200_100';
+our $VERSION = '1.200';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::Fragment';
@@ -89,53 +88,70 @@ has icons => (
 
 
 
-has _roots => (
-	traits   => ['Hash'],
-	is       => 'bare',
-	isa      => HashRef [DirectoryRef],
-	init_arg => undef,
-	default  => sub { {} },
-	handles  => {
-		'_get_root'    => 'get',
-		'_root_exists' => 'exists',
-		'_set_root'    => 'set',
-	},
+=head3 directory_id
+
+The required C<directory_id> parameter is a string containing the ID of the
+L<Perl::Dist::WiX::Tag::Directory|Perl::Dist::WiX::Tag::Directory> object 
+representing the directory that the Start Menu shortcuts that this
+object contains will be be created in.
+
+=cut
+
+
+
+has directory_id => (
+	is       => 'ro',
+	isa      => Str,
+	required => 1,
+	reader   => 'get_directory_id',
 );
 
 
 
+# This is the directory reference that is created for the
+# directory referred to by the directory_id attribute.
+has _root => (
+	is       => 'ro',
+	isa      => 'Perl::Dist::WiX::Tag::DirectoryRef',
+	init_arg => undef,
+	lazy     => 1,
+	builder  => '_build_root',
+	reader   => '_get_root',
+);
+
 sub _build_root {
-	my $self         = shift;
-	my $directory_id = shift;
+	my $self = shift;
 
 	# Get the directory object so we can create a reference to it.
+	my $id        = $self->get_directory_id();
 	my $tree      = Perl::Dist::WiX::DirectoryTree2->instance();
-	my $directory = $tree->get_directory_object( 'D_' . $directory_id );
+	my $directory = $tree->get_directory_object($id);
 	if ( not defined $directory ) {
-		PDWiX->throw(
-			"Could not find directory object for id $directory_id");
+		PDWiX->throw("Could not find directory object for id $id");
 	}
 	my $root = Perl::Dist::WiX::Tag::DirectoryRef->new($directory);
 
 	# Add the component that removes the start menu folder.
 	my $remove = WiX3::XML::RemoveFolder->new(
-		id => 'RF_' . $directory_id,
+		id => 'RemoveStartMenuFolder',
 		on => 'uninstall',
 	);
 	my $remove_component =
-	  WiX3::XML::Component->new( id => 'RF_' . $directory_id, );
+	  WiX3::XML::Component->new( id => 'RemoveStartMenuFolder', );
 
 	# Get the start of the tree right.
 	$remove_component->add_child_tag($remove);
 	$root->add_child_tag($remove_component);
 	$self->add_child_tag($root);
 
-	$self->_set_root( $directory_id => $root );
-
-	return 1;
+	return $root;
 } ## end sub _build_root
 
 
+
+=head2 get_directory_id
+
+Returns the C<directory_id> parameter that was passed in to new.
 
 =head2 get_icons
 
@@ -160,7 +176,7 @@ sub BUILDARGS {
 		%args = (@_);
 	} else {
 		PDWiX->throw(
-'Parameters incorrect (not a hashref or hash) for ::Fragment::StartMenu'
+'Parameters incorrect (not a hashref, hash, or id) for ::Fragment::StartMenu'
 		);
 	}
 
@@ -177,13 +193,12 @@ sub BUILDARGS {
 =head2 add_shortcut
 
 	$fragment->add_shortcut(
-		name         => 'CPAN',
-		description  => 'CPAN Shell (used to install modules)',
-		target       => "[D_PerlBin]cpan.bat",
-		id           => 'CpanShell',
-		working_dir  => PerlBin,
-		icon_id      => 'I_CpanBat',
-		directory_id => 'App_Menu_Tools',
+		name        => 'CPAN',
+		description => 'CPAN Shell (used to install modules)',
+		target      => "[D_PerlBin]cpan.bat",
+		id          => 'CpanShell',
+		working_dir => PerlBin,
+		icon_id     => 'I_CpanBat',
 	);
 
 This method creates the tag objects that represent a Start Menu shortcut, 
@@ -192,29 +207,22 @@ and attaches them to this fragment.
 The C<name> and C<description> parameters are the name and the comment of 
 the shortcut being created, the C<target> is the command to be executed,
 the C<working_dir> is the ID of the working directory of the shortcut,
-the C<icon_id> is the ID of the icon to be used with this shortcut, 
-the C<id> is the ID of the shortcut itself, and the C<directory_id> is
-the ID for the directory that the shortcut is going to go into.
+the C<icon_id> is the ID of the icon to be used with this shortcut, and 
+the C<id> is the ID of the shortcut itself.
+
+Unlike most methods in the C<Perl::Dist::WiX> distribution that take named 
+parameters, this method does not take a hash reference at the present time.
 
 The C<name>, C<target>, C<working_dir>, and C<id> parameters are required.
-(C<description> defaults to being empty, C<directory_id> defaults to 
-'App_Menu', and a missing C<icon_id> allows Windows to follow its default 
-rules for choosing an icon to display.)
+(C<description> defaults to being empty, and a missing C<icon_id> allows 
+Windows to follow its default rules for choosing an icon to display.)
 
 =cut
 
+# Takes hash only at present.
 sub add_shortcut {
 	my $self = shift;
-	my %args;
-
-	if ( @_ == 1 && 'HASH' eq ref $_[0] ) {
-		%args = %{ $_[0] };
-	} elsif ( 0 == @_ % 2 ) {
-		%args = (@_);
-	} else {
-		PDWiX->throw( 'Parameters incorrect (not a hashref or hash) '
-			  . 'for ::Fragment::StartMenu->add_shortcut()' );
-	}
+	my %args = @_;
 
 	# Check that the arguments exist.
 	if ( not defined $args{id} ) {
@@ -242,12 +250,6 @@ sub add_shortcut {
 		);
 	}
 
-	$args{directory_id} ||= 'App_Menu';
-
-	if ( not $self->_root_exists( $args{directory_id} ) ) {
-		$self->_build_root( $args{directory_id} );
-	}
-
 	# "Fix" the ID to have only identifier characters.
 	$args{id} =~ s{[^A-Za-z0-9]}{_}msgx;
 
@@ -268,9 +270,9 @@ sub add_shortcut {
 	$component->add_child_tag($shortcut);
 	my $cf =
 	  WiX3::XML::CreateFolder->new(
-		directory => 'D_' . $args{directory_id} );
+		directory => $self->get_directory_id() );
 	$component->add_child_tag($cf);
-	$self->_get_root( $args{directory_id} )->add_child_tag($component);
+	$self->_get_root()->add_child_tag($component);
 
 	return;
 } ## end sub add_shortcut

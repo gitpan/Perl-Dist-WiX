@@ -8,13 +8,13 @@ Perl::Dist::WiX::DirectoryTree2 - Base directory tree for Perl::Dist::WiX.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::DirectoryTree2 version 1.200_100.
+This document describes Perl::Dist::WiX::DirectoryTree2 version 1.200002.
 
 =head1 SYNOPSIS
 
 	$tree = Perl::Dist::WiX::DirectoryTree2->instance();
 	
-	# See each method for examples.
+	# TODO: Add more.
 
 =head1 DESCRIPTION
 
@@ -40,7 +40,7 @@ use MooseX::Types::Path::Class qw( Dir );
 use Perl::Dist::WiX::Tag::Directory;
 use WiX3::Exceptions;
 
-our $VERSION = '1.200_100';
+our $VERSION = '1.200002';
 $VERSION =~ s/_//sm;
 
 with 'WiX3::Role::Traceable';
@@ -165,8 +165,8 @@ Returns the previously created directory tree.
 
 	my $directory_object = $tree->get_root();
 	
-Gets the L<Perl::Dist::WiX::Tag::Directory|Perl::Dist::WiX::Tag::Directory> 
-object at the root of the tree.
+Gets the L<Perl::Dist::WiX::Directory|Perl::Dist::WiX::Directory> object at
+the root of the tree.
 	
 =head2 as_string
 
@@ -206,7 +206,7 @@ sub initialize_tree {
 			noprefix => 1,
 			path     => $self->_get_app_dir()->stringify(),
 		} );
-	my $app_menu = $self->get_root()->add_directory( {
+	$self->get_root()->add_directory( {
 			id       => 'ProgramMenuFolder',
 			noprefix => 1,
 		}
@@ -216,11 +216,6 @@ sub initialize_tree {
 		} );
 
 #<<<
-	$app_menu->add_directories_id(
-		'App_Menu_Tools',    'Tools',
-		'App_Menu_Websites', 'Related Websites',
-	);
-
 	$branch->add_directories_id(
 		'Perl',      'perl',
 		'Toolchain', 'c',
@@ -300,7 +295,7 @@ sub initialize_short_tree {
 			noprefix => 1,
 			path     => $self->_get_app_dir()->stringify(),
 		} );
-	my $app_menu = $self->get_root()->add_directory( {
+	$self->get_root()->add_directory( {
 			id       => 'ProgramMenuFolder',
 			noprefix => 1,
 		}
@@ -310,11 +305,6 @@ sub initialize_short_tree {
 		} );
 
 #<<<
-	$app_menu->add_directories_id(
-		'App_Menu_Tools',    'Tools',
-		'App_Menu_Websites', 'Related Websites',
-	);
-
 	$branch->add_directories_id(
 		'Win32',     'win32',
 		'Perl',      'perl',
@@ -377,11 +367,8 @@ sub add_directory {
 
 =head2 add_root_directory
 
-	$self->add_root_directory('Id', 'directory');
+TODO
 
-Adds a directory entry with the ID and directory name given
-immediately under the main installation directory.
-	
 =cut
 
 
@@ -428,7 +415,7 @@ sub add_merge_module {
 
 	$directory_object->add_child_tag($mm);
 
-	return 1;
+	return;
 } ## end sub add_merge_module
 
 

@@ -8,11 +8,12 @@ Perl::Dist::WiX::Fragment::Files - A <Fragment> with file handling.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Fragment::Files version 1.200_100.
+This document describes Perl::Dist::WiX::Fragment::Files version 1.200002.
 
 =head1 SYNOPSIS
 
 	my $fragment = Perl::Dist::WiX::Fragment::Files->new(
+		parent          => $dist,              # Perl::Dist::WiX object
 		id              => 'perl',
 		files           => $perl_files_object, # File::List::Object object
 		in_merge_module => 0,
@@ -51,7 +52,7 @@ use WiX3::Exceptions qw();
 use File::List::Object qw();
 use Win32::Exe 0.13 qw();
 
-our $VERSION = '1.200_100';
+our $VERSION = '1.200002';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::Fragment';
@@ -481,13 +482,7 @@ sub _add_file_component {
 		# when we create the tag.
 		my $language;
 		my $exe = Win32::Exe->new($file);
-		my $vi;
-		{
-
-			# Win32::Exe prints an annoying warning here. Ignore it.
-			local $SIG{__WARN__} = sub { };
-			$vi = $exe->version_info();
-		}
+		my $vi  = $exe->version_info();
 
 		if ( defined $vi ) {
 			$vi->get('OriginalFilename'); # To load the variable used below.

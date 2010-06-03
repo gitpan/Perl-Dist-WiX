@@ -6,7 +6,7 @@ Perl::Dist::WiX::Types - Public types used in Perl::Dist::WiX.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Types version 1.200_100.
+This document describes Perl::Dist::WiX::Types version 1.200.
 
 =head1 SYNOPSIS
 
@@ -28,13 +28,12 @@ use MooseX::Types -declare => [ qw(
 	  _NoDoubleSlashes _NoSpaces _NoForwardSlashes _NoSlashAtEnd _NotRootDir
 	  ExistingSubdirectory ExistingDirectory_Spaceless
 	  ExistingDirectory_SaneSlashes
-	  DirectoryRef
 	  ) ];
 use MooseX::Types::Moose qw( Str Object ArrayRef );
 use MooseX::Types::Path::Class qw( Dir File );
 use Template qw();
 
-our $VERSION = '1.200_100';
+our $VERSION = '1.200';
 $VERSION =~ s/_//ms;
 
 =head2 ExistingDirectory
@@ -116,11 +115,11 @@ coerce ExistingFile,
   from Str,      via { to_File($_) },
   from ArrayRef, via { to_File($_) };
 
-=head2 TemplateObj
+=head2 Template
 
 	has bar => (
 		is => 'ro',
-		isa => TemplateObj,
+		isa => Template,
 		#...
 	);
 
@@ -131,8 +130,6 @@ subtype TemplateObj,
   as Object,
   where { $_->isa('Template') },
   message {'Template is not the correct type of object'};
-
-class_type DirectoryRef, { class => 'Perl::Dist::WiX::Tag::DirectoryRef' };
 
 1;
 
