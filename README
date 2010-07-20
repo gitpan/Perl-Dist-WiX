@@ -1,4 +1,4 @@
-Perl-Dist-WiX version 1.200002
+Perl-Dist-WiX version 1.200_101
 
 DESCRIPTION
     This package is the upgrade to Perl::Dist based on Windows Installer XML
@@ -21,7 +21,7 @@ DEPENDENCIES
     Other modules that this module depends on are a working version of
     Alien::WiX, Data::Dump::Streamer 2.08, Data::UUID 1.149,
     Devel::StackTrace 1.20, Exception::Class 1.22, File::ShareDir 1.00,
-    IO::String 1.08, List::MoreUtils 0.07, Module::CoreList 2.29, Win32::Exe
+    IO::String 1.08, List::MoreUtils 0.07, Module::CoreList 2.32, Win32::Exe
     0.13, Object::InsideOut 3.53, Perl::Dist 1.14, Process 0.26, Readonly
     1.03, URI 1.35, and Win32 0.35.
 

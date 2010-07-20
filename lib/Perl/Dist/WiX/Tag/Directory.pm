@@ -8,7 +8,7 @@ Perl::Dist::WiX::Tag::Directory - <Directory> tag that knows how to search its c
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Tag::Directory version 1.200002.
+This document describes Perl::Dist::WiX::Tag::Directory version 1.200_100.
 
 =head1 SYNOPSIS
 
@@ -51,14 +51,14 @@ use Params::Util qw( _STRING );
 use Digest::CRC qw( crc32_base64 );
 require Perl::Dist::WiX::Exceptions;
 
-our $VERSION = '1.200002';
+our $VERSION = '1.200_100';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::Directory';
 
 =head1 METHODS
 
-This class is a L<WiX3::XML::DirectoryRef|WiX3::XML::DirectoryRef> and 
+This class is a L<WiX3::XML::Directory|WiX3::XML::Directory> and 
 inherits its API, so only additional API is documented here.
 
 =head2 new
@@ -104,17 +104,20 @@ sub add_directories_id {
 	}
 
 	# Add each individual id and name.
-	my ( $id, $name );
+	my ( $id, $name, $path );
 	while ( $#params > 0 ) {
 		$id   = shift @params;
 		$name = shift @params;
+		if ( defined $self->get_path() ) {
+			$path = $self->get_path() . q{\\} . $name;
+		}
 		if ( $name =~ m{\\}ms ) {
 			PDWiX->throw( 'Name of directory to add in '
 				  . 'add_directories_id had a slash in it.' );
 		} else {
 			$self->add_directory( {
 					id   => $id,
-					path => $self->get_path() . q{\\} . $name,
+					path => $path,
 					name => $name,
 				} );
 		}

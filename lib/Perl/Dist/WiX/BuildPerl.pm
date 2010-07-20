@@ -8,7 +8,7 @@ Perl::Dist::WiX::BuildPerl - 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::BuildPerl version 1.200001.
+This document describes Perl::Dist::WiX::BuildPerl version 1.200_101.
 
 =head1 DESCRIPTION
 
@@ -34,18 +34,20 @@ use Storable qw( retrieve );
 use File::Spec::Functions qw(
   catdir catfile catpath tmpdir splitpath rel2abs curdir
 );
-use Module::CoreList 2.29 qw();
+use Module::CoreList 2.32 qw();
 use Perl::Dist::WiX::Asset::Perl qw();
 use Perl::Dist::WiX::Toolchain qw();
 use File::List::Object qw();
 
-our $VERSION = '1.200001';
+our $VERSION = '1.200_101';
 $VERSION =~ s/_//sm;
 
+# Keys are what's in the filename, with - being converted to ::.
+# Values are the actual module to use to check whether it's in core.
 Readonly my %CORE_MODULE_FIX => (
 	'IO::Compress'         => 'IO::Compress::Base',
 	'Filter'               => 'Filter::Util::Call',
-	'Pod'                  => 'Pod::Man',
+	'podlators'            => 'Pod::Man',
 	'Text'                 => 'Text::Tabs',
 	'PathTools'            => 'Cwd',
 	'Scalar::List::Utils'  => 'List::Util',
@@ -56,22 +58,17 @@ Readonly my %CORE_MODULE_FIX => (
 	'LWP::UserAgent'       => 'LWP',
 );
 
-Readonly my %DIST_TO_MODULE_FIX => (
-	'CGI.pm'               => 'CGI',
-	'Locale::Maketext'     => 'Locale-Maketext',
-	'Pod::Man'             => 'Pod',
-	'Text::Tabs'           => 'Text',
-	'PathTools'            => 'Cwd',
-	'TermReadKey'          => 'Term::ReadKey',
-	'Term::ReadLine::Perl' => 'Term::ReadLine',
-	'libwww::perl'         => 'LWP',
-	'Scalar::List::Utils'  => 'List::Util',
-	'libnet'               => 'Net',
-	'encoding'             => 'Encode',
-	'IO::Scalar'           => 'IO::Stringy',
+# Keys are the module name after processing against %CORE_MODULE_FIX.
+# Values are the directory name the .packlist file is in, with
+# / being converted to ::.
+Readonly my %CORE_PACKLIST_FIX => (
+	'IO::Compress::Base' => 'IO::Compress',
+	'Pod::Man'           => 'Pod',
 );
 
-# Modules to delay.
+# List of modules to delay building until last when upgrading all CPAN
+# modules (they depend on upgraded versions of modules that originally
+# were upgraded after them.)
 Readonly my @MODULE_DELAY => qw(
   CPANPLUS::Dist::Build
   File::Fetch
@@ -97,6 +94,14 @@ sub _module_fix {
 }
 
 
+
+sub _packlist_fix {
+	my ( $self, $module ) = @_;
+
+	return ( exists $CORE_PACKLIST_FIX{$module} )
+	  ? $CORE_PACKLIST_FIX{$module}
+	  : $module;
+}
 
 #####################################################################
 # CPAN installation and upgrade support
@@ -279,7 +284,7 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 	# Install dev version of CPAN if we haven't already.
 	if ( not $self->fragment_exists('CPAN') ) {
 		$self->install_distribution(
-			name             => 'ANDK/CPAN-1.94_56.tar.gz',
+			name             => 'ANDK/CPAN-1.94_58.tar.gz',
 			mod_name         => 'CPAN',
 			makefilepl_param => ['INSTALLDIRS=perl'],
 			buildpl_param    => [ '--installdirs', 'core' ],
@@ -399,21 +404,25 @@ sub _install_location {
 	my ( $self, $core ) = @_;
 
 	# Return the correct location information.
-	my $portable = $self->portable();
+	my $vendor =
+	    !$self->portable()                    ? 1
+	  : ( $self->perl_major_version() >= 12 ) ? 1
+	  :                                         0;
+
 	if ($core) {
 		return (
 			makefilepl_param => ['INSTALLDIRS=perl'],
 			buildpl_param    => [ '--installdirs', 'core' ],
 		);
-	} elsif ($portable) {
-		return (
-			makefilepl_param => ['INSTALLDIRS=site'],
-			buildpl_param    => [ '--installdirs', 'site' ],
-		);
-	} else {
+	} elsif ($vendor) {
 		return (
 			makefilepl_param => ['INSTALLDIRS=vendor'],
 			buildpl_param    => [ '--installdirs', 'vendor' ],
+		);
+	} else {
+		return (
+			makefilepl_param => ['INSTALLDIRS=site'],
+			buildpl_param    => [ '--installdirs', 'site' ],
 		);
 	}
 } ## end sub _install_location
@@ -444,7 +453,7 @@ sub _install_cpan_module {
 	# Actually do the installation.
 	$self->install_distribution(
 		name     => $module_file,
-		mod_name => $module_id,
+		mod_name => $self->_packlist_fix($module_id),
 		$self->_install_location($core),
 		$force
 		  ? ( force => 1 )
@@ -545,10 +554,15 @@ sub _create_perl_toolchain {
 	# Prefetch and predelegate the toolchain so that it
 	# fails early if there's a problem
 	$self->trace_line( 1, "Pregenerating toolchain...\n" );
+	my $force = {};
+	if ( $self->perl_version =~ m/\A512/ms ) {
+		$force = { 'Pod::Text' => 'RRA/podlators-2.3.1.tar.gz' };
+	}
 	my $toolchain = Perl::Dist::WiX::Toolchain->new(
 		perl_version => $self->perl_version_literal(),
 		cpan         => $cpan->as_string(),
 		bits         => $self->bits(),
+		force        => $force,
 	) or PDWiX->throw('Failed to resolve toolchain modules');
 	if ( not eval { $toolchain->delegate(); 1; } ) {
 		PDWiX::Caught->throw(
@@ -572,7 +586,7 @@ sub _create_perl_toolchain {
 
 
 
-=head2 install_perl_* (* = git, 589, 5100, 5101, or 5120)
+=head2 install_perl_* (* = git, 589, 5100, 5101, 5120, or 5121)
 
 	$self->install_perl_5100;
 
@@ -782,6 +796,40 @@ sub install_perl_5120 {
 
 
 #####################################################################
+# Perl 5.12.1 Support
+
+sub install_perl_5121 {
+	my $self = shift;
+
+	# Get the information required for Perl's toolchain.
+	my $toolchain = $self->_create_perl_toolchain();
+
+	# Install the main binary
+	$self->install_perl_bin(
+		url => 'http://strawberryperl.com/package/perl-5.12.1.tar.bz2',
+		toolchain => $toolchain,
+		patch     => [ qw{
+			  lib/CPAN/Config.pm
+			  win32/config.gc
+			  win32/config.gc64nox
+			  win32/config_sh.PL
+			  win32/config_H.gc
+			  win32/config_H.gc64nox
+			  }
+		],
+		license => {
+			'perl-5.12.1/Readme'   => 'perl/Readme',
+			'perl-5.12.1/Artistic' => 'perl/Artistic',
+			'perl-5.12.1/Copying'  => 'perl/Copying',
+		},
+	);
+
+	return 1;
+} ## end sub install_perl_5121
+
+
+
+#####################################################################
 # Git checkout support
 
 sub install_perl_git {
@@ -883,13 +931,8 @@ sub install_perl_toolchain {
 			# 1.9402 fails its tests... ANDK says it's a test bug.
 			# Alias agrees that we include 1.94_51 because of the fix
 			# for the Win32 file:// bug.
-			$dist  = 'ANDK/CPAN-1.94_56.tar.gz';
+			$dist  = 'ANDK/CPAN-1.94_58.tar.gz';
 			$force = 1;
-		}
-		if ( $dist =~ /Win32API-Registry-0 [.] 31/msx ) {
-
-			# 0.31 does not include a Makefile.PL.
-			$dist = 'BLM/Win32API-Registry-0.30.tar.gz';
 		}
 		if ( $dist =~ /ExtUtils-MakeMaker-/msx ) {
 
@@ -918,7 +961,7 @@ sub install_perl_toolchain {
 #<<<
 		$self->install_distribution(
 			name              => $dist,
-			mod_name          => $module_id,
+			mod_name          => $self->_packlist_fix($module_id),
 			force             => $force,
 			automated_testing => $automated_testing,
 			release_testing   => $release_testing,

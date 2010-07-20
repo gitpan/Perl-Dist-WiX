@@ -8,7 +8,7 @@ Perl::Dist::WiX::Support - Provides support routines for building a Win32 perl d
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Support version 1.200.
+This document describes Perl::Dist::WiX::Support version 1.200_101.
 
 =head1 SYNOPSIS
 
@@ -26,20 +26,23 @@ files, directories,  and programs for L<Perl::Dist::WiX|Perl::Dist::WiX>.
 use 5.008001;
 use Moose;
 use English qw( -no_match_vars );
-use File::Spec::Functions qw( catdir catfile rel2abs catpath );
-use File::Remove qw();
-use File::Basename qw();
-use File::Path qw();
-use File::pushd qw();
-use Devel::StackTrace qw();
 use Archive::Tar 1.42 qw();
 use Archive::Zip qw( AZ_OK );
+use Devel::StackTrace qw();
 use LWP::UserAgent qw();
+use File::Basename qw();
+use File::Find::Rule qw();
+use File::Path qw();
+use File::pushd qw();
+use File::Remove qw();
+use File::Spec::Functions qw( catdir catfile rel2abs catpath );
+use File::Slurp qw(read_file);
+use IO::Compress::Bzip2 2.025;
+use IO::Compress::Gzip 2.025;
 
-# TODO: We make an assumption that Archive::Tar can handle bz2 files.
-# Test to make sure that assumption is true.
+# IO::Uncompress::Xz is tested for later, as it's an 'optional'.
 
-our $VERSION = '1.200';
+our $VERSION = '1.200_101';
 $VERSION =~ s/_//ms;
 
 
@@ -557,8 +560,8 @@ sub extract_archive {
 		  );
 
 		local $Archive::Tar::CHMOD = 0;
-		my $xz = IO::Uncompress::UnXz->new($from);
-		my @fl = @filelist = Archive::Tar->extract_archive( \$xz, 1 );
+		my $xz = IO::Uncompress::UnXz->new( $from, BlockSize => 16_384 );
+		my @fl = @filelist = Archive::Tar->extract_archive($xz);
 		@filelist = map { catfile( $to, $_ ) } @fl;
 		if ( !@filelist ) {
 			PDWiX->throw('Error in archive extraction');
@@ -567,6 +570,7 @@ sub extract_archive {
 	} else {
 		PDWiX->throw("Didn't recognize archive type for $from");
 	}
+
 	return @filelist;
 } ## end sub extract_archive
 
@@ -598,30 +602,9 @@ sub _extract_filemap {
 
 	if ( $archive =~ m{[.] zip\z}msx ) {
 
-		my $zip = Archive::Zip->new($archive);
-		my $wd  = $self->push_dir($basedir);
-		while ( my ( $f, $t ) = each %{$filemap} ) {
-			$self->trace_line( 2, "Extracting $f to $t\n" );
-			my $dest = catfile( $basedir, $t );
-
-			my @members = $zip->membersMatching("^\Q$f");
-
-			foreach my $member (@members) {
-				my $filename = $member->fileName();
-#<<<
-				$filename =~
-				  s{\A\Q$f}    # At the beginning of the string, change $f 
-				   {$dest}msx; # to $dest.
-#>>>
-				$filename = _convert_name($filename);
-				my $status = $member->extractToFileNamed($filename);
-
-				if ( $status != AZ_OK ) {
-					PDWiX->throw('Error in archive extraction');
-				}
-				push @files, $filename;
-			} ## end foreach my $member (@members)
-		} ## end while ( my ( $f, $t ) = each...)
+		@files =
+		  $self->_extract_filemap_zip( $archive, $filemap, $basedir,
+			$file_only );
 
 	} elsif ( $archive =~
 		m{[.] tar [.] gz | [.] tgz | [.] tar [.] bz2 | [.] tbz }msx )
@@ -655,6 +638,50 @@ sub _extract_filemap {
 			} ## end for my $tgt ( keys %{$filemap...})
 		} ## end for my $file ( $tar->get_files...)
 
+	} elsif ( $archive =~ m{ [.] tar [.] xz | [.] txz}msx ) {
+
+		# First attempt at trying to use .xz files. TODO: Improve.
+		eval {
+			require IO::Uncompress::UnXz;
+			IO::Uncompress::UnXz->VERSION(2.025);
+			1;
+		}
+		  or PDWiX->throw(
+"Tried to extract the file $archive without the xz libraries installed."
+		  );
+
+		local $Archive::Tar::CHMOD = 0;
+		my $xz = IO::Uncompress::UnXz->new( $archive, BlockSize => 16_384 );
+		my $tar = Archive::Tar->new($xz);
+		for my $file ( $tar->get_files() ) {
+			my $f       = $file->full_path();
+			my $canon_f = File::Spec::Unix->canonpath($f);
+			for my $tgt ( keys %{$filemap} ) {
+				my $canon_tgt = File::Spec::Unix->canonpath($tgt);
+				my $t;
+
+#<<<
+				if ($file_only) {
+					next unless
+					  $canon_f =~ m{\A([^/]+[/])?\Q$canon_tgt\E\z}imsx;
+					( $t = $canon_f ) =~ s{\A([^/]+[/])?\Q$canon_tgt\E\z}
+										  {$filemap->{$tgt}}imsx;
+				} else {
+					next unless
+					  $canon_f =~ m{\A([^/]+[/])?\Q$canon_tgt\E}imsx;
+					( $t = $canon_f ) =~ s{\A([^/]+[/])?\Q$canon_tgt\E}
+										  {$filemap->{$tgt}}imsx;
+				}
+#>>>
+				my $full_t = catfile( $basedir, $t );
+				$self->trace_line( 2, "Extracting $f to $full_t\n" );
+				$tar->extract_file( $f, $full_t );
+				push @files, $full_t;
+			} ## end for my $tgt ( keys %{$filemap...})
+		} ## end for my $file ( $tar->get_files...)
+
+
+
 	} else {
 		PDWiX->throw("Didn't recognize archive type for $archive");
 	}
@@ -662,6 +689,40 @@ sub _extract_filemap {
 	return @files;
 } ## end sub _extract_filemap
 
+
+
+sub _extract_filemap_zip {
+	my ( $self, $archive, $filemap, $basedir, $file_only ) = @_;
+
+	my @files;
+
+	my $zip = Archive::Zip->new($archive);
+	my $wd  = $self->push_dir($basedir);
+	while ( my ( $f, $t ) = each %{$filemap} ) {
+		$self->trace_line( 2, "Extracting $f to $t\n" );
+		my $dest = catfile( $basedir, $t );
+
+		my @members = $zip->membersMatching("^\Q$f");
+
+		foreach my $member (@members) {
+			my $filename = $member->fileName();
+#<<<
+			$filename =~
+			  s{\A\Q$f}    # At the beginning of the string, change $f 
+			   {$dest}msx; # to $dest.
+#>>>
+			$filename = _convert_name($filename);
+			my $status = $member->extractToFileNamed($filename);
+
+			if ( $status != AZ_OK ) {
+				PDWiX->throw('Error in archive extraction');
+			}
+			push @files, $filename;
+		} ## end foreach my $member (@members)
+	} ## end while ( my ( $f, $t ) = each...)
+
+	return @files;
+} ## end sub _extract_filemap_zip
 
 
 =head2 make_path
@@ -701,7 +762,7 @@ sub _make_path {
 
 =head2 remake_path
 
-	$dist->make_path('perl\bin');
+	$dist->remake_path('perl\bin');
 
 Creates a path, removing all the files in it if the path already exists.
 	
@@ -732,6 +793,116 @@ sub _remake_path {
 	print "\n\n";
 	return shift->remake_path(@_);
 }
+
+
+
+=head2 make_relocation_file
+
+	$dist->make_relocation_file('strawberry_merge_module.reloc.txt');
+	
+	$dist->make_relocation_file('strawberry_ui.reloc.txt', 
+		'strawberry_merge_module.reloc.txt');
+	
+Creates a file to be input to relocation.pl.
+
+The first file is created, and it includes all files in the .source file 
+that actually exist, and adds all .packlist files that are not already
+being processed for relocation in files after the first.
+
+If there is no second parameter, the first file will include all
+.packlist files existing to that point.
+
+=cut 
+
+sub make_relocation_file {
+	my $self                      = shift;
+	my $file                      = shift;
+	my (@files_already_processed) = @_;
+
+	## no critic(ProhibitComplexMappings ProhibitMutatingListFunctions)
+	## no critic(ProhibitCaptureWithoutTest RequireBriefOpen)
+	# TODO: Calm down on the no critics.
+
+	# Get the input and output filenames.
+	my $file_in  = $self->patch_pathlist()->find_file( $file . '.source' );
+	my $file_out = $self->image_dir()->file($file);
+
+	# Find files we're already assigned for relocation.
+	my @filelist;
+	my %files_already_relocating;
+	foreach my $file_already_processed (@files_already_processed) {
+		@filelist = read_file(
+			$self->image_dir()->file($file_already_processed)->stringify()
+		);
+		shift @filelist;
+		%files_already_relocating = (
+			%files_already_relocating,
+			map { m/\A([^:]*):.*\z/msx; $1 => 1 } @filelist
+		);
+	}
+
+	# Find all the .packlist files.
+	my @packlists_list =
+	  File::Find::Rule->file()->name('.packlist')->relative()
+	  ->in( $self->image_dir()->stringify() );
+	my %packlists = map { s{/}{\\}msg; $_ => 1 } @packlists_list;
+
+	# Find all the .bat files.
+	my @batch_files_list =
+	  File::Find::Rule->file()->name('*.bat')->relative()
+	  ->in( $self->image_dir()->stringify() );
+	my %batch_files = map { s{/}{\\}msg; $_ => 1 } @batch_files_list;
+
+	# Get rid of the .packlist and *.bat files we're already relocating.
+	delete @packlists{ keys %files_already_relocating };
+	delete @batch_files{ keys %files_already_relocating };
+
+	# Print the first line of the relocation file.
+	my $file_out_handle;
+	open $file_out_handle, '>', $file_out
+	  or PDWiX::File->throw(
+		file    => $file_out,
+		message => 'Could not open.'
+	  );
+	print {$file_out_handle} $self->image_dir()->stringify();
+	print {$file_out_handle} "\\\n";
+
+	# Read the source file, writing out the files that actually exist.
+	@filelist = read_file($file_in);
+	foreach my $filelist_entry (@filelist) {
+		$filelist_entry =~ m/\A([^:]*):.*\z/msx;
+		if ( defined $1 and -f $self->image_dir()->file($1)->stringify() ) {
+			print {$file_out_handle} $filelist_entry;
+		}
+	}
+
+	# Print out the rest of the .packlist files.
+	foreach my $pl ( sort { $a cmp $b } keys %packlists ) {
+		print {$file_out_handle} "$pl:backslash\n";
+	}
+
+	# Print out the batch files that need relocated.
+	my $batch_contents;
+	my $match_string =
+	  q(eval [ ] 'exec [ ] )
+	  . quotemeta $self->image_dir()->file('perl\bin\perl.exe')
+	  ->stringify();
+	foreach my $batch_file ( sort { $a cmp $b } keys %batch_files ) {
+		$self->trace_line( 5,
+			"Checking to see if $batch_file needs relocated.\n" );
+		$batch_contents =
+		  read_file( $self->image_dir()->file($batch_file)->stringify() );
+		if ( $batch_contents =~ m/$match_string/msgx ) {
+			print {$file_out_handle} "$batch_file:backslash\n";
+		}
+	}
+
+	# Finish up by closing the handle.
+	close $file_out_handle or PDWiX->throw('Ouch!');
+
+	return 1;
+} ## end sub make_relocation_file
+
 
 no Moose;
 __PACKAGE__->meta->make_immutable;

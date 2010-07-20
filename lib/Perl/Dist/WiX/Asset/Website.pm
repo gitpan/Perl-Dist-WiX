@@ -8,7 +8,7 @@ Perl::Dist::WiX::Asset::Website - Website link asset for a Win32 Perl
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Asset::Website version 1.200.
+This document describes Perl::Dist::WiX::Asset::Website version 1.200_101.
 
 =head1 SYNOPSIS
 
@@ -33,7 +33,7 @@ use MooseX::Types::Moose qw( Str Int Maybe );
 use File::Spec::Functions qw( catfile splitpath );
 use English qw( -no_match_vars );
 
-our $VERSION = '1.200';
+our $VERSION = '1.200_101';
 $VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::Asset';
@@ -82,6 +82,28 @@ has url => (
 	isa      => Str,
 	reader   => '_get_url',
 	required => 1,
+);
+
+
+
+=head3 directory_id
+
+The optional C<directory_id> parameter is the ID of the Start Menu
+directory (or subdirectory of that entry) used by the distribution.
+
+Defaults to 'App_Menu_Websites', which puts the shortcut in the 
+'Related Websites' subdirectory of the Start Menu directory used
+by the distribution. 
+
+=cut
+
+
+
+has directory_id => (
+	is      => 'bare',
+	isa     => Str,
+	reader  => '_get_directory_id',
+	default => 'D_App_Menu_Websites',
 );
 
 
@@ -188,10 +210,11 @@ sub install {
 	my $icon_id =
 	  $self->_get_icons()->add_icon( $self->_get_icon_file(), $filename );
 	$self->_add_icon(
-		name     => $name,
-		filename => $filename,
-		fragment => 'Icons',
-		icon_id  => $icon_id,
+		name         => $name,
+		filename     => $filename,
+		fragment     => 'Icons',
+		icon_id      => $icon_id,
+		directory_id => $self->_get_directory_id(),
 	);
 	$self->_add_file(
 		source   => $self->_get_icon_file_to(),

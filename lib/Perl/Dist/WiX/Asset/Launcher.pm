@@ -8,7 +8,7 @@ Perl::Dist::WiX::Asset::Launcher - Start menu launcher asset for a Win32 Perl
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Asset::Launcher version 1.200.
+This document describes Perl::Dist::WiX::Asset::Launcher version 1.200_101.
 
 =head1 SYNOPSIS
 
@@ -42,7 +42,7 @@ use MooseX::Types::Moose qw( Str Bool );
 use File::Spec::Functions qw( catfile );
 use Perl::Dist::WiX::Exceptions;
 
-our $VERSION = '1.200';
+our $VERSION = '1.200_101';
 $VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::NonURLAsset';
@@ -114,6 +114,24 @@ has exe => (
 
 
 
+=head3 directory_id
+
+The C<directory_id> parameter specifies the directory that the Start menu 
+link is to be created in.
+
+=cut
+
+
+
+has directory_id => (
+	is      => 'bare',
+	isa     => Str,
+	reader  => '_get_directory_id',
+	default => 'D_App_Menu_Tools',
+);
+
+
+
 =head2 install
 
 The install method installs the Start Menu link described by the
@@ -149,19 +167,51 @@ sub install {
 
 	my $icon_id =
 	  $self->_get_icons()
-	  ->add_icon( catfile( $self->_get_dist_dir(), "$bin.ico" ),
-		"$bin$ext" );
+	  ->add_icon( $self->_get_icon_file($bin), "$bin$ext" );
 
 	# Add the icon.
 	$self->_add_icon(
-		name     => $self->get_name(),
-		filename => $to,
-		fragment => 'StartMenuIcons',
-		icon_id  => $icon_id
+		name         => $self->get_name(),
+		filename     => $to,
+		fragment     => 'StartMenuIcons',
+		icon_id      => $icon_id,
+		directory_id => $self->_get_directory_id(),
 	);
 
 	return 1;
 } ## end sub install
+
+sub _get_icon_file {
+	my $self = shift;
+	my $name = shift;
+
+	my ( $dir, $file );
+
+	# Start with the parent reference contained in this asset.
+	my $class = ref $self->_get_parent();
+
+	no strict 'refs'; ## no critic(ProhibitNoStrict)
+	while ( defined $class and $class ne 'Moose::Object' ) {
+
+		# Get the directory of this class's dist_dir and check for the icon.
+		$dir = $class->dist_dir();
+		$file = catfile( $dir, "$name.ico" );
+		if ( -f $file ) {
+			return $file;
+		}
+
+		# Pick up the first parent of the class, and try again.
+		$class = ${"${class}::ISA"}[0];
+	} ## end while ( defined $class and...)
+
+	PDWiX::File->throw(
+		message => 'File not found.',
+		file    => "$name.ico"
+	);
+
+	return;
+
+} ## end sub _get_icon_file
 
 no Moose;
 __PACKAGE__->meta->make_immutable;

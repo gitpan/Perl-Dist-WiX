@@ -8,12 +8,11 @@ Perl::Dist::WiX::Fragment::Files - A <Fragment> with file handling.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Fragment::Files version 1.200002.
+This document describes Perl::Dist::WiX::Fragment::Files version 1.200_101.
 
 =head1 SYNOPSIS
 
 	my $fragment = Perl::Dist::WiX::Fragment::Files->new(
-		parent          => $dist,              # Perl::Dist::WiX object
 		id              => 'perl',
 		files           => $perl_files_object, # File::List::Object object
 		in_merge_module => 0,
@@ -52,7 +51,7 @@ use WiX3::Exceptions qw();
 use File::List::Object qw();
 use Win32::Exe 0.13 qw();
 
-our $VERSION = '1.200002';
+our $VERSION = '1.200_101';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::Fragment';
@@ -108,7 +107,7 @@ has in_merge_module => (
 
 =head3 files
 
-The required C<files> parameter is the list of files are in the fragment.
+The required C<files> parameter is the list of files that are in the fragment.
 
 =head2 get_files
 
@@ -187,6 +186,12 @@ sub _regenerate {
 	my $id = $self->get_id();
 	$self->trace_line( 2, "Regenerating $id\n" );
 
+	# Throw an error if there are no files in the fragment.
+	if ( 0 == scalar @files ) {
+		PDWiX->throw( "Attempted to regenerate empty fragment $id "
+			  . '(is the fragment supposed to be empty?)' );
+	}
+
 	# Clear up any previous tags that are there.
 	$self->clear_child_tags();
 
@@ -210,7 +215,13 @@ sub _regenerate {
 	}
 
 	# Return the list of fragments that need regenerated again.
-	return uniq @fragment_ids;
+	my @fragment_ids_sorted = uniq @fragment_ids;
+	my $fragments = join q{, }, @fragment_ids_sorted;
+	if ( scalar @fragment_ids_sorted ) {
+		$self->trace_line( 2, "Needs regenerated again: $fragments\n" );
+	}
+
+	return @fragment_ids_sorted;
 } ## end sub _regenerate
 
 sub _add_file_to_fragment {
@@ -327,15 +338,42 @@ sub _add_file_to_fragment {
 
 		if ( defined $directory_step3 ) {
 
-			# We're successful, so possibly say so, and then
-			# add the directories and the file.
+			# We're successful, so possibly say so.
 			$self->trace_line( 4,
 				"Directory search for step 3 successful.\n" );
 			$found_step3 = 1;
-			( $directory_final, @fragment_ids ) =
-			  $self->_add_directory_recursive( $directory_step3,
-				$path_to_find );
-			$self->_add_file_component( $directory_final, $file_path );
+
+			# Check and see if this is in the directory tree.
+			my $directory_treecheck = $tree->search_dir(
+				path_to_find => $directory_step3->get_path(),
+				descend      => 1,
+				exact        => 1,
+			);
+
+			if ( defined $directory_treecheck ) {
+
+				# Say that we found a tree entry.
+				$self->trace_line( 4,
+					"Directory search for step 3 successful.\n" );
+
+				# Add directory reference (as this is in the main tree),
+				# then directories and the file.
+				my $directory_ref_step3 =
+				  Perl::Dist::WiX::Tag::DirectoryRef->new(
+					directory_object => $directory_treecheck );
+				$self->add_child_tag($directory_ref_step3);
+				( $directory_final, @fragment_ids ) =
+				  $self->_add_directory_recursive( $directory_ref_step3,
+					$path_to_find );
+				$self->_add_file_component( $directory_final, $file_path );
+			} else {
+
+				# Add the directories and the file.
+				( $directory_final, @fragment_ids ) =
+				  $self->_add_directory_recursive( $directory_step3,
+					$path_to_find );
+				$self->_add_file_component( $directory_final, $file_path );
+			}
 
 			# Return any fragments that need regenerated.
 			return @fragment_ids;
@@ -482,7 +520,13 @@ sub _add_file_component {
 		# when we create the tag.
 		my $language;
 		my $exe = Win32::Exe->new($file);
-		my $vi  = $exe->version_info();
+		my $vi;
+		{
+
+			# Win32::Exe prints an annoying warning here. Ignore it.
+			local $SIG{__WARN__} = sub { };
+			$vi = $exe->version_info();
+		}
 
 		if ( defined $vi ) {
 			$vi->get('OriginalFilename'); # To load the variable used below.

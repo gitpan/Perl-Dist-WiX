@@ -8,7 +8,7 @@ Perl::Dist::WiX::Checkpoint - Checkpoint support for Perl::Dist::WiX
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Checkpoint version 1.200001.
+This document describes Perl::Dist::WiX::Checkpoint version 1.200_101.
 
 =head1 SYNOPSIS
 
@@ -49,7 +49,7 @@ use File::Remove qw();
 use Storable qw();
 use Clone qw(clone);
 
-our $VERSION = '1.200001';
+our $VERSION = '1.200_101';
 $VERSION =~ s/_//ms;
 
 =head2 checkpoint_task
@@ -83,12 +83,21 @@ sub checkpoint_task {
 		$self->trace_line( 0, "Skipping $task (step $step.)\n" );
 	} else {
 		my $t = time;
+
+		if ( not $self->can($task) ) {
+			PDWiX::NotTask->throw(
+				class => ref $self,
+				task  => $task,
+				step  => $step
+			);
+		}
+
 		$self->$task();
 		$self->trace_line( 0,
 			    "Completed $task (step $step) in "
 			  . ( time - $t )
 			  . " seconds\n" );
-	}
+	} ## end else [ if ( $self->checkpoint_before...)]
 
 	# Are we saving at this step?
 	if ( defined first { $step == $_ } @{ $self->checkpoint_after() } ) {
@@ -128,13 +137,13 @@ sub checkpoint_self {
 =head2 checkpoint_save
 
 Saves a checkpoint within the checkpoint subdirectory of 
-L<< Perl::Dist::WiX->temp_dir|Perl::Dist::WiX/temp_dir >>
+L<< Perl::Dist::WiX-E<gt>temp_dir()|Perl::Dist::WiX/temp_dir >>
 
 =cut
 
 sub checkpoint_save {
 	my $self = shift;
-	unless ( $self->temp_dir ) {
+	unless ( $self->temp_dir() ) {
 		PDWiX->throw('Checkpoints require a temp_dir to be set');
 	}
 
@@ -175,7 +184,7 @@ sub checkpoint_save {
 =head2 checkpoint_load
 
 Restores a checkpoint saved to the checkpoint subdirectory of 
-L<< Perl::Dist::WiX->temp_dir|Perl::Dist::WiX/temp_dir >> with 
+L<< Perl::Dist::WiX-E<gt>temp_dir()|Perl::Dist::WiX/temp_dir >> with 
 L</checkpoint_save>.
 
 =cut

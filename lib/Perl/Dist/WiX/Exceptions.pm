@@ -6,7 +6,7 @@ use warnings;
 use WiX3::Traceable qw();
 use Data::Dump::Streamer qw();
 
-our $VERSION = '1.200';
+our $VERSION = '1.200_101';
 $VERSION =~ s/_//ms;
 
 
@@ -18,6 +18,11 @@ use Exception::Class (
 	'PDWiX::Stop' => {
 		'description' => 'Perl::Dist::WiX error: Debugging stop.',
 		'isa'         => 'PDWiX',
+	},
+	'PDWiX::NotTask' => {
+		'description' => 'does not know how to complete step',
+		'isa'         => 'PDWiX',
+		'fields'      => [qw(class task step)],
 	},
 	'PDWiX::Parameter' => {
 		'description' =>
@@ -90,6 +95,20 @@ sub PDWiX::Stop::full_message {
 
 	return $string;
 } ## end sub PDWiX::Stop::full_message
+
+sub PDWiX::NotTask::full_message {
+	my $self = shift;
+
+	my $string =
+	    $self->class() . q{ }
+	  . $self->description() . ' #'
+	  . $self->step() . ' ('
+	  . $self->task() . ")\n"
+	  . 'Time error caught: '
+	  . localtime() . "\n";
+
+	return $string;
+} ## end sub PDWiX::NotTask::full_message
 
 sub PDWiX::Parameter::full_message {
 	my $self = shift;
@@ -248,7 +267,7 @@ Perl::Dist::WiX::Exceptions - Exception classes for Perl::Dist::WiX
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Exceptions version 1.200.
+This document describes Perl::Dist::WiX::Exceptions version 1.200_101.
 
 =head1 DESCRIPTION
 
