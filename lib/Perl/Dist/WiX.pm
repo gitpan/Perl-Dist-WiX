@@ -4,7 +4,7 @@ package Perl::Dist::WiX;
 
 =begin readme text
 
-Perl-Dist-WiX version 1.200_101
+Perl-Dist-WiX version 1.200_102
 
 =end readme
 
@@ -16,7 +16,7 @@ Perl::Dist::WiX - 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 1.200_101.
+This document describes Perl::Dist::WiX version 1.200_102.
 
 =for readme continue
 
@@ -151,7 +151,7 @@ use WiX3::XML::GeneratesGUID::Object        qw();
 use WiX3::Traceable                         qw();
 #>>>
 
-our $VERSION = '1.200_101';
+our $VERSION = '1.200_102';
 $VERSION =~ s/_//ms;
 
 
@@ -1374,7 +1374,7 @@ sub _build_license_dir {
 	my $self = shift;
 
 	my $dir = $self->image_dir()->subdir('licenses');
-	$self->remake_path("$dir");
+	$self->remake_path("$dir") if not -d "$dir";
 	return $dir;
 }
 
@@ -2206,6 +2206,19 @@ has '_portable_dist' => (
 
 
 
+has '_use_sqlite' => (
+	is       => 'ro',
+	isa      => Bool,
+	init_arg => undef,
+	lazy     => 1,
+	default  => sub {
+		my $self = shift;
+		return ( defined $self->msm_to_use() ) ? 1 : 0;
+	},
+);
+
+
+
 #####################################################################
 # Top Level Process Methods
 
@@ -2249,11 +2262,13 @@ sub run {
 		$task_number++;
 	}
 
+	my $time_string = scalar localtime;
+
 	# Finished
 	$self->trace_line( 0,
 		    'Distribution generation completed in '
 		  . ( time - $start )
-		  . " seconds\n" );
+		  . " seconds (${time_string})\n" );
 	foreach my $file ( $self->get_output_files ) {
 		$self->trace_line( 0, "Created distribution $file\n" );
 	}
@@ -2565,15 +2580,29 @@ sub initialize_using_msm {
 	  ->add_merge_module( $self->image_dir()->stringify(), $mm );
 
    # Set the file paths that the first portion of the build otherwise would.
-	$self->_set_bin_perl( $self->file(qw/perl bin perl.exe/) );
-	$self->_set_bin_make( $self->file(qw/c bin dmake.exe/) );
-	$self->_set_bin_pexports( $self->file(qw/c bin pexports.exe/) );
-	$self->_set_bin_dlltool( $self->file(qw/c bin dlltool.exe/) );
+	$self->_set_bin_perl( $self->file(qw(perl bin perl.exe)) );
+	$self->_set_bin_make( $self->file(qw(c bin dmake.exe)) );
+	$self->_set_bin_pexports( $self->file(qw(c bin pexports.exe)) );
+	$self->_set_bin_dlltool( $self->file(qw(c bin dlltool.exe)) );
 
 	# Do the same for the environment variables
 	$self->add_path( 'c',    'bin' );
 	$self->add_path( 'perl', 'site', 'bin' );
 	$self->add_path( 'perl', 'bin' );
+
+	# Remove the .url files and README.txt files.
+	my $answer;
+	$answer = unlink glob $self->file(qw(win32 *.url));
+	$answer = unlink $self->file('README.txt');
+
+	# Initialize CPAN::SQLite if we need to.
+	if ( $self->_use_sqlite() && $self->offline() ) {
+		my $cpan_dir = $self->cpan()->dir();
+		$cpan_dir =~ s{\\\z}{}ms;
+		$self->execute_perl( $self->file(qw(perl bin cpandb)),
+			'--setup', '--db_dir', $self->dir(qw(cpan)), '--CPAN',
+			$cpan_dir, );
+	}
 
 	return 1;
 } ## end sub initialize_using_msm
@@ -2832,8 +2861,8 @@ sub install_win32_extras {
 
 		$self->add_to_fragment(
 			'Win32Extras',
-			[   catfile( $self->image_dir(), qw(win32 win32.ico) ),
-				catfile( $self->image_dir(), qw(win32 cpan.ico) ),
+			[   $self->file(qw(win32 win32.ico)),
+				$self->file(qw(win32 cpan.ico)),
 			] );
 
 		# Make sure the environment script gets installed.
@@ -3107,8 +3136,8 @@ sub _write_zip {
 	$self->trace_line( 1, "Generating zip at $file\n" );
 
 	# Make directories.
-	$self->remake_path( catdir( $self->image_dir(), qw(cpan sources) ) );
-	$self->remake_path( catdir( $self->image_dir(), qw(cpanplus    ) ) );
+	$self->remake_path( $self->dir(qw(cpan sources)) );
+	$self->remake_path( $self->dir(qw(cpanplus    )) );
 
 	# Create the archive
 	my $zip = Archive::Zip->new();
@@ -4283,8 +4312,6 @@ Returns the ID of the tag that installs a README.txt file.
 
 sub msi_fileid_readme_txt {
 	my $self = shift;
-
-	return 1 unless $self->relocatable();
 
 	# Set the fileid attributes.
 	my $readme_id =
