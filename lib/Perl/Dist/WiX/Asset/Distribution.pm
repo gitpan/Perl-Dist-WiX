@@ -8,7 +8,7 @@ Perl::Dist::WiX::Asset::Distribution - "Perl Distribution" asset for a Win32 Per
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Asset::Distribution version 1.200.
+This document describes Perl::Dist::WiX::Asset::Distribution version 1.250.
 
 =head1 SYNOPSIS
 
@@ -56,7 +56,7 @@ use Params::Util qw( _INSTANCE );
 require File::Remove;
 require URI;
 
-our $VERSION = '1.200';
+our $VERSION = '1.250';
 $VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::Asset';
@@ -325,7 +325,7 @@ sub BUILDARGS {
 	my $path =
 	  File::Spec::Unix->catfile( 'authors', 'id', $one, "$one$two", $dist,
 	  );
-	$args{url} = URI->new_abs( $path, $args{parent}->cpan() )->as_string;
+	$args{url} = URI->new_abs( $path, $args{parent}->cpan() )->as_string();
 	$args{file} = $args{url};
 	$args{file} =~ s{.+/}{}ms;
 
@@ -394,11 +394,11 @@ sub install {
 
 	# Where will it get extracted to
 	my $dist_path = $name;
+	$self->_add_to_distributions_installed($dist_path);
 	$dist_path =~ s{[.] tar [.] gz}{}msx;   # Take off extensions.
 	$dist_path =~ s{[.] zip}{}msx;
 	$dist_path =~ s{.+\/}{}msx;        # Take off directories.
 	my $unpack_to = catdir( $build_dir, $dist_path );
-	$self->_add_to_distributions_installed($dist_path);
 
 	# Extract the tarball
 	if ( -d $unpack_to ) {

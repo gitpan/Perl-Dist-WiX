@@ -4,7 +4,7 @@ package Perl::Dist::WiX;
 
 =begin readme text
 
-Perl-Dist-WiX version 1.200_102
+Perl-Dist-WiX version 1.250
 
 =end readme
 
@@ -16,7 +16,7 @@ Perl::Dist::WiX - 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 1.200_102.
+This document describes Perl::Dist::WiX version 1.250.
 
 =for readme continue
 
@@ -151,7 +151,7 @@ use WiX3::XML::GeneratesGUID::Object        qw();
 use WiX3::Traceable                         qw();
 #>>>
 
-our $VERSION = '1.200_102';
+our $VERSION = '1.250';
 $VERSION =~ s/_//ms;
 
 
@@ -1666,7 +1666,7 @@ has 'fileid_relocation_pl' => (
 
 =head4 msm_code
 
-The optional C<msm_code> param is used to specify the product code
+The optional C<msm_code> parameter is used to specify the product code
 for the merge module referred to in C<msm_to_use>.
 
 C<msm_to_use>, C<msm_zip>, and this parameter must either be all unset, 
@@ -1685,7 +1685,8 @@ has 'msm_code' => (
 
 =head4 msm_to_use
 
-The optional C<msm_to_use> ...
+The optional C<msm_to_use> parameter is the location of a merge module 
+to use when linking the .msi.
 
 It can be specified as a string, a L<Path::Class::File|Path::Class::File> 
 object, or a L<URI|URI> object. 

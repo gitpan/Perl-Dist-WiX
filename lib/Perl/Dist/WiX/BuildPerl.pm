@@ -8,7 +8,7 @@ Perl::Dist::WiX::BuildPerl - 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::BuildPerl version 1.200_101.
+This document describes Perl::Dist::WiX::BuildPerl version 1.250.
 
 =head1 DESCRIPTION
 
@@ -39,7 +39,7 @@ use Perl::Dist::WiX::Asset::Perl qw();
 use Perl::Dist::WiX::Toolchain qw();
 use File::List::Object qw();
 
-our $VERSION = '1.200_101';
+our $VERSION = '1.250';
 $VERSION =~ s/_//sm;
 
 # Keys are what's in the filename, with - being converted to ::.
@@ -162,6 +162,12 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 			next MODULE;
 		}
 
+		# File::Fetch is network-dependent.
+		if ( $module->cpan_file() =~ m{/File-Fetch-\d}msx ) {
+			$self->_install_cpan_module( $module, $self->offline() );
+			next MODULE;
+		}
+
 		# Locale::Maketext::Simple 0.20 has a test bug. Forcing.
 		if (
 			$module->cpan_file() =~ m{/Locale-Maketext-Simple-0 [.] 20}msx )
@@ -188,10 +194,10 @@ sub install_cpan_upgrades { ## no critic(ProhibitExcessComplexity)
 		# There's a problem with extracting these two files, so
 		# upgrading to these versions, instead...
 		if ( $module->cpan_file() =~
-			/Unicode-Collate-0 [.] 53-withoutworldwriteables/msx )
+			/Unicode-Collate-0 [.] 5(3|4)-withoutworldwriteables/msx )
 		{
 			$self->install_distribution(
-				name     => 'SADAHIRO/Unicode-Collate-0.53.tar.gz',
+				name     => "SADAHIRO/Unicode-Collate-0.5$1.tar.gz",
 				mod_name => 'Unicode::Collate',
 				$self->_install_location(1),
 				$force
@@ -951,6 +957,24 @@ sub install_perl_toolchain {
 			# (and probably 2008/Win7 as well).
 			$force = 1;
 		}
+
+		# The podlators dist needs a few more modules to install on 5.8.9.
+		if (    ( $dist =~ m{/podlators-\d}msx )
+			and ( $self->perl_version() =~ m{\A58}ms ) )
+		{
+			$self->install_distribution(
+				name     => 'SBURKE/Pod-Escapes-1.04.tar.gz',
+				mod_name => 'Pod::Escapes',
+				force    => $force,
+				$self->_install_location(0),
+			);
+			$self->install_distribution(
+				name     => 'DWHEELER/Pod-Simple-3.14.tar.gz',
+				mod_name => 'Pod::Simple',
+				force    => $force,
+				$self->_install_location(0),
+			);
+		} ## end if ( ( $dist =~ m{/podlators-\d}msx...))
 
 		# Actually DO the installation, now
 		# that we've got the information we need.

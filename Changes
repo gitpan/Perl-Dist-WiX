@@ -1,5 +1,11 @@
 Changes for Perl extension Perl-Dist-WiX
 
+1.250   Xxx ## Jul 2010
+    1. Used to build Strawberry Perl July 2010.
+    2. Added ability to have CPAN module links in the release notes.
+	3. Removing pdwix_minicpan script.
+	4. Added ability to specify packlist location (not used yet)
+
 1.200_102   Sun 25 Jul 2010
     1. Used to build Strawberry Perl Professional Alpha 2.
     2. Allow use of SQLite indexes when building off a merge module.
@@ -11,6 +17,8 @@ Changes for Perl extension Perl-Dist-WiX
     2. Cache exact directory tree searches for a speedup.
 	3. Icons are now inheritable.
 	4. Checkbox added for README.txt file.
+    5. Fix to allow Start menu links to root directory files.
+    6. Allow README.txt to be read at end of installation.
 
 1.200_100   Fri 28 May 2010
     1. Used to build Strawberry Perl July 2010 Beta 1.

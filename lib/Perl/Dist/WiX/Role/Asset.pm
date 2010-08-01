@@ -8,7 +8,7 @@ Perl::Dist::WiX::Role::Asset - Role for assets.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Role::Asset version 1.200_102.
+This document describes Perl::Dist::WiX::Role::Asset version 1.250.
 
 =head1 SYNOPSIS
 
@@ -28,7 +28,7 @@ L<Perl::Dist::WiX|Perl::Dist::WiX>-based Perl distribution.
 use 5.008001;
 use Moose::Role;
 use File::Spec::Functions qw( rel2abs catdir catfile );
-use MooseX::Types::Moose qw( Str );
+use MooseX::Types::Moose qw( Str Maybe );
 use Params::Util qw( _INSTANCE );
 use English qw( -no_match_vars );
 require File::List::Object;
@@ -38,7 +38,7 @@ require Perl::Dist::WiX::Exceptions;
 require URI;
 require URI::file;
 
-our $VERSION = '1.200_102';
+our $VERSION = '1.250';
 $VERSION =~ s/_//ms;
 
 =head1 ATTRIBUTES
@@ -141,6 +141,27 @@ has file => (
 	isa      => Str,
 	reader   => '_get_file',
 	required => 1,
+);
+
+
+
+=head2 packlist_location
+
+Some distributions create their packlist in an odd location (one 
+not specified by the main module in the distribution.)
+
+This optional parameter specifies the directory the packlist is in as a 
+relative directory to C<image_dir()> . "/I<install location>/lib/author".
+
+=cut
+
+
+
+has packlist_location => (
+	is      => 'ro',
+	isa     => Maybe [Str],
+	reader  => '_get_packlist_location',
+	default => undef,
 );
 
 
@@ -268,6 +289,25 @@ EOF
 		catdir( $image_dir, qw{perl site   lib auto}, @module_dirs ),
 		catdir( $image_dir, qw{perl        lib auto}, @module_dirs ),
 	);
+
+	my $packlist_location = $self->_get_packlist_location();
+	if ( defined $packlist_location ) {
+		push @dirs,
+		  (
+			catdir(
+				$image_dir, qw{perl vendor lib auto},
+				$packlist_location
+			),
+			catdir(
+				$image_dir, qw{perl site   lib auto},
+				$packlist_location
+			),
+			catdir(
+				$image_dir, qw{perl        lib auto},
+				$packlist_location
+			),
+		  );
+	} ## end if ( defined $packlist_location)
 
 	# What file exists, if any?
 	my $packlist;

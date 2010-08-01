@@ -8,7 +8,7 @@ Perl::Dist::WiX::ReleaseNotes - Creates accessory files.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::ReleaseNotes version 1.200.
+This document describes Perl::Dist::WiX::ReleaseNotes version 1.250.
 
 =head1 DESCRIPTION
 
@@ -31,7 +31,7 @@ use File::Spec::Functions qw( catfile );
 require IO::File;
 require File::List::Object;
 
-our $VERSION = '1.200';
+our $VERSION = '1.250';
 $VERSION =~ s/_//ms;
 
 
@@ -67,14 +67,36 @@ release notes to upload to a web site.
 
 
 
+sub _get_cpan_link {
+	my $self = shift;
+	my $dist = shift;
+
+	# If we're already a link, then return that.
+	return $dist if ( $dist =~ m{\A http (?:s)? :}msx );
+
+	# Otherwise, convert to a CPAN link.
+	my $one = substr $dist, 0, 1;
+	my $two = substr $dist, 1, 1;
+	my $path =
+	  File::Spec::Unix->catfile( 'authors', 'id', $one, "$one$two", $dist,
+	  );
+	return URI->new_abs( $path, 'http://search.cpan.org/CPAN/' )->as_string;
+
+} ## end sub _get_cpan_link
+
 sub create_release_notes {
 	my $self = shift;
 	my $dist_list;
-	my ( $name, $ver );
+	my ( $name, $ver, $link );
 
 	foreach my $dist ( $self->_get_distributions() ) {
+		$link = $self->_get_cpan_link($dist);
+		$dist =~ s{[.] tar [.] gz}{}msx;   # Take off extensions.
+		$dist =~ s{[.] zip}{}msx;
+		$dist =~ s{.+\/}{}msx;         # Take off directories.
 		( $name, $ver ) = $dist =~ m{(.*)-(?:v?)([0-9._]*)}msx;
-		$dist_list .= "<tr><td>$name</td><td>$ver</td></tr>\n";
+		$dist_list .=
+qq{<tr><td>$name</td><td>$ver</td><td><a href="$link">Source</a></td></tr>\n};
 	}
 
 	my @time   = localtime;
@@ -165,6 +187,9 @@ sub create_distribution_list_file {
 	my ( $name, $ver );
 
 	foreach my $dist ( $self->_get_distributions() ) {
+		$dist =~ s{[.] tar [.] gz}{}msx;   # Take off extensions.
+		$dist =~ s{[.] zip}{}msx;
+		$dist =~ s{.+\/}{}msx;         # Take off directories.
 		( $name, $ver ) = $dist =~ m{(.*)-(?:v?)([0-9._]*)}msx;
 		$dist_list .= "    $name $ver\n";
 	}

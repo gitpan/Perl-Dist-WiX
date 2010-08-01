@@ -8,7 +8,7 @@ Perl::Dist::WiX::FeatureTree2 - Tree of <Feature> tag objects.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::FeatureTree2 version 1.200001.
+This document describes Perl::Dist::WiX::FeatureTree2 version 1.250.
 
 =head1 SYNOPSIS
 
@@ -20,7 +20,10 @@ This document describes Perl::Dist::WiX::FeatureTree2 version 1.200001.
 
 =head1 DESCRIPTION
 
-	# TODO: Document
+This module contains the feature tree for a distribution.
+
+Currently, this implements a "feature tree" with one feature.  Multiple
+features will be implemented during the October 2010 release cycle.
 
 =cut
 
@@ -28,7 +31,7 @@ use 5.008001;
 use Moose 0.90;
 require WiX3::XML::Feature;
 
-our $VERSION = '1.200001';
+our $VERSION = '1.250';
 $VERSION =~ s/_//ms;
 
 =head1 INTERFACE
@@ -172,7 +175,13 @@ sub as_string_msm {
 
 =head2 add_merge_module
 
-TODO: Document
+	$self->add_merge_module($mm)
+
+This routine adds a merge module reference to the feature tree.
+
+The C<$mm> parameter is the 
+L<Perl::Dist::WiX::Tag::MergeModule|Perl::Dist::WiX::Tag::MergeModule> 
+object to add a reference of.
 
 =cut
 

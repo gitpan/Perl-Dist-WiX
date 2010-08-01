@@ -51,7 +51,6 @@ rt/901_perl_589.t
 rt/902_perl_5100.t
 rt/903_perl_5101.t
 rt/904_portable.t
-script/minicpan_pdwix
 script/perldist_w
 share/ClearFolderCA.dll
 share/cpan.ico
@@ -112,7 +111,6 @@ share/distroprefs/Task-Kensho-0.22.patch
 share/distroprefs/task-kensho.yml
 share/growl-icon.png
 share/License.rtf
-share/minicpan_filters.txt
 share/perldoc.ico
 share/portable.perl
 share/portable/perl-5.10.1/win32/config.gc.tt

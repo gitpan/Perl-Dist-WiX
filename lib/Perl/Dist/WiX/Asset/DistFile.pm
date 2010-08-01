@@ -8,7 +8,7 @@ Perl::Dist::WiX::Asset::DistFile - "Local Distribution" asset for a Win32 Perl
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Asset::DistFile version 1.200.
+This document describes Perl::Dist::WiX::Asset::DistFile version 1.250.
 
 =head1 SYNOPSIS
 
@@ -63,7 +63,7 @@ require URI;
 require File::Spec::Unix;
 require Perl::Dist::WiX::Exceptions;
 
-our $VERSION = '1.200';
+our $VERSION = '1.250';
 $VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::Asset';
@@ -83,12 +83,17 @@ It inherits all the parameters described in the
 L<< Perl::Dist::WiX::Role::Asset->new|Perl::Dist::WiX::Role::Asset/new() >> 
 method documentation, and adds the additional parameters described below.
 
-=cut
+=head3 url
+
+The C<url> parameter is used as a location where the package can be 
+downloaded for 3 years, as required by the GNU Public License.
+
+This is used when generating release notes.
 
 =head3 mod_name
 
-The required C<mod_name> param is the name of the package for the purposes
-of identification.
+The required C<mod_name> parameter is the name of the package for the 
+purposes of identification.
 
 This should match the name of the main Perl module in the distribution, for 
 example, "File::Spec" or "Perl::Dist::WiX".
@@ -102,6 +107,7 @@ has mod_name => (
 	lazy    => 1,
 	default => sub { return $_[0]->_name_to_module(); },
 );
+
 
 
 =head3 force
@@ -252,8 +258,8 @@ sub install {
 	my $dist_path = $filename;
 	$dist_path =~ s{[.] tar [.] gz}{}msx;   # Take off extensions.
 	$dist_path =~ s{[.] zip}{}msx;
-	$self->_add_to_distributions_installed($dist_path);
 	my $unpack_to = catdir( $self->_get_build_dir(), $dist_path );
+	$self->_add_to_distributions_installed( $self->_get_url() );
 
 	# Extract the tarball
 	if ( -d $unpack_to ) {

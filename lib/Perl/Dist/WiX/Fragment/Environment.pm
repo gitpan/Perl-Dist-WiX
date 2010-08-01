@@ -8,15 +8,31 @@ Perl::Dist::WiX::Fragment::Environment - A <Fragment> tag with environment varia
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Fragment::Environment version 1.200.
+This document describes Perl::Dist::WiX::Fragment::Environment version 1.250.
 
 =head1 SYNOPSIS
 
-	# TODO
+	my $fragment = Perl::Dist::WiX::Fragment::Environment->new(
+		id => 'Environment',
+	);
 
+	# If there is only one parameter, it is considered to be the id.
+	my $fragment2 = Perl::Dist::WiX::Fragment::Environment->new('Environment');
+
+	$fragment->add_entry(
+		id     => "Env_STRAWBERRY",
+		name   => 'STRAWBERRY',
+		value  => '1',
+		action => 'set',
+		part   => 'all',
+	);
+	
+	my $count = $fragment->get_entries_count();
+	
 =head1 DESCRIPTION
 
-	# TODO
+This module implements the fragment that adds, deletes, and appends 
+the environment variables required in a distribution.
 
 =cut
 
@@ -26,7 +42,7 @@ require WiX3::XML::Environment;
 require WiX3::XML::Component;
 require WiX3::XML::DirectoryRef;
 
-our $VERSION = '1.200';
+our $VERSION = '1.250';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::Fragment';

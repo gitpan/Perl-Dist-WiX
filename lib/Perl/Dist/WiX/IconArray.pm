@@ -8,7 +8,7 @@ Perl::Dist::WiX::IconArray - A list of <Icon> tags.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::IconArray version 1.200001.
+This document describes Perl::Dist::WiX::IconArray version 1.250.
 
 =head1 SYNOPSIS
 
@@ -43,7 +43,9 @@ use Params::Util qw( _STRING _INSTANCE  );
 use File::Spec::Functions qw( splitpath );
 require Perl::Dist::WiX::Tag::Icon;
 
-our $VERSION = '1.200001';
+with 'WiX3::Role::Traceable';
+
+our $VERSION = '1.250';
 $VERSION =~ s/_//ms;
 
 # Private storage for the icons added.
@@ -117,9 +119,8 @@ sub add_icon {
 	# Find the type of target.
 	my ($target_type) = $pathname_target =~ m{\A.*[.](.+)\z}msx;
 
-# TODO: Make this work.
-#	$self->trace_line( 2,
-#		"Adding icon $pathname_icon with target type $target_type.\n" );
+	$self->trace_line( 2,
+		"Adding icon $pathname_icon with target type $target_type.\n" );
 
 	# If we have an icon already, return it.
 	my $icon = $self->search_icon( $pathname_icon, $target_type );

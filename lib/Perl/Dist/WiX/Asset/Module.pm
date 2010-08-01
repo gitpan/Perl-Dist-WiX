@@ -6,7 +6,7 @@ Perl::Dist::WiX::Asset::Module - Module asset for a Win32 Perl
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Asset::Module version 1.200_102.
+This document describes Perl::Dist::WiX::Asset::Module version 1.250.
 
 =head1 SYNOPSIS
 
@@ -34,7 +34,7 @@ require Perl::Dist::WiX::Exceptions;
 require File::List::Object;
 require IO::File;
 
-our $VERSION = '1.200_102';
+our $VERSION = '1.250';
 $VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::NonURLAsset';
@@ -263,9 +263,6 @@ END_PERL
 		}
 		my $dist_info = <$fh>;
 		$fh->close;
-		$dist_info =~ s{[.] tar [.] gz}{}msx;   # Take off extensions.
-		$dist_info =~ s{[.] zip}{}msx;
-		$dist_info =~ s{.+\/}{}msx;    # Take off directories.
 		$self->_add_to_distributions_installed($dist_info);
 	} else {
 		$self->_trace_line( 0,

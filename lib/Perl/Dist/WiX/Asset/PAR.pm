@@ -8,7 +8,7 @@ Perl::Dist::WiX::Asset::PAR - "Binary .par package" asset for a Win32 Perl
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Asset::PAR version 1.200.
+This document describes Perl::Dist::WiX::Asset::PAR version 1.250.
 
 =head1 SYNOPSIS
 
@@ -54,7 +54,7 @@ require SelectSaver;
 require PAR::Dist;
 require IO::String;
 
-our $VERSION = '1.200';
+our $VERSION = '1.250';
 $VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::Asset';
@@ -76,7 +76,7 @@ parameter is provided.
 
 It inherits all the parameters described in the 
 L<Perl::Dist::WiX::Asset/new|Perl::Dist::WiX::Asset-E<gt>new()> 
-method documentation, and adds an additional parameter.
+method documentation, and adds two additional parameters.
 
 =head3 name
 
@@ -93,9 +93,24 @@ has name => (
 	required => 1,
 );
 
+=head3 name
+
+The required C<dist_info> parameter is the location of the source package 
+for the .par file, either as a URL (which should be accessible for 3 years) 
+or as a location on CPAN in the 'AUTHORID/dist-version.tar.gz' format.
+
+=cut
+
+has dist_info => (
+	is       => 'ro',
+	isa      => 'Str',
+	reader   => '_get_dist_info',
+	required => 1,
+);
+
 =head2 install
 
-The C<install> method retrieves the specified .par file and installs it71.
+The C<install> method retrieves the specified .par file and installs it.
 
 =cut
 
@@ -165,29 +180,7 @@ sub install {
 	$self->_trace_line( 2, $output );
 
 	# Get distribution name to add to what's installed.
-	if ( ( defined $url ) and ( $url =~ m{.*/([^/]*)\z}msx ) ) {
-		my $dist_info = $1;
-		$dist_info =~ s{[.] par}{}msx; # Take off .par extension.
-#<<<
-		if ($dist_info =~
-            m{\A(.*?)   # Grab anything that could be the name non-greedily, ...
-			-           # break at a dash,
-			([0-9._]*)  # then try to grab a version,
-			(?:-.*)?    # then discard anything else.
-			\z}msx
-		  )
-#>>>
-		{
-			my ( $dist_name, $dist_ver ) = ( $1, $2 );
-			$dist_info = "${dist_name}-${dist_ver}";
-			$self->_add_to_distributions_installed($dist_info);
-		} else {
-			$self->_trace_line( 1, <<"EOF");
-Could not parse name of .par to determine name and version.
-Source: $dist_info
-EOF
-		}
-	} ## end if ( ( defined $url ) ...)
+	$self->_add_to_distributions_installed( $self->_get_dist_info() );
 
 	# Read in the .packlist and return it.
 	my $filelist =
