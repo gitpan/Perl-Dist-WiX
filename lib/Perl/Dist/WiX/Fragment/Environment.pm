@@ -8,7 +8,7 @@ Perl::Dist::WiX::Fragment::Environment - A <Fragment> tag with environment varia
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Fragment::Environment version 1.250.
+This document describes Perl::Dist::WiX::Fragment::Environment version 1.250_100.
 
 =head1 SYNOPSIS
 
@@ -36,13 +36,14 @@ the environment variables required in a distribution.
 
 =cut
 
-use 5.008001;
+use 5.010;
 use Moose;
+require Perl::Dist::WiX::DirectoryTree;
 require WiX3::XML::Environment;
 require WiX3::XML::Component;
 require WiX3::XML::DirectoryRef;
 
-our $VERSION = '1.250';
+our $VERSION = '1.250_100';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::Fragment';
@@ -119,7 +120,7 @@ sub BUILD {
 	# Add the component to a reference to the root directory.
 	my $tag2 =
 	  WiX3::XML::DirectoryRef->new( directory_object =>
-		  Perl::Dist::WiX::DirectoryTree2->instance()->get_root(), );
+		  Perl::Dist::WiX::DirectoryTree->instance()->get_root(), );
 	$tag2->add_child_tag( $self->_get_component() );
 
 	# Add the root directory as a child of this fragment.
@@ -178,12 +179,12 @@ sub get_entries_count {
 
 
 # The fragment is already generated. No need to regenerate.
-sub _regenerate {
+sub _regenerate { ## no critic(ProhibitUnusedPrivateSubroutines)
 	return;
 }
 
 # No duplicates will be here to check.
-sub _check_duplicates {
+sub _check_duplicates { ## no critic(ProhibitUnusedPrivateSubroutines)
 	return;
 }
 

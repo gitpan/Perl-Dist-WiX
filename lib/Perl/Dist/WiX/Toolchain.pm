@@ -8,7 +8,7 @@ Perl::Dist::WiX::Toolchain - Compiles the initial toolchain for a Win32 perl dis
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Toolchain version 1.250.
+This document describes Perl::Dist::WiX::Toolchain version 1.250_100.
 
 =head1 SYNOPSIS
 
@@ -49,7 +49,7 @@ L<Process|Process>.
 
 
 
-use 5.008001;
+use 5.010;
 use Moose 0.90;
 use MooseX::NonMoose;
 use MooseX::Types::Moose qw( Str Int Bool HashRef ArrayRef Maybe );
@@ -62,8 +62,9 @@ use Module::CoreList 2.32 qw();
 use IO::Capture::Stdout qw();
 use IO::Capture::Stderr qw();
 use vars qw(@DELEGATE);
+use namespace::clean -except => 'meta';
 
-our $VERSION = '1.250';
+our $VERSION = '1.250_100';
 $VERSION =~ s/_//ms;
 
 extends qw(
@@ -93,12 +94,12 @@ sub BUILD {
 	my $self  = shift;
 	my $class = ref $self;
 
-	unless ( $self->_modules_exists( $self->_get_perl_version() ) ) {
+	if ( not $self->_modules_exists( $self->_get_perl_version() ) ) {
 		Carp::croak( q{Perl version '}
 			  . $self->_get_perl_version()
 			  . "' is not supported in $class" );
 	}
-	unless ( $self->_corelist_version_exists( $self->_get_perl_version() ) )
+	if ( not $self->_corelist_version_exists( $self->_get_perl_version() ) )
 	{
 		Carp::croak( q{Perl version '}
 			  . $self->_get_perl_version()
@@ -117,7 +118,7 @@ This required parameter defines the version of Perl that we are generating
 the toolchain for.
 
 This is a string containing a number that is a version of perl in the format
-of $] ('5.008009' or '5.012000', for example).
+of $] ('5.010001' or '5.012000', for example).
 
 =cut
 
@@ -159,7 +160,6 @@ has cpan => (
 	isa      => Str,
 	reader   => '_get_cpan',
 	required => 1,
-	coerce   => 1,
 );
 
 
@@ -193,7 +193,7 @@ has _modules => (
 	traits   => ['Hash'],
 	is       => 'bare',
 	isa      => HashRef [ ArrayRef [Str] ],
-	builder  => '_modules_build',
+	builder  => '_build_modules',
 	lazy     => 1,
 	init_arg => undef,
 	handles  => {
@@ -202,7 +202,7 @@ has _modules => (
 	},
 );
 
-sub _modules_build {
+sub _build_modules {
 	my $self = shift;
 
 	my @modules_list = ( qw {
@@ -239,7 +239,9 @@ sub _modules_build {
 		  Archive::Tar}
 	);
 
-	push @modules_list, 'Compress::unLZMA' if 32 == $self->bits();
+	if ( 32 == $self->bits() ) {
+		push @modules_list, 'Compress::unLZMA';
+	}
 
 	push @modules_list, qw{
 	  Win32::UTCFileTime
@@ -263,15 +265,15 @@ sub _modules_build {
 	  Pod::Text
 	};
 
-	my %modules = ( '5.008009' => \@modules_list, );
-	$modules{'5.010000'} = $modules{'5.008009'};
-	$modules{'5.010001'} = $modules{'5.008009'};
-	$modules{'5.011001'} = $modules{'5.008009'};
-	$modules{'5.012000'} = $modules{'5.008009'};
-	$modules{'5.012001'} = $modules{'5.008009'};
+	my %modules = ( '5.010000' => \@modules_list, );
+	$modules{'5.010001'} = $modules{'5.010000'};
+	$modules{'5.012000'} = $modules{'5.010000'};
+	$modules{'5.012001'} = $modules{'5.010000'};
+	$modules{'5.012002'} = $modules{'5.010000'};
+	$modules{'5.013004'} = $modules{'5.010000'};
 
 	return \%modules;
-} ## end sub _modules_build
+} ## end sub _build_modules
 
 
 
@@ -279,7 +281,7 @@ has _corelist_version => (
 	traits   => ['Hash'],
 	is       => 'bare',
 	isa      => HashRef [Str],
-	builder  => '_corelist_version_build',
+	builder  => '_build_corelist_version',
 	init_arg => undef,
 	lazy     => 1,
 	handles  => {
@@ -290,19 +292,19 @@ has _corelist_version => (
 
 
 
-sub _corelist_version_build {
+sub _build_corelist_version {
 
 	my %corelist = (
-		'5.008009' => '5.008009',
 		'5.010000' => '5.010000',
 		'5.010001' => '5.010001',
-		'5.011001' => '5.011001',
 		'5.012000' => '5.012000',
 		'5.012001' => '5.012001',
+		'5.012002' => '5.012002',
+		'5.013004' => '5.013004',
 	);
 
 	return \%corelist;
-} ## end sub _corelist_version_build
+} ## end sub _build_corelist_version
 
 
 
@@ -310,7 +312,7 @@ has _corelist => (
 	traits   => ['Hash'],
 	is       => 'bare',
 	isa      => HashRef,
-	builder  => '_corelist_build',
+	builder  => '_build_corelist',
 	init_arg => undef,
 	lazy     => 1,
 	handles  => {
@@ -321,7 +323,7 @@ has _corelist => (
 
 
 
-sub _corelist_build {
+sub _build_corelist {
 	my $self = shift;
 
 	# Confirm we can find the corelist for the Perl version
@@ -330,13 +332,13 @@ sub _corelist_build {
 	my $corelist = $Module::CoreList::version{$corelist_version}
 	  || $Module::CoreList::version{ $corelist_version + 0 };
 
-	unless ( _HASH($corelist) ) {
+	if ( not _HASH($corelist) ) {
 		Carp::croak( 'Failed to find module core versions for Perl '
 			  . $self->_get_perl_version() );
 	}
 
 	return $corelist;
-} ## end sub _corelist_build
+} ## end sub _build_corelist
 
 
 
@@ -437,7 +439,7 @@ for more information.
 
 sub delegate {
 	my $self = shift;
-	unless ( $self->_delegated() ) {
+	if ( not $self->_delegated() ) {
 		$self->SUPER::delegate(@DELEGATE);
 		$self->_delegate();
 	}
@@ -473,7 +475,9 @@ sub prepare {
 	if (
 		eval {
 			local $SIG{__WARN__} = sub {1};
-			CPAN::HandleConfig->load() unless $CPAN::Config_loaded++;
+			if ( not $CPAN::Config_loaded++ ) {
+				CPAN::HandleConfig->load();
+			}
 			$CPAN::Config->{'urllist'}    = [ $self->_get_cpan() ];
 			$CPAN::Config->{'use_sqlite'} = q[0];
 			CPAN::Index->reload();
@@ -511,7 +515,10 @@ sub run {
 	my $stderr = IO::Capture::Stderr->new();
 	$stdout->start();
 	$stderr->start();
-	CPAN::HandleConfig->load unless $CPAN::Config_loaded++;
+
+	if ( not $CPAN::Config_loaded++ ) {
+		CPAN::HandleConfig->load();
+	}
 	$CPAN::Config->{'urllist'}    = [ $self->_get_cpan() ];
 	$CPAN::Config->{'use_sqlite'} = q[0];
 	$stdout->stop();
@@ -534,7 +541,7 @@ sub run {
 		$stdout->stop();
 		$stderr->stop();
 
-		unless ($module) {
+		if ( not $module ) {
 			## no critic (RequireCarping RequireUseOfExceptions)
 			die "Failed to find '$name'";
 		}
@@ -549,7 +556,7 @@ sub run {
 			$core_version =~ s{_.+}{}ms;
 		}
 		my $cpan_version = $module->cpan_version;
-		unless ( defined $cpan_version ) {
+		if ( not defined $cpan_version ) {
 			next;
 		}
 		if ( defined $core_version and $core_version >= $cpan_version ) {
@@ -558,7 +565,7 @@ sub run {
 
 		# Filter out already seen dists
 		my $file = $module->cpan_file;
-		$file =~ s{\A [A-Z] / [A-Z][A-Z] /}{}msx;
+		$file =~ s{\A [[:upper:]] / [[:upper:]][[:upper:]] /}{}msx;
 		$self->_push_dists($file);
 	} ## end foreach my $name ( @{ $self...})
 
@@ -572,7 +579,6 @@ sub run {
 	return 1;
 } ## end sub run
 
-no Moose;
 __PACKAGE__->meta->make_immutable;
 
 1;

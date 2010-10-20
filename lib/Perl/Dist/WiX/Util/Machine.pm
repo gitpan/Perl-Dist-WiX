@@ -8,7 +8,7 @@ Perl::Dist::WiX::Util::Machine - Generate an entire set of related distributions
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Util::Machine version 1.250.
+This document describes Perl::Dist::WiX::Util::Machine version 1.250_100.
 
 =head1 SYNOPSIS
 
@@ -18,15 +18,11 @@ This document describes Perl::Dist::WiX::Util::Machine version 1.250.
 	my $machine = Perl::Dist::WiX::Util::Machine->new(
 		class  => 'Perl::Dist::Strawberry',
 		common => [ forceperl => 1 ],
-		skip   => [6, 8],
+		skip   => [4, 6],
 	);
 
 	# Set the different versions
 	$machine->add_dimension('version');
-	$machine->add_option('version',
-		perl_version => '589',
-	    build_number => 5,
-	);
 	$machine->add_option('version',
 		perl_version => '5101',
 	);
@@ -64,7 +60,7 @@ variations of a distribution at the same time.
 
 =cut
 
-use 5.008001;
+use 5.010;
 use Moose 0.90;
 use Moose::Util::TypeConstraints;
 use MooseX::Types::Moose qw( Str ArrayRef HashRef Bool Int );
@@ -79,7 +75,7 @@ use List::MoreUtils qw( none );
 use Perl::Dist::WiX::Exceptions;
 use WiX3::Traceable qw();
 
-our $VERSION = '1.250';
+our $VERSION = '1.250_100';
 $VERSION =~ s/_//ms;
 
 =head1 INTERFACE
@@ -308,12 +304,12 @@ sub BUILD {
 	my $self = shift;
 
 	# Check params
-	unless ( _DRIVER( $self->_get_class(), 'Perl::Dist::WiX' ) ) {
+	if ( not _DRIVER( $self->_get_class(), 'Perl::Dist::WiX' ) ) {
 		PDWiX->throw('Missing or invalid class param');
 	}
 
 	my $output = $self->_get_output();
-	unless ( -d $output and -w $output ) {
+	if ( not -d $output or not -w $output ) {
 		PDWiX->throw( "The output directory '$output' does not "
 			  . 'exist, or is not writable' );
 	}
@@ -390,7 +386,7 @@ sub add_option {
 	if ( $self->_has_state() ) {
 		PDWiX->throw('Cannot alter params once iterating');
 	}
-	unless ( $self->_option_exists($name) ) {
+	if ( not $self->_option_exists($name) ) {
 		PDWiX->throw("The dimension '$name' does not exist");
 	}
 	my $option = $self->_get_options($name);
@@ -466,7 +462,7 @@ sub next { ## no critic (ProhibitBuiltinHomonyms)
 		# Move to the next position
 		my $found = 0;
 		foreach my $name ( $self->_get_dimensions() ) {
-			unless ( $self->_get_state($name) ==
+			if ( $self->_get_state($name) !=
 				$#{ $self->_get_options($name) } )
 			{
 
@@ -482,7 +478,7 @@ sub next { ## no critic (ProhibitBuiltinHomonyms)
 			# correct value.
 			$self->_set_state( $name => 0 );
 		} ## end foreach my $name ( $self->_get_dimensions...)
-		unless ($found) {
+		if ( not $found ) {
 			$self->_set_eos();
 			return undef;
 		}
@@ -491,7 +487,7 @@ sub next { ## no critic (ProhibitBuiltinHomonyms)
 		# Initialize to the first position
 		my %state;
 		foreach my $name ( $self->_get_dimensions() ) {
-			unless ( @{ $self->_get_options($name) } ) {
+			if ( not @{ $self->_get_options($name) } ) {
 				PDWiX->throw("No options for dimension '$name'");
 			}
 			$state{$name} = 0;
@@ -550,7 +546,7 @@ sub run {
 				# Copy the output products for this run to the
 				# main output area.
 				foreach my $file ( $dist->get_output_files() ) {
-					File::Copy::move( $file, $output_dir );
+					File::Copy::copy( $file, $output_dir );
 				}
 				File::Copy::Recursive::dircopy( $dist->output_dir(),
 					catdir( $output_dir, "success-output-$num" ) );

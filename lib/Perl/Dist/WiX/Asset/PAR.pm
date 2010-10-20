@@ -8,7 +8,7 @@ Perl::Dist::WiX::Asset::PAR - "Binary .par package" asset for a Win32 Perl
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Asset::PAR version 1.250.
+This document describes Perl::Dist::WiX::Asset::PAR version 1.250_100.
 
 =head1 SYNOPSIS
 
@@ -30,7 +30,7 @@ B<Perl::Dist::WiX::Asset::PAR> is a data class that provides encapsulation
 and error checking for a "binary .par package" to be installed in a
 L<Perl::Dist::WiX|Perl::Dist::WiX>-based Perl distribution.
 
-It is normally created by the L<install_par|Perl::Dist::WiX::Installation/install_par> 
+It is normally created by the L<install_par|Perl::Dist::WiX::Mixin::Installation/install_par> 
 method of C<Perl::Dist::WiX> (and other things that call it). 
 
 The specification of the location to retrieve the package is done via
@@ -45,7 +45,7 @@ are installed.
 
 =cut
 
-use 5.008001;
+use 5.010;
 use Moose;
 use MooseX::Types::Moose qw( Str );
 use File::Spec::Functions qw( catdir catfile );
@@ -54,7 +54,7 @@ require SelectSaver;
 require PAR::Dist;
 require IO::String;
 
-our $VERSION = '1.250';
+our $VERSION = '1.250_100';
 $VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::Asset';

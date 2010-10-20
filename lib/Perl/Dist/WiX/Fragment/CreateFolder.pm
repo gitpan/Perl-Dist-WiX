@@ -8,7 +8,7 @@ Perl::Dist::WiX::Fragment::CreateFolder - A <Fragment> tag that creates a folder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Fragment::CreateFolder version 1.250.
+This document describes Perl::Dist::WiX::Fragment::CreateFolder version 1.250_100.
 
 =head1 SYNOPSIS
 
@@ -24,7 +24,7 @@ in order to create a folder when the MSI is installed.
 
 =cut
 
-use 5.008001;
+use 5.010;
 use Moose;
 use Params::Util qw( _STRING  );
 use MooseX::Types::Moose qw( Str );
@@ -32,7 +32,7 @@ use WiX3::XML::CreateFolder;
 use WiX3::XML::DirectoryRef;
 use WiX3::XML::Component;
 
-our $VERSION = '1.250';
+our $VERSION = '1.250_100';
 $VERSION =~ s/_//ms;
 
 extends 'WiX3::XML::Fragment';
@@ -106,7 +106,7 @@ sub BUILD {
 
 	# Get the information we need.
 	my $id             = $self->get_id();
-	my $directory_tree = Perl::Dist::WiX::DirectoryTree2->instance();
+	my $directory_tree = Perl::Dist::WiX::DirectoryTree->instance();
 
 	my $directory_id = $self->_get_directory_id();
 	my $directory_object =
@@ -134,12 +134,12 @@ sub BUILD {
 
 
 # The fragment is already generated. No need to regenerate.
-sub _regenerate {
+sub _regenerate { ## no critic(ProhibitUnusedPrivateSubroutines)
 	return;
 }
 
 # No duplicates will be here to check.
-sub _check_duplicates {
+sub _check_duplicates { ## no critic(ProhibitUnusedPrivateSubroutines)
 	return;
 }
 

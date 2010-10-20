@@ -1,6 +1,6 @@
 package Perl::Dist::WiX::Asset::DistBase;
 
-use 5.008001;
+use 5.010;
 use Moose;
 use File::Spec::Functions qw( catdir catfile );
 use Params::Util qw ( _INSTANCE );
@@ -8,8 +8,11 @@ use Params::Util qw ( _INSTANCE );
 require URI;
 require File::Spec::Unix;
 
-our $VERSION = '1.250';
+our $VERSION = '1.250_100';
 $VERSION =~ s/_//ms;
+
+# This is a base class, so routines in here would be technically "unused".
+## no critic(ProhibitUnusedPrivateSubroutines)
 
 sub _configure {
 	my $self    = shift;
@@ -32,7 +35,7 @@ sub _install_distribution {
 	$self->_trace_line( 1, "Building $name...\n" );
 	$buildpl ? $self->_build() : $self->_make();
 
-	unless ( $self->_get_force() ) {
+	if ( not $self->_get_force() ) {
 		$self->_trace_line( 2, "Testing $name...\n" );
 		$buildpl ? $self->_build('test') : $self->_make('test');
 	}
@@ -49,11 +52,18 @@ sub _name_to_module {
 	my $self = shift;
 	my $dist = shift;
 
+	if ( not defined $dist ) {
+		PDWiX::Parameter->throw(
+			parameter => 'dist',
+			where     => '::Asset::DistBase->_name_to_module',
+		);
+	}
+
 	$self->_trace_line( 3, "Trying to get module name out of $dist\n" );
 
 #<<<
 	my ( $module ) = $dist =~ m{\A  # Start the string...
-					[A-Za-z/]*      # With a string of letters and slashes
+					[[:alpha:]/]*   # With a string of letters and slashes
 					/               # followed by a forward slash. 
 					(.*?)           # Then capture all characters, non-greedily 
 					-\d*[.]         # up to a dash, a sequence of digits, and then a period.
@@ -92,7 +102,7 @@ sub _abs_uri {
 
 	# Get the base path
 	my $cpan = _INSTANCE( $self->_get_cpan(), 'URI' );
-	unless ($cpan) {
+	if ( not $cpan ) {
 		PDWiX::Parameter->throw("Did not get a cpan URI\n");
 	}
 
@@ -118,7 +128,7 @@ sub _DIST {
 	if ( not( defined $it and not ref $it ) ) {
 		return undef;
 	}
-	unless ( $it =~ q|^([A-Z]){2,}/| ) {
+	if ( $it !~ q|^([A-Z]){2,}/| ) {
 		return undef;
 	}
 	return $it;
@@ -139,7 +149,7 @@ Perl::Dist::WiX::Asset::DistBase - Support routines for distribution assets.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Asset::DistBase version 1.250.
+This document describes Perl::Dist::WiX::Asset::DistBase version 1.250_100.
 
 =head1 SYNOPSIS
 

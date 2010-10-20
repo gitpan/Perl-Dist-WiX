@@ -8,7 +8,7 @@ Perl::Dist::WiX::Role::Asset - Role for assets.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Role::Asset version 1.250.
+This document describes Perl::Dist::WiX::Role::Asset version 1.250_100.
 
 =head1 SYNOPSIS
 
@@ -25,7 +25,7 @@ L<Perl::Dist::WiX|Perl::Dist::WiX>-based Perl distribution.
 
 # Convenience role for Perl::Dist::WiX assets
 
-use 5.008001;
+use 5.010;
 use Moose::Role;
 use File::Spec::Functions qw( rel2abs catdir catfile );
 use MooseX::Types::Moose qw( Str Maybe );
@@ -38,7 +38,7 @@ require Perl::Dist::WiX::Exceptions;
 require URI;
 require URI::file;
 
-our $VERSION = '1.250';
+our $VERSION = '1.250_100';
 $VERSION =~ s/_//ms;
 
 =head1 ATTRIBUTES
@@ -89,6 +89,7 @@ has parent => (
 		'_extract_filemap'  => '_extract_filemap',
 		'_insert_fragment'  => 'insert_fragment',
 		'_patch_file'       => 'patch_file',
+		'_patch_perl_file'  => 'patch_perl_file',
 		'_pushd'            => 'push_dir',
 		'_perl'             => 'execute_perl',
 		'_build'            => 'execute_build',
@@ -201,7 +202,7 @@ sub BUILDARGS {
 
 	# Validate 'parent' parameter early.
 	my $parent = $args{parent};
-	unless ( defined _INSTANCE( $args{parent}, 'Perl::Dist::WiX' ) ) {
+	if ( not defined _INSTANCE( $args{parent}, 'Perl::Dist::WiX' ) ) {
 		PDWiX::Parameter->throw(
 			parameter =>
 			  'parent: missing or not a Perl::Dist::WiX instance',
@@ -209,15 +210,18 @@ sub BUILDARGS {
 		);
 	}
 
-	unless ( defined $args{url} ) {
+	if ( not defined $args{url} ) {
 		if ( defined $args{share} ) {
 
 			# Map share to url vis File::ShareDir
 			my ( $dist, $name ) = split /\s+/ms, $args{share};
 			$parent->trace_line( 2, "Finding $name in $dist... " );
 			my $file = rel2abs( File::ShareDir::dist_file( $dist, $name ) );
-			unless ( -f $file ) {
-				PDWiX->throw("Failed to find $file");
+			if ( not -f $file ) {
+				PDWiX::File->throw(
+					file    => $file,
+					message => 'Did not find file'
+				);
 			}
 			$args{url} = URI::file->new($file)->as_string();
 			$parent->trace_line( 2, " found\n" );
@@ -229,14 +233,14 @@ sub BUILDARGS {
 			# Map name to URL via the default package path
 			$args{url} = $parent->binary_url( $args{name} );
 		}
-	} ## end unless ( defined $args{url...})
+	} ## end if ( not defined $args...)
 
 	if ( $class ne 'Perl::Dist::WiX::Asset::DistFile' ) {
 
 		# Create the filename from the url
 		$args{file} = $args{url};
 		$args{file} =~ s{.+/}{}ms;
-		unless ( defined $args{file} and length $args{file} ) {
+		if ( not defined $args{file} or not length $args{file} ) {
 			if ( $class ne 'Perl::Dist::WiX::Asset::Website' ) {
 				PDWiX::Parameter->throw(
 					parameter => 'file',
@@ -247,10 +251,8 @@ sub BUILDARGS {
 				# file is not used in Websites.
 				$args{file} = q{ };
 			}
-		} ## end unless ( defined $args{file...})
-	} else {
-		$args{url} = q{ };
-	}
+		} ## end if ( not defined $args...)
+	} ## end if ( $class ne 'Perl::Dist::WiX::Asset::DistFile')
 
 	my %default_args = (
 		url    => $args{url},
@@ -266,7 +268,7 @@ sub BUILDARGS {
 
 
 
-sub _search_packlist {
+sub _search_packlist { ## no critic(ProhibitUnusedPrivateSubroutines)
 	my ( $self, $module ) = @_;
 
 	# We don't use the error until later, if needed.

@@ -8,7 +8,7 @@ Perl::Dist::WiX::Asset::File - "Single File" asset for a Win32 Perl
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Asset::File version 1.250.
+This document describes Perl::Dist::WiX::Asset::File version 1.250_100.
 
 =head1 SYNOPSIS
 
@@ -35,14 +35,14 @@ L<Perl::Dist::WiX::Role::Asset|Perl::Dist::WiX::Role::Asset>.
 
 =cut
 
-use 5.008001;
+use 5.010;
 use Moose;
 use MooseX::Types::Moose qw( Str );
 use File::Spec::Functions qw( catfile );
 use File::Remove qw();
 use File::List::Object qw();
 
-our $VERSION = '1.250';
+our $VERSION = '1.250_100';
 $VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::Asset';
@@ -103,7 +103,7 @@ sub install {
 	# Copy the file to the target location
 	my $from = catfile( $download_dir, $self->_get_file() );
 	my $to   = catfile( $image_dir,    $self->_get_install_to() );
-	unless ( -f $to ) {
+	if ( not -f $to ) {
 		push @files, $to;
 	}
 

@@ -1,4 +1,4 @@
-Perl-Dist-WiX version 1.250
+Perl-Dist-WiX version 1.250_100
 
 DESCRIPTION
     This package is the upgrade to Perl::Dist based on Windows Installer XML
@@ -16,7 +16,7 @@ INSTALLATION
             make install
 
 DEPENDENCIES
-    Perl 5.8.1 is the mimimum version of perl that this module will run on.
+    Perl 5.10.0 is the mimimum version of perl that this module will run on.
 
     Other modules that this module depends on are a working version of
     Alien::WiX, Data::Dump::Streamer 2.08, Data::UUID 1.149,

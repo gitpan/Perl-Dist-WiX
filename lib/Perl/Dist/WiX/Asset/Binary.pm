@@ -8,7 +8,7 @@ Perl::Dist::WiX::Asset::Binary - "Binary Package" asset for a Win32 Perl
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Asset::Binary version 1.250.
+This document describes Perl::Dist::WiX::Asset::Binary version 1.250_100.
 
 =head1 SYNOPSIS
 
@@ -31,7 +31,7 @@ and error checking for a "binary package" to be installed in a
 L<Perl::Dist::WiX|Perl::Dist::WiX>-based Perl distribution.
 
 It is normally created on the fly by the 
-L<Perl::Dist::WiX::Installation|Perl::Dist::WiX::Installation> 
+L<Perl::Dist::WiX::Mixin::Installation|Perl::Dist::WiX::Mixin::Installation> 
 C<install_binary> method (and other things that call it).
 
 These packages will be simple zip or tar.gz files that are local files,
@@ -44,12 +44,12 @@ L<Perl::Dist::WiX::Role::Asset|Perl::Dist::WiX::Role::Asset>.
 
 =cut
 
-use 5.008001;
+use 5.010;
 use Moose;
 use MooseX::Types::Moose qw( Str HashRef Maybe );
 use File::Spec::Functions qw( catdir );
 
-our $VERSION = '1.250';
+our $VERSION = '1.250_100';
 $VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::Asset';
