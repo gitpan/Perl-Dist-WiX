@@ -4,7 +4,7 @@ package Perl::Dist::WiX;
 
 =begin readme text
 
-Perl-Dist-WiX version 1.250_100
+Perl-Dist-WiX version 1.500
 
 =end readme
 
@@ -16,14 +16,14 @@ Perl::Dist::WiX - 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 1.250_100.
+This document describes Perl::Dist::WiX version 1.500.
 
 =for readme continue
 
 =head1 DESCRIPTION
 
-This package is the upgrade to Perl::Dist based on Windows Installer XML 
-technology, instead of Inno Setup.
+This package is the upgrade to L<Perl::Dist|Perl::Dist> based on Windows 
+Installer XML technology, instead of Inno Setup.
 
 Perl distributions built with this module have the option of being created
 as Windows Installer databases (otherwise known as .msi files)
@@ -153,21 +153,21 @@ use WiX3::Traceable                         qw();
 use namespace::clean  -except => 'meta';
 #>>>
 
-our $VERSION = '1.250_100';
+our $VERSION = '1.500';
 $VERSION =~ s/_//ms;
 
 with
   'MooseX::Object::Pluggable'          => { -version => 0.0011 },
-  'Perl::Dist::WiX::Role::MultiPlugin' => { -version => 1.250_100 },
+  'Perl::Dist::WiX::Role::MultiPlugin' => { -version => 1.500 },
   ;
 extends
-  'Perl::Dist::WiX::Mixin::BuildPerl'    => { -version => 1.250_100 },
-  'Perl::Dist::WiX::Mixin::Checkpoint'   => { -version => 1.250_100 },
-  'Perl::Dist::WiX::Mixin::Libraries'    => { -version => 1.250_100 },
-  'Perl::Dist::WiX::Mixin::Installation' => { -version => 1.250_100 },
-  'Perl::Dist::WiX::Mixin::ReleaseNotes' => { -version => 1.250_100 },
-  'Perl::Dist::WiX::Mixin::Patching'     => { -version => 1.250_100 },
-  'Perl::Dist::WiX::Mixin::Support'      => { -version => 1.250_100 },
+  'Perl::Dist::WiX::Mixin::BuildPerl'    => { -version => 1.500 },
+  'Perl::Dist::WiX::Mixin::Checkpoint'   => { -version => 1.500 },
+  'Perl::Dist::WiX::Mixin::Libraries'    => { -version => 1.500 },
+  'Perl::Dist::WiX::Mixin::Installation' => { -version => 1.500 },
+  'Perl::Dist::WiX::Mixin::ReleaseNotes' => { -version => 1.500 },
+  'Perl::Dist::WiX::Mixin::Patching'     => { -version => 1.500 },
+  'Perl::Dist::WiX::Mixin::Support'      => { -version => 1.500 },
   ;
 
 #####################################################################
@@ -1297,7 +1297,7 @@ has 'git_location' => (
 );
 
 sub _build_git_location {
-	my $file = 'C:\Program Files\Git\bin\git.exe';
+	my $file = 'C:\\Program Files\\Git\\bin\\git.exe';
 
 	if ( -f $file ) {
 		return $file;
@@ -2498,8 +2498,10 @@ EOF
 	}
 
 	# Add environment variables.
-	$self->add_env( 'TERM',        'dumb' );
-	$self->add_env( 'FTP_PASSIVE', '1' );
+	# We use YAML as the backend because we have it.
+	$self->add_env( 'TERM',              'dumb' );
+	$self->add_env( 'FTP_PASSIVE',       '1' );
+	$self->add_env( 'PERL_YAML_BACKEND', 'YAML' );
 
 	# Blow away the directory cache for a new build.
 	Perl::Dist::WiX::DirectoryCache->instance()->clear_cache();
@@ -2756,6 +2758,15 @@ sub install_portable {
 		install_to => 'portableshell.bat',
 	);
 
+	$self->get_directory_tree()->get_directory_object('INSTALLDIR')
+	  ->add_directories_id( 'Data', 'data' );
+	$self->_add_fragment(
+		'DataFolder',
+		Perl::Dist::WiX::Fragment::CreateFolder->new(
+			directory_id => 'Data',
+			id           => 'DataFolder'
+		) );
+
 	return 1;
 } ## end sub install_portable
 
@@ -2861,7 +2872,7 @@ sub install_win32_extras {
 			bin  => 'cpan',
 		);
 		$self->install_website(
-			name      => 'CPAN Search',
+			name      => 'CPAN Module Search',
 			url       => 'http://search.cpan.org/',
 			icon_file => catfile( $self->wix_dist_dir(), 'cpan.ico' ) );
 
@@ -2890,6 +2901,13 @@ sub install_win32_extras {
 			$self->install_website(
 				name      => 'Perl 5.12.1 Documentation',
 				url       => 'http://perldoc.perl.org/5.12.1/',
+				icon_file => catfile( $self->wix_dist_dir(), 'perldoc.ico' )
+			);
+		}
+		if ( $self->perl_version_human eq '5.12.2' ) {
+			$self->install_website(
+				name      => 'Perl 5.12.2 Documentation',
+				url       => 'http://perldoc.perl.org/5.12.2/',
 				icon_file => catfile( $self->wix_dist_dir(), 'perldoc.ico' )
 			);
 		}
@@ -5196,7 +5214,7 @@ sub _create_rightclick_fragment {
 	$child_tag->get_child_tag(1)->get_child_tag(0)->add_child_tag(
 		WiX3::XML::RegistryValue->new(
 			id     => 'sp1010c_executecommand',
-			value  => '[P_Perl_Location] %1',
+			value  => '[P_Perl_Location] "%1"',
 			type   => 'string',
 			action => 'write',
 		) );

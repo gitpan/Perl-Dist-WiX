@@ -8,7 +8,7 @@ Perl::Dist::WiX::Mixin::Support - Provides support routines for building a Win32
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Mixin::Support version 1.250_100.
+This document describes Perl::Dist::WiX::Mixin::Support version 1.500.
 
 =head1 SYNOPSIS
 
@@ -42,7 +42,7 @@ use IO::Compress::Gzip 2.025;
 
 # IO::Uncompress::Xz is tested for later, as it's an 'optional'.
 
-our $VERSION = '1.250_100';
+our $VERSION = '1.500';
 $VERSION =~ s/_//ms;
 
 
@@ -783,7 +783,7 @@ sub make_relocation_file {
 	my $batch_contents;
 	my $match_string =
 	  q(eval [ ] 'exec [ ] )
-	  . quotemeta $self->image_dir()->file('perl\bin\perl.exe')
+	  . quotemeta $self->image_dir()->file('perl\\bin\\perl.exe')
 	  ->stringify();
 	foreach my $batch_file ( sort { $a cmp $b } keys %batch_files ) {
 		$self->trace_line( 5,

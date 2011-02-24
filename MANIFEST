@@ -3,6 +3,7 @@ Changes
 dist.ini
 eg/makewix.pl
 eg/makewix_2.pl
+inc/Builder.pm
 lib/Perl/Dist/VanillaWiX.pm
 lib/Perl/Dist/WiX.pm
 lib/Perl/Dist/WiX/Asset/Binary.pm
@@ -49,6 +50,7 @@ lib/Perl/Dist/WiX/Types.pm
 lib/Perl/Dist/WiX/Util/Machine.pm
 LICENSE
 MANIFEST			This list of files
+META.json
 META.yml
 README
 script/perldist_w
@@ -103,17 +105,15 @@ t/000_report_versions.t
 t/001_compile.t
 t/data/cpan/authors/id/readme.txt
 t/directorytree.t
-t/environment.t
 t/icons.t
 t/lib/MachineTest.pm
 t/machine.t
-t/new.t
 t/startmenu.t
 xt/author/changes.t
 xt/author/common_mistakes.t
 xt/author/fixme.t
 xt/author/manifest.t
-xt/author/meta.t
+xt/author/meta_json.t
 xt/author/minimumversion.t
 xt/author/perlcritic.t
 xt/author/pod.t

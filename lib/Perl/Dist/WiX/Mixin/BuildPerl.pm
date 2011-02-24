@@ -8,7 +8,7 @@ Perl::Dist::WiX::Mixin::BuildPerl - 4th generation Win32 Perl distribution build
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Mixin::BuildPerl version 1.250_100.
+This document describes Perl::Dist::WiX::Mixin::BuildPerl version 1.500.
 
 =head1 DESCRIPTION
 
@@ -39,7 +39,7 @@ use Perl::Dist::WiX::Asset::Perl qw();
 use Perl::Dist::WiX::Toolchain qw();
 use File::List::Object qw();
 
-our $VERSION = '1.250_100';
+our $VERSION = '1.500';
 $VERSION =~ s/_//sm;
 
 # Keys are what's in the filename, with - being converted to ::.
@@ -137,6 +137,11 @@ sub install_cpan_upgrades {
 			'Cannot install CPAN modules yet, perl is not installed');
 	}
 
+	my $sources_dir = $self->image_dir()->subdir(qw(cpan sources authors));
+	if ( not -d $sources_dir ) {
+		$self->make_path($sources_dir);
+	}
+
 	# Get list of modules to be upgraded.
 	# (The list is saved as a Storable arrayref of CPAN::Module objects.)
 	my $cpan_info_file = $self->_get_cpan_upgrades_list();
@@ -198,7 +203,7 @@ sub install_cpan_upgrades {
 			# There's a problem with extracting these two files, so
 			# upgrading to these versions, instead...
 			when (
-				m{Unicode-Collate-0 [.] (5[3-9]|6\d)
+				m{Unicode-Collate-0 [.] (\d\d)
                    -withoutworldwriteables}msx
 			  )
 			{
@@ -208,10 +213,10 @@ sub install_cpan_upgrades {
 					$self->_install_location(1),
 					$self->_force_flag($default_force),
 				);
-			} ## end when ( m{Unicode-Collate-0 [.] (5[3-9]|6\d) })
+			} ## end when ( m{Unicode-Collate-0 [.] (\d\d) })
 
 			when (
-				/Unicode-Normalize-1 [.] (0[67])-withoutworldwriteables/msx)
+				/Unicode-Normalize-1 [.] (\d\d)-withoutworldwriteables/msx)
 			{
 				$self->install_distribution(
 					name     => "SADAHIRO/Unicode-Normalize-1.$1.tar.gz",
@@ -267,20 +272,20 @@ sub install_cpan_upgrades {
 		'perl/lib/CPANPLUS/Config.pm' => $self->image_dir(),
 		{ dist => $self, } );
 
-	# Install dev version of CPAN if we haven't already.
+	# Install newest dev version of CPAN if we haven't already.
 	if ( not $self->fragment_exists('CPAN') ) {
 		$self->install_distribution(
-			name             => 'ANDK/CPAN-1.94_60.tar.gz',
+			name             => 'DAGOLDEN/CPAN-1.94_64.tar.gz',
 			mod_name         => 'CPAN',
 			makefilepl_param => ['INSTALLDIRS=perl'],
 			buildpl_param    => [ '--installdirs', 'core' ],
 		);
 	}
 
-	# Install dev version of Module::Build if we haven't already.
+	# Install version of Module::Build if we haven't already.
 	if ( not $self->fragment_exists('Module_Build') ) {
 		$self->install_distribution(
-			name             => 'DAGOLDEN/Module-Build-0.36_16.tar.gz',
+			name             => 'DAGOLDEN/Module-Build-0.3624.tar.gz',
 			mod_name         => 'Module::Build',
 			makefilepl_param => ['INSTALLDIRS=perl'],
 			buildpl_param    => [ '--installdirs', 'core' ],
@@ -567,7 +572,12 @@ sub _create_perl_toolchain { ## no critic(ProhibitUnusedPrivateSubroutines)
 	$self->trace_line( 1, "Pregenerating toolchain...\n" );
 	my $force = {};
 	if ( $self->perl_version =~ m/\A512/ms ) {
-		$force = { 'Pod::Text' => 'RRA/podlators-2.3.1.tar.gz' };
+		$force = { 'Pod::Text' => 'RRA/podlators-2.4.0.tar.gz' };
+	}
+	if ( $self->perl_version =~ m/\A5101/ms ) {
+
+		# CPAN needs installed on 5.10.1, as well.
+		$force = { 'CPAN' => 'DAGOLDEN/CPAN-1.94_64.tar.gz' };
 	}
 	my $toolchain = Perl::Dist::WiX::Toolchain->new(
 		perl_version => $self->perl_version_literal(),
@@ -672,17 +682,14 @@ sub install_perl_toolchain {
 			when (/TermReadKey-2 [.] 30/msx) {
 
 				# Upgrading to this version, instead...
-				$dist = 'STSI/TermReadKey-2.30.01.tar.gz';
+				$dist = 'STSI/TermReadKey-2.30.02.tar.gz';
 			}
 			when (/CPAN-1 [.] 9402/msx) {
 
-				# 1.9402 fails its tests... ANDK says it's a test bug.
-				# Alias agrees that we include 1.94_51 because of the fix
+				# Alias agrees that we include 1.94_51 (or the
+				# current dev version past it) because of the fix
 				# for the Win32 file:// bug.
-				$dist = 'ANDK/CPAN-1.94_60.tar.gz';
-
-# TODO: Do we really need the next line?
-#				$force = 1;
+				$dist = 'DAGOLDEN/CPAN-1.94_64.tar.gz';
 			}
 			when (/ExtUtils-MakeMaker-/msx) {
 
@@ -703,8 +710,7 @@ sub install_perl_toolchain {
 			}
 			when (/Module-Build-/msx) {
 
-				# Test updated development version.
-				$dist = 'DAGOLDEN/Module-Build-0.36_16.tar.gz';
+				# Can't test on D-drive builds.
 				$force ||= ( $self->image_dir() =~ /\AD:/ms ) ? 1 : 0;
 
 			}

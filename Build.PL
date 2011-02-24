@@ -1,14 +1,15 @@
+use 5.010;
 use Module::Build;
 
 die "OS unsupported\n" unless 'MSWin32' eq $^O;
 
 # CPAN version test.
 require CPAN;
-if ($CPAN::VERSION < 1.9460) {
+if ($CPAN::VERSION < 1.9462) {
 	print <<'EOF';
 To install the rest of the prerequisites, you need to run
 
-	cpan ANDK/CPAN-1.94_60.tar.gz
+	cpan ANDK/CPAN-1.94_62.tar.gz
 
 before installing this. 
 
@@ -82,7 +83,8 @@ my $builder = $class->new(
 #	sign                => 1,
 	configure_requires => {
 		'Module::Build'             => '0.36',
-		'CPAN'                      => '1.9460',
+		'CPAN'                      => '1.9462',
+		'parent'                    => '0.221',
 	},
 	requires => {
 		'perl'                       => '5.010',
@@ -90,7 +92,7 @@ my $builder = $class->new(
 		'Alien::WiX'                 => '0.300000',
 		'Archive::Tar'               => '1.66',
 		'Archive::Zip'               => '1.26',
-		'CPAN'                       => '1.9458',
+		'CPAN'                       => '1.9462',
 		'Clone'                      => '0.31',
 		'Data::Dump::Streamer'       => '2.08',
 		'Data::UUID'                 => '1.149',
@@ -117,7 +119,7 @@ my $builder = $class->new(
 		'LWP::UserAgent'             => '5.823',
 		'LWP::UserAgent::WithCache'  => '0.06',
 		'LWP::Online'                => '1.07',
-		'Module::CoreList'           => '2.39',
+		'Module::CoreList'           => '2.44',
 		'Moose'                      => '1.08',
 		'MooseX::NonMoose'           => '0.14',
 		'MooseX::Object::Pluggable'  => '0.0011',

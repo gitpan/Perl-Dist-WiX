@@ -8,7 +8,7 @@ Perl::Dist::WiX::Toolchain - Compiles the initial toolchain for a Win32 perl dis
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Toolchain version 1.250_100.
+This document describes Perl::Dist::WiX::Toolchain version 1.500.
 
 =head1 SYNOPSIS
 
@@ -64,7 +64,7 @@ use IO::Capture::Stderr qw();
 use vars qw(@DELEGATE);
 use namespace::clean -except => 'meta';
 
-our $VERSION = '1.250_100';
+our $VERSION = '1.500';
 $VERSION =~ s/_//ms;
 
 extends qw(
@@ -245,12 +245,16 @@ sub _build_modules {
 
 	push @modules_list, qw{
 	  Win32::UTCFileTime
+	  CPAN::Meta::YAML
+	  JSON::PP
 	  Parse::CPAN::Meta
 	  YAML
 	  Net::FTP
 	  Digest::MD5
 	  Digest::SHA1
 	  Digest::SHA
+	  Module::Metadata
+	  Perl::OSType
 	  Module::Build
 	  Term::Cap
 	  CPAN
@@ -270,6 +274,7 @@ sub _build_modules {
 	$modules{'5.012000'} = $modules{'5.010000'};
 	$modules{'5.012001'} = $modules{'5.010000'};
 	$modules{'5.012002'} = $modules{'5.010000'};
+	$modules{'5.012003'} = $modules{'5.010000'};
 	$modules{'5.013004'} = $modules{'5.010000'};
 
 	return \%modules;
@@ -300,6 +305,7 @@ sub _build_corelist_version {
 		'5.012000' => '5.012000',
 		'5.012001' => '5.012001',
 		'5.012002' => '5.012002',
+		'5.012003' => '5.012003',
 		'5.013004' => '5.013004',
 	);
 
