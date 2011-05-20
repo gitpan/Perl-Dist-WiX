@@ -8,7 +8,7 @@ Perl::Dist::WiX::Toolchain - Compiles the initial toolchain for a Win32 perl dis
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Toolchain version 1.500.
+This document describes Perl::Dist::WiX::Toolchain version 1.500001.
 
 =head1 SYNOPSIS
 
@@ -58,13 +58,13 @@ use Moose::Util::TypeConstraints;
 use English qw( -no_match_vars );
 use Carp qw();
 use Params::Util qw( _HASH );
-use Module::CoreList 2.32 qw();
+use Module::CoreList 2.49 qw();
 use IO::Capture::Stdout qw();
 use IO::Capture::Stderr qw();
 use vars qw(@DELEGATE);
 use namespace::clean -except => 'meta';
 
-our $VERSION = '1.500';
+our $VERSION = '1.500001';
 $VERSION =~ s/_//ms;
 
 extends qw(
@@ -255,6 +255,8 @@ sub _build_modules {
 	  Digest::SHA
 	  Module::Metadata
 	  Perl::OSType
+	  Version::Requirements
+	  CPAN::Meta
 	  Module::Build
 	  Term::Cap
 	  CPAN
@@ -262,12 +264,33 @@ sub _build_modules {
 	  Term::ReadLine::Perl
 	  Text::Glob
 	  Data::Dumper
+	  Pod::Text
 	  URI
 	  HTML::Tagset
 	  HTML::Parser
-	  LWP::UserAgent
-	  Pod::Text
+	  LWP
 	};
+
+=for cmt
+list LWP dependencies for a new version
+Old version should be used because support of https in new version depeds on Net::SSLeay
+which does not work on 64-bit Perl (https://rt.cpan.org/Public/Bug/Display.html?id=53585)
+	 qw{
+	  Encode::Locale
+	  File::Listing
+	  HTTP::Date
+	  URI
+	  HTML::Tagset
+	  HTML::Parser
+	  LWP::MediaTypes
+	  HTTP::Message
+	  HTTP::Cookies
+	  HTTP::Negotiate
+	  Net::HTTP
+	  WWW::RobotRules
+	  LWP::UserAgent
+	};
+=cut
 
 	my %modules = ( '5.010000' => \@modules_list, );
 	$modules{'5.010001'} = $modules{'5.010000'};
@@ -275,7 +298,7 @@ sub _build_modules {
 	$modules{'5.012001'} = $modules{'5.010000'};
 	$modules{'5.012002'} = $modules{'5.010000'};
 	$modules{'5.012003'} = $modules{'5.010000'};
-	$modules{'5.013004'} = $modules{'5.010000'};
+	$modules{'5.014000'} = $modules{'5.010000'};
 
 	return \%modules;
 } ## end sub _build_modules
@@ -306,7 +329,7 @@ sub _build_corelist_version {
 		'5.012001' => '5.012001',
 		'5.012002' => '5.012002',
 		'5.012003' => '5.012003',
-		'5.013004' => '5.013004',
+		'5.014000' => '5.014000',
 	);
 
 	return \%corelist;

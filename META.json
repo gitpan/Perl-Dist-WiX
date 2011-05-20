@@ -4,7 +4,7 @@
       "Curtis Jewell <csjewell@cpan.org>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.3705, CPAN::Meta::Converter version 2.110440",
+   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.110440",
    "license" : [
       "perl_5"
    ],
@@ -33,7 +33,7 @@
       },
       "configure" : {
          "requires" : {
-            "CPAN" : "1.9462",
+            "CPAN" : "1.9600",
             "Module::Build" : "0.36",
             "parent" : "0.221"
          }
@@ -48,7 +48,7 @@
             "Alien::WiX" : "0.300000",
             "Archive::Tar" : "1.66",
             "Archive::Zip" : "1.26",
-            "CPAN" : "1.9462",
+            "CPAN" : "1.9600",
             "Clone" : "0.31",
             "Data::Dump::Streamer" : "2.08",
             "Data::UUID" : "1.149",
@@ -62,7 +62,7 @@
             "File::Path" : "2.07",
             "File::PathList" : "1.04",
             "File::Remove" : "1.42",
-            "File::ShareDir" : "1.00",
+            "File::ShareDir" : "1.02",
             "File::Spec" : "3.29",
             "File::Temp" : "0.21",
             "File::pushd" : "1.00",
@@ -75,12 +75,13 @@
             "LWP::UserAgent" : "5.823",
             "LWP::UserAgent::WithCache" : "0.06",
             "List::MoreUtils" : "0.07",
-            "Module::CoreList" : "2.44",
-            "Moose" : "1.08",
-            "MooseX::NonMoose" : "0.14",
+            "Module::Build" : "0.38",
+            "Module::CoreList" : "2.49",
+            "Moose" : "2.00",
+            "MooseX::NonMoose" : "0.18",
             "MooseX::Object::Pluggable" : "0.0011",
-            "MooseX::Singleton" : "0.24",
-            "MooseX::Types" : 0,
+            "MooseX::Singleton" : "0.26",
+            "MooseX::Types" : "0.19",
             "MooseX::Types::Path::Class" : "0.05",
             "MooseX::Types::URI" : "0.02",
             "PAR::Dist" : "0.42",
@@ -91,12 +92,13 @@
             "Readonly" : "1.03",
             "Template" : "2.22",
             "URI" : "1.35",
-            "WiX3" : "0.010002",
+            "WiX3" : "0.010004",
             "Win32" : "0.35",
             "Win32::Exe" : "0.13",
             "Win32::File::Object" : "0.01",
             "Win32API::File" : "0.1001",
             "YAML::Tiny" : "1.36",
+            "namespace::autoclean" : "0.12",
             "namespace::clean" : "0.18",
             "parent" : "0.221",
             "perl" : "5.010"
@@ -110,7 +112,7 @@
       },
       "Perl::Dist::WiX" : {
          "file" : "lib/Perl/Dist/WiX.pm",
-         "version" : "1.500"
+         "version" : "1.500001"
       },
       "Perl::Dist::WiX::Asset::Binary" : {
          "file" : "lib/Perl/Dist/WiX/Asset/Binary.pm",
@@ -126,7 +128,7 @@
       },
       "Perl::Dist::WiX::Asset::Distribution" : {
          "file" : "lib/Perl/Dist/WiX/Asset/Distribution.pm",
-         "version" : "1.500"
+         "version" : "1.500001"
       },
       "Perl::Dist::WiX::Asset::File" : {
          "file" : "lib/Perl/Dist/WiX/Asset/File.pm",
@@ -142,7 +144,7 @@
       },
       "Perl::Dist::WiX::Asset::Module" : {
          "file" : "lib/Perl/Dist/WiX/Asset/Module.pm",
-         "version" : "1.500"
+         "version" : "1.500001"
       },
       "Perl::Dist::WiX::Asset::PAR" : {
          "file" : "lib/Perl/Dist/WiX/Asset/PAR.pm",
@@ -154,6 +156,10 @@
       },
       "Perl::Dist::WiX::Asset::Website" : {
          "file" : "lib/Perl/Dist/WiX/Asset/Website.pm",
+         "version" : "1.500"
+      },
+      "Perl::Dist::WiX::BuildPerl::5123" : {
+         "file" : "lib/Perl/Dist/WiX/BuildPerl/5123.pm",
          "version" : "1.500"
       },
       "Perl::Dist::WiX::DirectoryCache" : {
@@ -194,7 +200,7 @@
       },
       "Perl::Dist::WiX::Mixin::BuildPerl" : {
          "file" : "lib/Perl/Dist/WiX/Mixin/BuildPerl.pm",
-         "version" : "1.500"
+         "version" : "1.500001"
       },
       "Perl::Dist::WiX::Mixin::Checkpoint" : {
          "file" : "lib/Perl/Dist/WiX/Mixin/Checkpoint.pm",
@@ -206,7 +212,7 @@
       },
       "Perl::Dist::WiX::Mixin::Libraries" : {
          "file" : "lib/Perl/Dist/WiX/Mixin/Libraries.pm",
-         "version" : "1.500"
+         "version" : "1.500001"
       },
       "Perl::Dist::WiX::Mixin::Patching" : {
          "file" : "lib/Perl/Dist/WiX/Mixin/Patching.pm",
@@ -218,7 +224,7 @@
       },
       "Perl::Dist::WiX::Mixin::Support" : {
          "file" : "lib/Perl/Dist/WiX/Mixin/Support.pm",
-         "version" : "1.500"
+         "version" : "1.500001"
       },
       "Perl::Dist::WiX::PropertyList" : {
          "file" : "lib/Perl/Dist/WiX/PropertyList.pm",
@@ -258,11 +264,11 @@
       },
       "Perl::Dist::WiX::Toolchain" : {
          "file" : "lib/Perl/Dist/WiX/Toolchain.pm",
-         "version" : "1.500"
+         "version" : "1.500001"
       },
       "Perl::Dist::WiX::Types" : {
          "file" : "lib/Perl/Dist/WiX/Types.pm",
-         "version" : "1.500"
+         "version" : "1.500001"
       },
       "Perl::Dist::WiX::Util::Machine" : {
          "file" : "lib/Perl/Dist/WiX/Util/Machine.pm",
@@ -279,9 +285,9 @@
          "http://dev.perl.org/licenses/"
       ],
       "repository" : {
-         "url" : "http://svn.ali.as/cpan/trunk/Perl-Dist-WiX/"
+         "url" : "http://hg.curtisjewell.name/Perl-Dist-WiX/"
       },
       "x_IRC" : "irc://irc.perl.org/#win32"
    },
-   "version" : "1.500"
+   "version" : "1.500001"
 }

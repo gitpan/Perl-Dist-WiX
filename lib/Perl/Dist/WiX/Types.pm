@@ -6,7 +6,7 @@ Perl::Dist::WiX::Types - Public types used in Perl::Dist::WiX.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Types version 1.500.
+This document describes Perl::Dist::WiX::Types version 1.500001.
 
 =head1 SYNOPSIS
 
@@ -26,6 +26,7 @@ use 5.010;
 use MooseX::Types -declare => [ qw(
 	  ExistingDirectory ExistingFile TemplateObj
 	  _NoDoubleSlashes _NoSpaces _NoForwardSlashes _NoSlashAtEnd _NotRootDir
+	  _NoDots
 	  ExistingSubdirectory ExistingDirectory_Spaceless
 	  ExistingDirectory_SaneSlashes
 	  DirectoryRef DirectoryTag
@@ -34,7 +35,7 @@ use MooseX::Types::Moose qw( Str Object ArrayRef );
 use MooseX::Types::Path::Class qw( Dir File );
 use Template qw();
 
-our $VERSION = '1.500';
+our $VERSION = '1.500001';
 $VERSION =~ s/_//ms;
 
 =head2 ExistingDirectory
@@ -68,29 +69,34 @@ subtype _NoSlashAtEnd,
   where { "$_" !~ m{\\\z}ms },
   message {'Cannot have a slash at the end'};
 
-subtype ExistingDirectory_SaneSlashes, as _NoSlashAtEnd;
+subtype _NoDots,
+  as _NoSlashAtEnd,
+  where { "$_" !~ m{[.]}ms },
+  message {'Cannot have a period'};
+
+subtype ExistingDirectory_SaneSlashes, as _NoDots;
 
 coerce ExistingDirectory_SaneSlashes,
   from Str,      via { to_Dir($_) },
   from ArrayRef, via { to_Dir($_) };
 
 subtype _NoSpaces,
-  as _NoSlashAtEnd,
+  as _NoDots,
   where { "$_" !~ m{\s}ms },
   message {'Spaces are not allowed'};
 
-subtype ExistingDirectory_Spaceless, as _NoSlashAtEnd;
+subtype ExistingDirectory_Spaceless, as _NoSpaces;
 
 coerce ExistingDirectory_Spaceless,
   from Str,      via { to_Dir($_) },
   from ArrayRef, via { to_Dir($_) };
 
 subtype _NotRootDir,
-  as _NoSlashAtEnd,
+  as _NoDots,
   where { "$_" !~ m{:\z}ms },
   message {'Cannot be a root directory'};
 
-subtype ExistingSubdirectory, as _NoSlashAtEnd;
+subtype ExistingSubdirectory, as _NotRootDir;
 
 coerce ExistingSubdirectory,
   from Str,      via { to_Dir($_) },
@@ -152,7 +158,7 @@ Curtis Jewell E<lt>csjewell@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2009 - 2010 Curtis Jewell.
+Copyright 2009 - 2011 Curtis Jewell.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.

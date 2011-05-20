@@ -60,36 +60,56 @@ sub ACTION_dist {
 
 	die 'Need to wrap a plugin with "Build pluginwrap --version <version>"'
 		if not $packaged_plugin;
-	
+
 	return $self->SUPER::ACTION_dist();
 }
 
 
 sub ACTION_pluginwrap {
 	my ($self) = @_;
-	
+
 	my $version = $self->args('version');
 	die 'Option --version <version> required' if not $version;
-	
+
 	require LWP::UserAgent;
-	
+
 	my $ua = LWP::UserAgent->new();
 	$ua->env_proxy();
-	
+
+	my @dirs = (
+	    't/build',
+		"share-$version",
+		"share-$version/default",
+		"share-$version/default/lib",
+		"share-$version/default/lib/CPAN",
+		"share-$version/default/win32",
+	);
+
+	foreach my $dir (@dirs) {
+		mkdir $dir if not -d $dir;
+	}
+
 	my @files = (
 		"lib/Perl/Dist/WiX/BuildPerl/$version.pm",
-		"t/500_new.t",
-		"t/501_short_version_$version.t",
+		't/build/new.t',
+		't/build/medium.t',
+		't/build/long.t',
+		't/build/vanilla.t',
+		't/build/portable.t',
 		$self->get_all_files_in($ua, $version, "share-$version"),
 	);
-	
+
 	foreach my $file (@files) {
 		my $url = "http://hg.curtisjewell.name/Perl-Dist-WiX-BuildPerl-$version/raw-file/tip/$file";
 		print "Getting $file\n";
 		my $response = $ua->mirror($url, $file);
 		die "Could not get $file" if $response->is_error;
 	}
-	
+
+	$self->write_out_inc($version);
+
+	$self->ACTION_distmeta();
+
 	return 1;
 }
 
@@ -100,6 +120,7 @@ sub get_all_files_in {
 	
 	my $full_url = "http://hg.curtisjewell.name/Perl-Dist-WiX-BuildPerl-$version/raw-file/tip/$url";
     my $response = $ua->get($full_url);
+	
 	return () if not $response->is_success();
 	my @content = grep { $_ =~ m{r} } split "\n", $response->decoded_content();
 	my @line;
@@ -115,5 +136,46 @@ sub get_all_files_in {
 	return @answer;
 }
 
+sub write_out_inc {
+	my ($self, $version) = @_;
+	
+	my $inc = <<"EOF";
+package PluginInfo;
+
+sub sharefile {
+	return ( module => { 'Perl::Dist::WiX::BuildPerl::$version'  => 'share-$version', } );
+}
+
+1;
+EOF
+
+	require File::Slurp;
+	File::Slurp::write_file('inc/PluginInfo.pm', \$inc);
+}
+
+sub cpan_version_test {
+	require CPAN;
+	if ($CPAN::VERSION < 1.9600) {
+		print <<'EOF';
+To install the rest of the prerequisites, you need to run
+
+	cpan ANDK/CPAN-1.9600.tar.gz
+
+before installing this. 
+
+If you're already in CPAN or CPANPLUS, replace 'cpan' with 'install'.
+If you're in CPAN, 'reload cpan' afterwards.
+
+EOF
+		die "Please upgrade CPAN as instructed above.\n\n";
+	}
+}
+
+sub plugin_share {
+	eval { require PluginInfo; 1; } || return ();
+	
+	require PluginInfo;
+	return PluginInfo::sharefile();
+}
 
 1;

@@ -4,7 +4,7 @@ package Perl::Dist::WiX;
 
 =begin readme text
 
-Perl-Dist-WiX version 1.500
+Perl-Dist-WiX version 1.500001
 
 =end readme
 
@@ -16,7 +16,7 @@ Perl::Dist::WiX - 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 1.500.
+This document describes Perl::Dist::WiX version 1.500001.
 
 =for readme continue
 
@@ -110,6 +110,7 @@ use Storable                                qw(
 use File::Spec::Functions                   qw(
 	catdir catfile catpath tmpdir splitpath rel2abs curdir
 );
+use CPAN                             1.9600 qw();
 use File::HomeDir                           qw();
 use File::ShareDir                          qw();
 use File::Copy::Recursive                   qw();
@@ -121,7 +122,7 @@ use IO::Handle                              qw();
 use IPC::Run3                               qw();
 use LWP::UserAgent                          qw();
 use LWP::Online                             qw();
-use Module::CoreList                   2.32 qw();
+use Module::CoreList                   2.46 qw();
 use PAR::Dist                               qw();
 use Path::Class::Dir                        qw();
 use Probe::Perl                             qw();
@@ -153,7 +154,7 @@ use WiX3::Traceable                         qw();
 use namespace::clean  -except => 'meta';
 #>>>
 
-our $VERSION = '1.500';
+our $VERSION = '1.500001';
 $VERSION =~ s/_//ms;
 
 with
@@ -161,13 +162,13 @@ with
   'Perl::Dist::WiX::Role::MultiPlugin' => { -version => 1.500 },
   ;
 extends
-  'Perl::Dist::WiX::Mixin::BuildPerl'    => { -version => 1.500 },
+  'Perl::Dist::WiX::Mixin::BuildPerl'    => { -version => 1.500001 },
   'Perl::Dist::WiX::Mixin::Checkpoint'   => { -version => 1.500 },
-  'Perl::Dist::WiX::Mixin::Libraries'    => { -version => 1.500 },
+  'Perl::Dist::WiX::Mixin::Libraries'    => { -version => 1.500001 },
   'Perl::Dist::WiX::Mixin::Installation' => { -version => 1.500 },
   'Perl::Dist::WiX::Mixin::ReleaseNotes' => { -version => 1.500 },
   'Perl::Dist::WiX::Mixin::Patching'     => { -version => 1.500 },
-  'Perl::Dist::WiX::Mixin::Support'      => { -version => 1.500 },
+  'Perl::Dist::WiX::Mixin::Support'      => { -version => 1.500001 },
   ;
 
 #####################################################################
@@ -444,6 +445,9 @@ than overriding routines shown above.
 		# Install additional Perl modules
 		'install_cpan_upgrades',
 
+		# Check for missing files.
+		'verify_msi_file_contents',
+
 		# Apply optional portability support
 		'install_portable',
 
@@ -467,6 +471,9 @@ than overriding routines shown above.
 
 		# Create the distribution list
 		'create_distribution_list',
+
+		# Check for missing files.
+		'verify_msi_file_contents',
 
 		# Regenerate file fragments again.
 		'regenerate_fragments',
@@ -502,6 +509,9 @@ sub _build_tasklist {
 		# Install additional Perl modules
 		'install_cpan_upgrades',
 
+		# Check for missing files.
+		'verify_msi_file_contents',
+
 		# Apply optional portability support
 		'install_portable',
 
@@ -525,6 +535,9 @@ sub _build_tasklist {
 
 		# Create the distribution list
 		'create_distribution_list',
+
+		# Check for missing files.
+		'verify_msi_file_contents',
 
 		# Regenerate file fragments again.
 		'regenerate_fragments',
@@ -1002,6 +1015,21 @@ has 'sitename' => (
 	is       => 'ro',                  # Hostname
 	isa      => Str,
 	required => 1,                     # Default is provided in BUILDARGS.
+);
+
+
+
+=head4 smoketest
+
+The optional boolean C<smoketest> parameter is used to indicate that
+a 'smoketest' marked perl interpreter will be created.
+
+=cut
+
+has 'smoketest' => (
+	is      => 'ro',
+	isa     => Bool,
+	default => 0,
 );
 
 
@@ -1822,7 +1850,7 @@ has 'checkpoint_stop' => (
 
 
 
-sub BUILDARGS { ## no critic (ProhibitExcessComplexity)
+sub BUILDARGS {
 	my $class = shift;
 	my %params;
 
@@ -1878,23 +1906,6 @@ sub BUILDARGS { ## no critic (ProhibitExcessComplexity)
 	  WiX3::XML::GeneratesGUID::Object->new(
 		_sitename => $params{sitename} );
 
-
-	if ( $params{temp_dir} =~ m{[.]}ms ) {
-		PDWiX::Parameter->throw(
-			parameter => 'temp_dir: Cannot be '
-			  . 'a directory that has a . in the name.',
-			where => '->new'
-		);
-	}
-
-	if ( defined $params{build_dir} && $params{build_dir} =~ m{[.]}ms ) {
-		PDWiX::Parameter->throw(
-			parameter => 'build_dir: Cannot be '
-			  . 'a directory that has a . in the name.',
-			where => '->new'
-		);
-	}
-
 	if ( defined $params{image_dir} ) {
 		my $perl_location = lc Probe::Perl->find_perl_interpreter();
 		$params{_trace_object}
@@ -1907,21 +1918,6 @@ sub BUILDARGS { ## no critic (ProhibitExcessComplexity)
 		if ( $our_perl_location eq $perl_location ) {
 			PDWiX::Parameter->throw(
 				parameter => 'image_dir : attempting to commit suicide',
-				where     => '->new'
-			);
-		}
-
-		if ( $params{image_dir} =~ m{\\\\}ms ) {
-			PDWiX::Parameter->throw(
-				parameter =>
-				  'image_dir : cannot contain two consecutive slashes',
-				where => '->new'
-			);
-		}
-
-		if ( $params{image_dir} =~ /\s/ms ) {
-			PDWiX::Parameter->throw(
-				parameter => 'image_dir: Spaces are not allowed',
 				where     => '->new'
 			);
 		}
@@ -2064,6 +2060,7 @@ sub _build_filters {
 	  $self->file( qw{ c    COPYING.LIB } ),
 	  $self->file( qw{ c    bin         gccbug  } ),
 	  $self->file( qw{ c    bin         mingw32-gcc-3.4.5  } ),
+	  $self->file( qw{ cpan FTPstats.yml  } ),
 	  ];
 #>>>
 } ## end sub _build_filters
@@ -2230,6 +2227,13 @@ has '_use_sqlite' => (
 );
 
 
+has '_all_files_object' => (
+	is       => 'ro',
+	isa      => 'File::List::Object',
+	init_arg => undef,
+	lazy     => 1,
+	default  => sub { File::List::Object->new() },
+);
 
 # This comes from MooseX::Object::Pluggable, and sets up the
 # fact that Perl::Dist::WiX::BuildPerl::* is where plugins happen to be.
@@ -2374,7 +2378,6 @@ sub final_initialization {
 	# If we have a file:// url for the CPAN, move the
 	# sources directory out of the way.
 	if ( $self->cpan()->as_string() =~ m{\Afile://}mxsi ) {
-		require CPAN;
 		if ( not $CPAN::Config_loaded++ ) {
 			CPAN::HandleConfig->load();
 		}
@@ -2713,21 +2716,15 @@ sub install_portable {
 	if ( not $self->isa('Perl::Dist::Strawberry') ) {
 		$self->install_modules( qw(
 			  Sub::Uplevel
-		) );
-	}
-	$self->install_modules( qw(
-		  Test::Exception
-	) );
-	if ( not $self->isa('Perl::Dist::Strawberry') ) {
-		$self->install_modules( qw(
+			  Test::Exception
 			  Test::Tester
 			  Test::NoWarnings
 			  LWP::Online
+			  Class::Inspector
 		) );
 	}
 	if ( not $self->isa('Perl::Dist::Bootstrap') ) {
 		$self->install_modules( qw(
-			  Class::Inspector
 			  CPAN::Mini
 			  Portable
 		) );
@@ -2766,6 +2763,8 @@ sub install_portable {
 			directory_id => 'Data',
 			id           => 'DataFolder'
 		) );
+
+	$self->make_path( $self->dir('data') );
 
 	return 1;
 } ## end sub install_portable
@@ -2911,6 +2910,22 @@ sub install_win32_extras {
 				icon_file => catfile( $self->wix_dist_dir(), 'perldoc.ico' )
 			);
 		}
+		if ( $self->perl_version_human eq '5.12.3' ) {
+			$self->install_website(
+				name =>
+				  'Perl 5.12.2 Documentation (5.12.3 not available yet)',
+				url       => 'http://perldoc.perl.org/5.12.2/',
+				icon_file => catfile( $self->wix_dist_dir(), 'perldoc.ico' )
+			);
+		}
+		if ( $self->perl_version_human eq '5.14.0' ) {
+			$self->install_website(
+				name =>
+				  'Perl 5.12.2 Documentation (5.14.0 not available yet)',
+				url       => 'http://perldoc.perl.org/5.12.2/',
+				icon_file => catfile( $self->wix_dist_dir(), 'perldoc.ico' )
+			);
+		}
 		$self->install_website(
 			name      => 'Win32 Perl Wiki',
 			url       => 'http://win32.perl.org/',
@@ -2993,6 +3008,7 @@ sub remove_waste {
 	$self->_remove_file(qw{ cpan cpandb.sql });
 	$self->_remove_file(qw{ cpan FTPstats.yml });
 	$self->_remove_file(qw{ cpan cpan_sqlite_log.* });
+	$self->_remove_file(qw{ cpan Metadata });
 
 	# Readding the cpan directory.
 	$self->remake_path( catdir( $self->build_dir, 'cpan' ) );
@@ -3061,7 +3077,71 @@ sub regenerate_fragments {
 	return 1;
 } ## end sub regenerate_fragments
 
+=head3 verify_msi_file_contents
 
+This method is used by L<run()|/run> to verify that all the files that are
+supposed to be in the .msi or .msm are actually in it. ('supposed to be' is 
+defined as 'the files would be in the .zip at this point'.)
+
+This method does not verify anything (start menu options, etc.) that does not
+go in the L<image_dir()|/image_dir>
+
+=cut
+
+sub verify_msi_file_contents {
+	my $self = shift;
+
+	return 1 if not $self->msi();
+
+	my $image_dir = $self->image_dir()->stringify();
+	my $perllocal =
+	  $self->image_dir()->file(qw(perl lib perllocal.pod))->stringify();
+	my $files_msi = $self->_all_files_object();
+
+	# Add files being installed in fragments to the list.
+	my @files;
+	my @fragment_names = $self->_fragment_keys();
+	foreach my $name (@fragment_names) {
+		my $fragment = $self->get_fragment_object($name);
+		if ( defined $fragment and $fragment->can('_get_files') ) {
+			push @files, @{ $fragment->_get_files() };
+		}
+	}
+	my @files_in_imagedir = grep {m/\A\Q$image_dir\E/msx} @files;
+	$files_msi->load_array(@files_in_imagedir);
+	if ( -e $perllocal ) {
+		$files_msi->add_file($perllocal);
+	}
+
+	# Now get what the zip would grab.
+	my $files_zip = File::List::Object->new();
+	$files_zip->readdir($image_dir);
+	$files_zip->remove_files(
+		( grep {m/\Q.AAA\E\z/msx} @{ $files_zip->files() } ) );
+	$files_zip->filter( $self->_filters() );
+
+	my $not_in_msi =
+	  File::List::Object->clone($files_zip)->subtract($files_msi);
+	my $not_in_zip =
+	  File::List::Object->clone($files_msi)->subtract($files_zip);
+
+	if ( $not_in_msi->count() ) {
+		$self->trace_line( 0, "Files list:\n" );
+		$self->trace_line( 0, $not_in_msi->as_string() . "\n" );
+		PDWiX->throw(
+			    'These files should be installed by the MSI file being '
+			  . 'generated, but will not be.' );
+	}
+
+	if ( $not_in_zip->count() ) {
+		$self->trace_line( 0, "Files list:\n" );
+		$self->trace_line( 0, $not_in_zip->as_string() . "\n" );
+		PDWiX->throw( 'These files should be installed by a ZIP file, but '
+			  . 'will not be.' );
+	}
+
+	return 1;
+} ## end sub verify_msi_file_contents
 
 =head3 write
 
@@ -3426,14 +3506,12 @@ sub _get_msi_property_list {
 	}
 	$list->add_simple_property( 'WIXUI_EXITDIALOGOPTIONALTEXT',
 		$self->msi_exit_text() );
-	if ( defined $self->msi_run_readme_txt() ) {
+	if ( $self->msi_run_readme_txt() ) {
 		$list->add_simple_property( 'WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT',
 			'Read README file.' );
 		$list->add_simple_property( 'WIXUI_EXITDIALOGOPTIONALCHECKBOX', 1 );
-
-# TODO: Find out why the README.txt is not being generated.
-#		$list->add_simple_property('WixShellExecTarget',
-#			$self->msi_fileid_readme_txt());
+		$list->add_simple_property( 'WixShellExecTarget',
+			$self->msi_fileid_readme_txt() );
 	}
 	if ( $self->relocatable() ) {
 		$list->add_simple_property( 'WIXUI_INSTALLDIR', 'INSTALLDIR' );
@@ -4341,7 +4419,7 @@ sub msi_fileid_readme_txt {
 		PDWiX->throw("Could not find README.txt's ID.\n");
 	}
 
-	return $readme_id;
+	return "[#$readme_id]";
 
 } ## end sub msi_fileid_readme_txt
 
@@ -4360,15 +4438,19 @@ Returns the value to be used for perl -V:myuname, which is in this pattern:
 sub perl_config_myuname {
 	my $self = shift;
 
-	my $version =
-	  $self->perl_version_human() . q{.} . $self->build_number();
+	my $version = $self->perl_version_human();
 
 	if ( $version =~ m/git/ms ) {
-		$version = $self->git_describe() . q{.} . $self->build_number();
+		$version = $self->git_describe();
 	}
 
-	if ( $self->beta_number() > 0 ) {
-		$version .= '.beta_' . $self->beta_number();
+	if ( $self->smoketest() ) {
+		$version .= '.smoketest';
+	} else {
+		$version .= q{.} . $self->build_number();
+		if ( $self->beta_number() > 0 ) {
+			$version .= '.beta_' . $self->beta_number();
+		}
 	}
 
 	my $bits = ( 64 == $self->bits() ) ? 'x64' : 'i386';
@@ -5214,7 +5296,7 @@ sub _create_rightclick_fragment {
 	$child_tag->get_child_tag(1)->get_child_tag(0)->add_child_tag(
 		WiX3::XML::RegistryValue->new(
 			id     => 'sp1010c_executecommand',
-			value  => '[P_Perl_Location] "%1"',
+			value  => '[P_Perl_Location] "%1" %*',
 			type   => 'string',
 			action => 'write',
 		) );
@@ -5297,7 +5379,7 @@ L<http://ali.as/>, L<http://csjewell.comyr.com/perl/>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2009 - 2010 Curtis Jewell.
+Copyright 2009 - 2011 Curtis Jewell.
 
 Copyright 2008 - 2009 Adam Kennedy.
 

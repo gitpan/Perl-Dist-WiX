@@ -1,9 +1,9 @@
 Build.PL
 Changes
-dist.ini
 eg/makewix.pl
 eg/makewix_2.pl
 inc/Builder.pm
+inc/PluginInfo.pm
 lib/Perl/Dist/VanillaWiX.pm
 lib/Perl/Dist/WiX.pm
 lib/Perl/Dist/WiX/Asset/Binary.pm
@@ -17,6 +17,7 @@ lib/Perl/Dist/WiX/Asset/Module.pm
 lib/Perl/Dist/WiX/Asset/PAR.pm
 lib/Perl/Dist/WiX/Asset/Perl.pm
 lib/Perl/Dist/WiX/Asset/Website.pm
+lib/Perl/Dist/WiX/BuildPerl/5123.pm
 lib/Perl/Dist/WiX/BuildPerl/PluginInterface.pod
 lib/Perl/Dist/WiX/Diagnostics.pod
 lib/Perl/Dist/WiX/DirectoryCache.pm
@@ -54,6 +55,13 @@ META.json
 META.yml
 README
 script/perldist_w
+share-5123/default/lib/CPAN/Config.pm.tt
+share-5123/default/win32/config.gc.tt
+share-5123/default/win32/config.gc64nox.tt
+share-5123/default/win32/config_H.gc
+share-5123/default/win32/config_H.gc64nox
+share-5123/default/win32/config_sh.PL
+share-5123/default/win32/makefile.mk.tt
 share/ClearFolderCA.dll
 share/cpan.ico
 share/default/DISTRIBUTIONS.txt.tt
@@ -103,6 +111,11 @@ src/ClearFolderCA/ClearFolderCA/stdafx.h
 src/copy_dll.bat
 t/000_report_versions.t
 t/001_compile.t
+t/build/long.t
+t/build/medium.t
+t/build/new.t
+t/build/portable.t
+t/build/vanilla.t
 t/data/cpan/authors/id/readme.txt
 t/directorytree.t
 t/icons.t

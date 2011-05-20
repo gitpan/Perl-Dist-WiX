@@ -8,7 +8,7 @@ Perl::Dist::WiX::Mixin::BuildPerl - 4th generation Win32 Perl distribution build
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Mixin::BuildPerl version 1.500.
+This document describes Perl::Dist::WiX::Mixin::BuildPerl version 1.500001.
 
 =head1 DESCRIPTION
 
@@ -38,8 +38,9 @@ use Module::CoreList 2.32 qw();
 use Perl::Dist::WiX::Asset::Perl qw();
 use Perl::Dist::WiX::Toolchain qw();
 use File::List::Object qw();
+use CPAN 1.9600 qw();
 
-our $VERSION = '1.500';
+our $VERSION = '1.500001';
 $VERSION =~ s/_//sm;
 
 # Keys are what's in the filename, with - being converted to ::.
@@ -64,6 +65,8 @@ Readonly my %CORE_MODULE_FIX => (
 Readonly my %CORE_PACKLIST_FIX => (
 	'IO::Compress::Base' => 'IO::Compress',
 	'Pod::Man'           => 'Pod',
+	'Filter::Util::Call' => 'Filter',
+	'Locale::Maketext'   => 'Locale-Maketext',
 );
 
 # List of modules to delay building until last when upgrading all CPAN
@@ -151,7 +154,6 @@ sub install_cpan_upgrades {
 	# Now go through the loop for each module.
 	my $force;
 	my @delayed_modules;
-	require CPAN;
   MODULE:
 
 	for my $module ( @{$module_info} ) {
@@ -199,9 +201,9 @@ sub install_cpan_upgrades {
 				$self->_install_cpan_module( $module, 1 );
 			}
 
-			## no critic(ProhibitUnusedCapture)
 			# There's a problem with extracting these two files, so
 			# upgrading to these versions, instead...
+			## no critic(ProhibitUnusedCapture)
 			when (
 				m{Unicode-Collate-0 [.] (\d\d)
                    -withoutworldwriteables}msx
@@ -215,6 +217,7 @@ sub install_cpan_upgrades {
 				);
 			} ## end when ( m{Unicode-Collate-0 [.] (\d\d) })
 
+=for cmt
 			when (
 				/Unicode-Normalize-1 [.] (\d\d)-withoutworldwriteables/msx)
 			{
@@ -225,6 +228,7 @@ sub install_cpan_upgrades {
 					$self->_force_flag($default_force),
 				);
 			}
+=cut
 
 			when (m{/ExtUtils-MakeMaker-\d}msx) {
 
@@ -241,6 +245,14 @@ sub install_cpan_upgrades {
 				# New CGI.pm (3.46 and later) versions require FCGI.
 				$self->install_modules(qw( FCGI ));
 				$self->_install_cpan_module( $module, $default_force );
+			}
+
+			when (m{/\QDevel-DProf-20110228}msx) {
+
+				#errors in tests, and this version does not contains
+				#any useful changes
+				#already patched in repository
+				next
 			}
 
 			default {
@@ -275,7 +287,7 @@ sub install_cpan_upgrades {
 	# Install newest dev version of CPAN if we haven't already.
 	if ( not $self->fragment_exists('CPAN') ) {
 		$self->install_distribution(
-			name             => 'DAGOLDEN/CPAN-1.94_64.tar.gz',
+			name             => 'ANDK/CPAN-1.9600.tar.gz',
 			mod_name         => 'CPAN',
 			makefilepl_param => ['INSTALLDIRS=perl'],
 			buildpl_param    => [ '--installdirs', 'core' ],
@@ -285,7 +297,7 @@ sub install_cpan_upgrades {
 	# Install version of Module::Build if we haven't already.
 	if ( not $self->fragment_exists('Module_Build') ) {
 		$self->install_distribution(
-			name             => 'DAGOLDEN/Module-Build-0.3624.tar.gz',
+			name             => 'DAGOLDEN/Module-Build-0.3800.tar.gz',
 			mod_name         => 'Module::Build',
 			makefilepl_param => ['INSTALLDIRS=perl'],
 			buildpl_param    => [ '--installdirs', 'core' ],
@@ -305,7 +317,7 @@ sub _get_cpan_upgrades_list {
 	# Generate the CPAN installation script
 	my $cpan_string = <<"END_PERL";
 print "Loading CPAN...\\n";
-use CPAN;
+use CPAN 1.9600;
 CPAN::HandleConfig->load unless \$CPAN::Config_loaded++;
 \$CPAN::Config->{'urllist'} = [ '$url' ];
 END_PERL
@@ -331,6 +343,8 @@ my @expand;
 	]
 } @modulelist;
 
+require Config;
+my $vendorlib=$Config::Config{'installvendorlib'};
 MODULE: for $module (@expand) {
 	my $file = $module->cpan_file;
 	
@@ -343,7 +357,7 @@ MODULE: for $module (@expand) {
 	my $have;
 	my $next_MODULE;
 	eval { # version.pm involved!
-		if ($inst_file) {
+		if ($inst_file and $vendorlib ne substr($inst_file,0,length($vendorlib))) {
 			$have = $module->inst_version;
 			local $^W = 0;
 			++$next_MODULE unless CPAN::Version->vgt($latest, $have);
@@ -574,11 +588,14 @@ sub _create_perl_toolchain { ## no critic(ProhibitUnusedPrivateSubroutines)
 	if ( $self->perl_version =~ m/\A512/ms ) {
 		$force = { 'Pod::Text' => 'RRA/podlators-2.4.0.tar.gz' };
 	}
-	if ( $self->perl_version =~ m/\A5101/ms ) {
-
-		# CPAN needs installed on 5.10.1, as well.
-		$force = { 'CPAN' => 'DAGOLDEN/CPAN-1.94_64.tar.gz' };
+	if ( $self->perl_version eq '5140' ) {
+		$force = { 'ExtUtils::MakeMaker' =>
+			  'MSCHWERN/ExtUtils-MakeMaker-6.57_10.tar.gz' };
 	}
+	$force->{'LWP'} = 'GAAS/libwww-perl-5.837.tar.gz';
+
+	#new version creates problems for https on 64 bit systems
+
 	my $toolchain = Perl::Dist::WiX::Toolchain->new(
 		perl_version => $self->perl_version_literal(),
 		cpan         => $cpan->as_string(),
@@ -684,13 +701,6 @@ sub install_perl_toolchain {
 				# Upgrading to this version, instead...
 				$dist = 'STSI/TermReadKey-2.30.02.tar.gz';
 			}
-			when (/CPAN-1 [.] 9402/msx) {
-
-				# Alias agrees that we include 1.94_51 (or the
-				# current dev version past it) because of the fix
-				# for the Win32 file:// bug.
-				$dist = 'DAGOLDEN/CPAN-1.94_64.tar.gz';
-			}
 			when (/ExtUtils-MakeMaker-/msx) {
 
 				# There are modules that overwrite portions of this one.
@@ -700,6 +710,11 @@ sub install_perl_toolchain {
 
 				# This module needs forced on Vista
 				# (and probably 2008/Win7 as well).
+				$force = 1;
+			}
+			when (/IO-Compress-2 [.] 034/msx) {
+
+				# This module needs forced - has a test bug.
 				$force = 1;
 			}
 			when (/Win32-TieRegistry-/msx) {
@@ -799,7 +814,7 @@ L<http://ali.as/>, L<http://csjewell.comyr.com/perl/>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2009 - 2010 Curtis Jewell.
+Copyright 2009 - 2011 Curtis Jewell.
 
 Copyright 2008 - 2009 Adam Kennedy.
 

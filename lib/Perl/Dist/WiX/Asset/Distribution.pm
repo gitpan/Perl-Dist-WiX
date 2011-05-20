@@ -8,7 +8,7 @@ Perl::Dist::WiX::Asset::Distribution - "Perl Distribution" asset for a Win32 Per
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Asset::Distribution version 1.500.
+This document describes Perl::Dist::WiX::Asset::Distribution version 1.500001.
 
 =head1 SYNOPSIS
 
@@ -56,7 +56,7 @@ use Params::Util qw( _INSTANCE );
 require File::Remove;
 require URI;
 
-our $VERSION = '1.500';
+our $VERSION = '1.500001';
 $VERSION =~ s/_//ms;
 
 with 'Perl::Dist::WiX::Role::Asset';
@@ -395,9 +395,10 @@ sub install {
 	# Where will it get extracted to
 	my $dist_path = $name;
 	$self->_add_to_distributions_installed($dist_path);
-	$dist_path =~ s{[.] tar [.] gz}{}msx;   # Take off extensions.
+	$dist_path =~ s{[.] tar [.] gz}{}msx;            # Take off extensions.
 	$dist_path =~ s{[.] zip}{}msx;
 	$dist_path =~ s{.+\/}{}msx;        # Take off directories.
+	$dist_path =~ s{-withoutworldwriteables$}{}msx;
 	my $unpack_to = catdir( $build_dir, $dist_path );
 
 	# Extract the tarball
@@ -469,7 +470,7 @@ sub install {
 	} else {
 		$filelist =
 		  File::List::Object->new()->readdir( $self->_dir('perl') );
-		$filelist->subtract($filelist_sub)->filter( $self->_filters );
+		$filelist->subtract($filelist_sub)->filter( $self->_filters() );
 	}
 
 	my $module_name = $self->get_module_name();
@@ -511,7 +512,7 @@ L<Perl::Dist::WiX::Role::Asset|Perl::Dist::WiX::Role::Asset>
 
 =head1 COPYRIGHT
 
-Copyright 2009 - 2010 Curtis Jewell.
+Copyright 2009 - 2011 Curtis Jewell.
 
 Copyright 2007 - 2009 Adam Kennedy.
 

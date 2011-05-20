@@ -8,7 +8,7 @@ Perl::Dist::WiX::Mixin::Libraries - Library installation routines
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Mixin::Libraries version 1.500.
+This document describes Perl::Dist::WiX::Mixin::Libraries version 1.500001.
 
 =head1 DESCRIPTION
 
@@ -31,7 +31,7 @@ use Params::Util qw( _STRING );
 use Perl::Dist::WiX::Exceptions;
 use Readonly;
 
-our $VERSION = '1.500';
+our $VERSION = '1.500001';
 $VERSION =~ s/_//ms;
 
 Readonly my %PACKAGES => (
@@ -109,7 +109,7 @@ sub _binary_file {
 	}
 
 	my $package_file = $PACKAGES{$toolchain}{$package};
-	$self->trace_line( 3, "Pachage $package is in $package_file\n" );
+	$self->trace_line( 3, "Package $package is in $package_file\n" );
 
 	return $package_file;
 } ## end sub _binary_file
@@ -384,7 +384,7 @@ L<http://ali.as/>, L<http://csjewell.comyr.com/perl/>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2009 - 2010 Curtis Jewell.
+Copyright 2009 - 2011 Curtis Jewell.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.
