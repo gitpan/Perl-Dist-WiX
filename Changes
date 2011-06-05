@@ -1,6 +1,9 @@
 Changes for Perl extension Perl-Dist-WiX
 
-1.500001   Wed 23 Feb 2011
+1.500002   Sat 04 Jun 2011
+    1. (backported) Remove File::Remove from dependencies.
+
+1.500001   Thu 19 May 2011
     1. Used to build Strawberry Perl 5.12.3.0/5.10.1.5.
     2. Includes the 5.12.3 plugin for testing purposes.
 

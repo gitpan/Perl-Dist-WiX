@@ -8,7 +8,7 @@ Perl::Dist::WiX::Mixin::BuildPerl - 4th generation Win32 Perl distribution build
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Mixin::BuildPerl version 1.500001.
+This document describes Perl::Dist::WiX::Mixin::BuildPerl version 1.500002.
 
 =head1 DESCRIPTION
 
@@ -40,7 +40,7 @@ use Perl::Dist::WiX::Toolchain qw();
 use File::List::Object qw();
 use CPAN 1.9600 qw();
 
-our $VERSION = '1.500001';
+our $VERSION = '1.500002';
 $VERSION =~ s/_//sm;
 
 # Keys are what's in the filename, with - being converted to ::.
@@ -125,7 +125,7 @@ the default tasklist after the "perl toolchain" is installed.
 
 =cut
 
-sub _force_flag {
+sub _force_flag { ## no critic(UnusedPrivateSubroutines)
 	shift;                             # We don't use $self.
 	my $force = shift;
 	return $force ? ( force => 1 ) : (),;
@@ -201,6 +201,7 @@ sub install_cpan_upgrades {
 				$self->_install_cpan_module( $module, 1 );
 			}
 
+=for cmt
 			# There's a problem with extracting these two files, so
 			# upgrading to these versions, instead...
 			## no critic(ProhibitUnusedCapture)
@@ -217,7 +218,6 @@ sub install_cpan_upgrades {
 				);
 			} ## end when ( m{Unicode-Collate-0 [.] (\d\d) })
 
-=for cmt
 			when (
 				/Unicode-Normalize-1 [.] (\d\d)-withoutworldwriteables/msx)
 			{

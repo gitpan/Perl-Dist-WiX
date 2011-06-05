@@ -257,7 +257,7 @@ The optional 'force' param can be used to force the install of module.
 This does not, however, force the installation of the dependencies of
 the module.
 
-The optional 'packlist' param sshould be 0 if a .packlist file is not 
+The optional 'packlist' param should be 0 if a .packlist file is not 
 installed with the module.
 
 This does NOT install the dependencies of the module named - they have

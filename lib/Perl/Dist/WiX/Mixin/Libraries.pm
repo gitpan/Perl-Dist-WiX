@@ -8,7 +8,7 @@ Perl::Dist::WiX::Mixin::Libraries - Library installation routines
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Mixin::Libraries version 1.500001.
+This document describes Perl::Dist::WiX::Mixin::Libraries version 1.500002.
 
 =head1 DESCRIPTION
 
@@ -31,7 +31,7 @@ use Params::Util qw( _STRING );
 use Perl::Dist::WiX::Exceptions;
 use Readonly;
 
-our $VERSION = '1.500001';
+our $VERSION = '1.500002';
 $VERSION =~ s/_//ms;
 
 Readonly my %PACKAGES => (
@@ -115,7 +115,7 @@ sub _binary_file {
 } ## end sub _binary_file
 
 
-# Private troutine to map a file or package name to a URL.
+# Private routine to map a file or package name to a URL.
 sub _binary_url {
 	my $self = shift;
 	my $file = shift;

@@ -8,7 +8,7 @@ Perl::Dist::WiX::Util::Machine - Generate an entire set of related distributions
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Util::Machine version 1.500.
+This document describes Perl::Dist::WiX::Util::Machine version 1.500002.
 
 =head1 SYNOPSIS
 
@@ -60,23 +60,25 @@ variations of a distribution at the same time.
 
 =cut
 
+#<<<
 use 5.010;
 use Moose 0.90;
 use Moose::Util::TypeConstraints;
-use MooseX::Types::Moose qw( Str ArrayRef HashRef Bool Int );
-use Params::Util qw( _IDENTIFIER _HASH0 _DRIVER _CLASSISA );
-use English qw( -no_match_vars );
-use File::Copy qw();
-use File::Copy::Recursive qw();
-use File::Spec::Functions qw( catdir );
-use File::Remove qw();
-use File::HomeDir qw();
-use List::MoreUtils qw( none );
-use Perl::Dist::WiX::Exceptions;
-use WiX3::Traceable qw();
+use MooseX::Types::Moose         qw( Str ArrayRef HashRef Bool Int );
+use Params::Util                 qw( _IDENTIFIER _HASH0 _DRIVER _CLASSISA );
+use English                      qw( -no_match_vars );
+use File::Copy                   qw();
+use File::Copy::Recursive        qw();
+use File::Path              2.08 qw( remove_tree );
+use File::Spec::Functions        qw( catdir );
+use File::Remove                 qw();
+use File::HomeDir                qw();
+use List::MoreUtils              qw( none );
+use WiX3::Traceable              qw();
+use Perl::Dist::WiX::Exceptions  qw();
+#>>>
 
-our $VERSION = '1.500';
-$VERSION =~ s/_//ms;
+our $VERSION = '1.500002';
 
 =head1 INTERFACE
 
@@ -566,7 +568,36 @@ sub run {
 		print "\n\n\n\n\n";
 
 		# Flush out the image dir for the next run
-		File::Remove::remove( \1, $dist->image_dir() );
+		my $err;
+		my $dir = $dist->image_dir();
+		remove_tree(
+			"$dir",
+			{   keep_root => 1,
+				error     => \$err,
+			} );
+		my $e = $EVAL_ERROR;
+
+		if ($e) {
+			PDWiX::Directory->throw(
+				dir     => $dir,
+				message => "Failed to remove directory, critical error:\n$e"
+			);
+		}
+		if ( @{$err} ) {
+			my $errors = q{};
+			for my $diag ( @{$err} ) {
+				my ( $file, $message ) = %{$diag};
+				if ( $file eq q{} ) {
+					$errors .= "General error: $message\n";
+				} else {
+					$errors .= "Problem removing $file: $message\n";
+				}
+			}
+			PDWiX::Directory->throw(
+				dir     => $dir,
+				message => "Failed to remove directory, errors:\n$errors"
+			);
+		} ## end if ( @{$err} )
 	} ## end while ( my $dist = $self->next...)
 	return 1;
 } ## end sub run

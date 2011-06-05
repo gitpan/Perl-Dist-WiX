@@ -4,7 +4,7 @@
       "Curtis Jewell <csjewell@cpan.org>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.110440",
+   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.110930",
    "license" : [
       "perl_5"
    ],
@@ -59,9 +59,8 @@
             "File::Find::Rule" : "0.30",
             "File::HomeDir" : "0.82",
             "File::List::Object" : "0.201",
-            "File::Path" : "2.07",
+            "File::Path" : "2.08",
             "File::PathList" : "1.04",
-            "File::Remove" : "1.42",
             "File::ShareDir" : "1.02",
             "File::Spec" : "3.29",
             "File::Temp" : "0.21",
@@ -112,7 +111,7 @@
       },
       "Perl::Dist::WiX" : {
          "file" : "lib/Perl/Dist/WiX.pm",
-         "version" : "1.500001"
+         "version" : "1.500002"
       },
       "Perl::Dist::WiX::Asset::Binary" : {
          "file" : "lib/Perl/Dist/WiX/Asset/Binary.pm",
@@ -124,15 +123,15 @@
       },
       "Perl::Dist::WiX::Asset::DistFile" : {
          "file" : "lib/Perl/Dist/WiX/Asset/DistFile.pm",
-         "version" : "1.500"
+         "version" : "1.500002"
       },
       "Perl::Dist::WiX::Asset::Distribution" : {
          "file" : "lib/Perl/Dist/WiX/Asset/Distribution.pm",
-         "version" : "1.500001"
+         "version" : "1.500002"
       },
       "Perl::Dist::WiX::Asset::File" : {
          "file" : "lib/Perl/Dist/WiX/Asset/File.pm",
-         "version" : "1.500"
+         "version" : "1.500002"
       },
       "Perl::Dist::WiX::Asset::Launcher" : {
          "file" : "lib/Perl/Dist/WiX/Asset/Launcher.pm",
@@ -140,7 +139,7 @@
       },
       "Perl::Dist::WiX::Asset::Library" : {
          "file" : "lib/Perl/Dist/WiX/Asset/Library.pm",
-         "version" : "1.500"
+         "version" : "1.500002"
       },
       "Perl::Dist::WiX::Asset::Module" : {
          "file" : "lib/Perl/Dist/WiX/Asset/Module.pm",
@@ -148,11 +147,11 @@
       },
       "Perl::Dist::WiX::Asset::PAR" : {
          "file" : "lib/Perl/Dist/WiX/Asset/PAR.pm",
-         "version" : "1.500"
+         "version" : "1.500002"
       },
       "Perl::Dist::WiX::Asset::Perl" : {
          "file" : "lib/Perl/Dist/WiX/Asset/Perl.pm",
-         "version" : "1.500"
+         "version" : "1.500002"
       },
       "Perl::Dist::WiX::Asset::Website" : {
          "file" : "lib/Perl/Dist/WiX/Asset/Website.pm",
@@ -200,11 +199,11 @@
       },
       "Perl::Dist::WiX::Mixin::BuildPerl" : {
          "file" : "lib/Perl/Dist/WiX/Mixin/BuildPerl.pm",
-         "version" : "1.500001"
+         "version" : "1.500002"
       },
       "Perl::Dist::WiX::Mixin::Checkpoint" : {
          "file" : "lib/Perl/Dist/WiX/Mixin/Checkpoint.pm",
-         "version" : "1.500"
+         "version" : "1.500002"
       },
       "Perl::Dist::WiX::Mixin::Installation" : {
          "file" : "lib/Perl/Dist/WiX/Mixin/Installation.pm",
@@ -212,7 +211,7 @@
       },
       "Perl::Dist::WiX::Mixin::Libraries" : {
          "file" : "lib/Perl/Dist/WiX/Mixin/Libraries.pm",
-         "version" : "1.500001"
+         "version" : "1.500002"
       },
       "Perl::Dist::WiX::Mixin::Patching" : {
          "file" : "lib/Perl/Dist/WiX/Mixin/Patching.pm",
@@ -224,7 +223,7 @@
       },
       "Perl::Dist::WiX::Mixin::Support" : {
          "file" : "lib/Perl/Dist/WiX/Mixin/Support.pm",
-         "version" : "1.500001"
+         "version" : "1.500002"
       },
       "Perl::Dist::WiX::PropertyList" : {
          "file" : "lib/Perl/Dist/WiX/PropertyList.pm",
@@ -232,7 +231,7 @@
       },
       "Perl::Dist::WiX::Role::Asset" : {
          "file" : "lib/Perl/Dist/WiX/Role/Asset.pm",
-         "version" : "1.500"
+         "version" : "1.500002"
       },
       "Perl::Dist::WiX::Role::GitPlugin" : {
          "file" : "lib/Perl/Dist/WiX/Role/GitPlugin.pm",
@@ -272,7 +271,7 @@
       },
       "Perl::Dist::WiX::Util::Machine" : {
          "file" : "lib/Perl/Dist/WiX/Util/Machine.pm",
-         "version" : "1.500"
+         "version" : "1.500002"
       }
    },
    "release_status" : "stable",
@@ -289,5 +288,5 @@
       },
       "x_IRC" : "irc://irc.perl.org/#win32"
    },
-   "version" : "1.500001"
+   "version" : "1.500002"
 }

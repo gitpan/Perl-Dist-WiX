@@ -4,7 +4,7 @@ package Perl::Dist::WiX;
 
 =begin readme text
 
-Perl-Dist-WiX version 1.500001
+Perl-Dist-WiX version 1.500002
 
 =end readme
 
@@ -16,7 +16,7 @@ Perl::Dist::WiX - 4th generation Win32 Perl distribution builder
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX version 1.500001.
+This document describes Perl::Dist::WiX version 1.500002.
 
 =for readme continue
 
@@ -154,21 +154,20 @@ use WiX3::Traceable                         qw();
 use namespace::clean  -except => 'meta';
 #>>>
 
-our $VERSION = '1.500001';
-$VERSION =~ s/_//ms;
+our $VERSION = '1.500002';
 
 with
   'MooseX::Object::Pluggable'          => { -version => 0.0011 },
   'Perl::Dist::WiX::Role::MultiPlugin' => { -version => 1.500 },
   ;
 extends
-  'Perl::Dist::WiX::Mixin::BuildPerl'    => { -version => 1.500001 },
-  'Perl::Dist::WiX::Mixin::Checkpoint'   => { -version => 1.500 },
-  'Perl::Dist::WiX::Mixin::Libraries'    => { -version => 1.500001 },
+  'Perl::Dist::WiX::Mixin::BuildPerl'    => { -version => 1.500002 },
+  'Perl::Dist::WiX::Mixin::Checkpoint'   => { -version => 1.500002 },
+  'Perl::Dist::WiX::Mixin::Libraries'    => { -version => 1.500002 },
   'Perl::Dist::WiX::Mixin::Installation' => { -version => 1.500 },
   'Perl::Dist::WiX::Mixin::ReleaseNotes' => { -version => 1.500 },
   'Perl::Dist::WiX::Mixin::Patching'     => { -version => 1.500 },
-  'Perl::Dist::WiX::Mixin::Support'      => { -version => 1.500001 },
+  'Perl::Dist::WiX::Mixin::Support'      => { -version => 1.500002 },
   ;
 
 #####################################################################
@@ -1951,7 +1950,7 @@ sub DEMOLISH {
 
 	if ( $self->_has_moved_cpan() ) {
 		my $x = eval {
-			File::Remove::remove( \1, $self->_cpan_sources_from() );
+			$self->remove_path( $self->_cpan_sources_from() );
 			File::Copy::Recursive::move( $self->_cpan_sources_to(),
 				$self->_cpan_sources_from() );
 		};
@@ -2285,7 +2284,7 @@ sub run {
 		PDWiX::Parameter->throw(
 			parameter => 'perl_version: No plugin installed'
 			  . " for the requested version of perl ($version_plugin)",
-			where => '->final_initialization',
+			where => '->run',
 		);
 	}
 
@@ -2374,6 +2373,8 @@ sub final_initialization {
 	## no critic (RequireLocalizedPunctuationVars)
 	$ENV{TEMP} = $self->tempenv_dir();
 	$self->trace_line( 5, 'Emptied: ' . $self->tempenv_dir() . "\n" );
+
+	### *** TODO: Move AppData/.cpan/CPAN/MyConfig.pm out of the way. ***
 
 	# If we have a file:// url for the CPAN, move the
 	# sources directory out of the way.
@@ -3020,7 +3021,7 @@ sub _remove_dir {
 	my $self = shift;
 	my $dir  = $self->dir(@_);
 	if ( -e $dir ) {
-		File::Remove::remove( \1, $dir );
+		$self->remove_path($dir);
 	}
 	return 1;
 }
@@ -3029,7 +3030,8 @@ sub _remove_file {
 	my $self = shift;
 	my $file = $self->file(@_);
 	if ( -e $file ) {
-		File::Remove::remove( \1, $file );
+		## TODO: Deal with the 'no critic'
+		unlink $file; ## no critic(RequireCheckedSyscalls)
 	}
 	return 1;
 }

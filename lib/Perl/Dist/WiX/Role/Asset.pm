@@ -8,7 +8,7 @@ Perl::Dist::WiX::Role::Asset - Role for assets.
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Role::Asset version 1.500.
+This document describes Perl::Dist::WiX::Role::Asset version 1.500002.
 
 =head1 SYNOPSIS
 
@@ -23,23 +23,23 @@ L<Perl::Dist::WiX|Perl::Dist::WiX>-based Perl distribution.
 
 =cut
 
-# Convenience role for Perl::Dist::WiX assets
-
+#<<<
 use 5.010;
 use Moose::Role;
-use File::Spec::Functions qw( rel2abs catdir catfile );
-use MooseX::Types::Moose qw( Str Maybe );
-use Params::Util qw( _INSTANCE );
-use English qw( -no_match_vars );
-require File::List::Object;
-require File::ShareDir;
-require File::Spec::Unix;
-require Perl::Dist::WiX::Exceptions;
-require URI;
-require URI::file;
+use File::Spec::Functions        qw( rel2abs catdir catfile );
+use MooseX::Types::Moose         qw( Str Maybe );
+use Params::Util                 qw( _INSTANCE );
+use English                      qw( -no_match_vars );
+use File::Path              2.08 qw();
+use File::List::Object           qw();
+use File::ShareDir               qw();
+use File::Spec::Unix             qw();
+use Perl::Dist::WiX::Exceptions  qw();
+use URI                          qw();
+use URI::file                    qw();
+#>>>
 
-our $VERSION = '1.500';
-$VERSION =~ s/_//ms;
+our $VERSION = '1.500002';
 
 =head1 ATTRIBUTES
 
@@ -362,6 +362,53 @@ EOF
 	return $filelist->filter( $self->_filters() );
 } ## end sub _search_packlist
 
+
+=head2 remove_path
+
+The C<remove_path> method is for the convienence of assets that need it.
+
+It removes the path specified, and can take any object (e.g., a
+L<Path::Class::Dir|Path::Class::Dir>) that stringifies to a name of a
+directory to remove.
+
+=cut
+
+sub remove_path {
+	my $class = shift;
+	my $dir   = rel2abs(shift);
+	my $err;
+	if ( -d "$dir" ) {
+		File::Path::remove_tree(
+			"$dir",
+			{   keep_root => 0,
+				error     => \$err,
+			} );
+		my $e = $EVAL_ERROR;
+		if ($e) {
+			PDWiX::Directory->throw(
+				dir     => $dir,
+				message => "Failed to remove directory, critical error:\n$e"
+			);
+		}
+		if ( @{$err} ) {
+			my $errors = q{};
+			for my $diag ( @{$err} ) {
+				my ( $file, $message ) = %{$diag};
+				if ( $file eq q{} ) {
+					$errors .= "General error: $message\n";
+				} else {
+					$errors .= "Problem removing $file: $message\n";
+				}
+			}
+			PDWiX::Directory->throw(
+				dir     => $dir,
+				message => "Failed to remove directory, errors:\n$errors"
+			);
+		} ## end if ( @{$err} )
+	} ## end if ( -d "$dir" )
+
+	return;
+} ## end sub remove_path
 
 1;
 

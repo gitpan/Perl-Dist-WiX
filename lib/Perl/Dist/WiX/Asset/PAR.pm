@@ -54,8 +54,7 @@ require SelectSaver;
 require PAR::Dist;
 require IO::String;
 
-our $VERSION = '1.500';
-$VERSION =~ s/_//ms;
+our $VERSION = '1.500002';
 
 with 'Perl::Dist::WiX::Role::Asset';
 
@@ -93,7 +92,7 @@ has name => (
 	required => 1,
 );
 
-=head3 name
+=head3 dist_info
 
 The required C<dist_info> parameter is the location of the source package 
 for the .par file, either as a URL (which should be accessible for 3 years) 

@@ -8,7 +8,7 @@ Perl::Dist::WiX::Mixin::Support - Provides support routines for building a Win32
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Mixin::Support version 1.500001.
+This document describes Perl::Dist::WiX::Mixin::Support version 1.500002.
 
 =head1 SYNOPSIS
 
@@ -23,27 +23,27 @@ files, directories, and programs for L<Perl::Dist::WiX|Perl::Dist::WiX>.
 
 =cut
 
+#<<<
 use 5.010;
 use Moose;
-use English qw( -no_match_vars );
-use Archive::Tar 1.42 qw();
-use Archive::Zip qw( AZ_OK );
-use Devel::StackTrace qw();
-use LWP::UserAgent qw();
-use File::Basename qw();
-use File::Find::Rule qw();
-use File::Path qw();
-use File::pushd qw();
-use File::Remove qw();
-use File::Spec::Functions qw( catdir catfile rel2abs catpath );
-use File::Slurp qw(read_file);
-use IO::Compress::Bzip2 2.025;
-use IO::Compress::Gzip 2.025;
+use English                    qw( -no_match_vars );
+use Archive::Tar          1.42 qw();
+use Archive::Zip               qw( AZ_OK );
+use Devel::StackTrace          qw();
+use LWP::UserAgent             qw();
+use File::Basename             qw();
+use File::Find::Rule           qw();
+use File::Path            2.08 qw();
+use File::pushd                qw();
+use File::Spec::Functions      qw( catdir catfile rel2abs catpath );
+use File::Slurp                qw(read_file);
+use IO::Compress::Bzip2  2.025 qw();
+use IO::Compress::Gzip   2.025 qw();
+#>>>
 
 # IO::Uncompress::Xz is tested for later, as it's an 'optional'.
 
-our $VERSION = '1.500001';
-$VERSION =~ s/_//ms;
+our $VERSION = '1.500002';
 
 
 
@@ -650,14 +650,29 @@ before creation occurs.
 sub make_path {
 	my $class = shift;
 	my $dir   = rel2abs(shift);
-
+	my $err;
 	if ( not -d $dir ) {
-		File::Path::mkpath($dir);
-	}
+		File::Path::make_path( "$dir", { error => \$err, } );
+		if ( @{$err} ) {
+			my $errors = q{};
+			for my $diag ( @{$err} ) {
+				my ( $file, $message ) = %{$diag};
+				if ( $file eq q{} ) {
+					$errors .= "General error: $message\n";
+				} else {
+					$errors .= "Problem remaking $file: $message\n";
+				}
+			}
+			PDWiX::Directory->throw(
+				dir     => $dir,
+				message => "Failed to create directory, errors:\n$errors"
+			);
+		} ## end if ( @{$err} )
+	} ## end if ( not -d $dir )
 	if ( not -d $dir ) {
 		PDWiX::Directory->throw(
 			directory => $dir,
-			message   => 'Failed to create'
+			message   => 'Failed to create directory, no information why'
 		);
 	}
 	return $dir;
@@ -680,19 +695,115 @@ before creation occurs.
 sub remake_path {
 	my $class = shift;
 	my $dir   = rel2abs(shift);
-	if ( -d $dir ) {
-		File::Remove::remove( \1, $dir );
-	}
-	File::Path::mkpath($dir);
-
-	if ( not -d $dir ) {
+	my $err;
+	if ( -d "$dir" ) {
+		File::Path::remove_tree(
+			"$dir",
+			{   keep_root => 1,
+				error     => \$err,
+			} );
+		my $e = $EVAL_ERROR;
+		if ($e) {
+			PDWiX::Directory->throw(
+				dir => $dir,
+				message =>
+"Failed to remove directory during recreation, critical error:\n$e"
+			);
+		}
+		if ( @{$err} ) {
+			my $errors = q{};
+			for my $diag ( @{$err} ) {
+				my ( $file, $message ) = %{$diag};
+				if ( $file eq q{} ) {
+					$errors .= "General error: $message\n";
+				} else {
+					$errors .= "Problem removing $file: $message\n";
+				}
+			}
+			PDWiX::Directory->throw(
+				dir => $dir,
+				message =>
+"Failed to remove directory during recreation, errors:\n$errors"
+			);
+		} ## end if ( @{$err} )
+	} ## end if ( -d "$dir" )
+	if ( not -d "$dir" ) {
+		File::Path::make_path( "$dir", { error => \$err, } );
+		if ( @{$err} ) {
+			my $errors = q{};
+			for my $diag ( @{$err} ) {
+				my ( $file, $message ) = %{$diag};
+				if ( $file eq q{} ) {
+					$errors .= "General error: $message\n";
+				} else {
+					$errors .= "Problem remaking $file: $message\n";
+				}
+			}
+			PDWiX::Directory->throw(
+				dir     => $dir,
+				message => "Failed to recreate directory, errors:\n$errors"
+			);
+		} ## end if ( @{$err} )
+	} ## end if ( not -d "$dir" )
+	if ( not -d "$dir" ) {
 		PDWiX::Directory->throw(
 			dir     => $dir,
-			message => 'Failed to recreate'
+			message => 'Failed to recreate directory, no information why'
 		);
 	}
 	return $dir;
 } ## end sub remake_path
+
+
+
+=head2 remove_path
+
+	$dist->remove_path('perl\bin');
+
+Removes a path, removing all the files in it if the path already exists.
+
+The path passed in is converted to an absolute path using 
+L<File::Spec::Functions|File::Spec::Functions>::L<rel2abs()|File::Spec/rel2abs>
+before deletion occurs.
+
+=cut
+
+sub remove_path {
+	my $class = shift;
+	my $dir   = rel2abs(shift);
+	my $err;
+	if ( -d "$dir" ) {
+		File::Path::remove_tree(
+			"$dir",
+			{   keep_root => 0,
+				error     => \$err,
+			} );
+		my $e = $EVAL_ERROR;
+		if ($e) {
+			PDWiX::Directory->throw(
+				dir     => $dir,
+				message => "Failed to remove directory, critical error:\n$e"
+			);
+		}
+		if ( @{$err} ) {
+			my $errors = q{};
+			for my $diag ( @{$err} ) {
+				my ( $file, $message ) = %{$diag};
+				if ( $file eq q{} ) {
+					$errors .= "General error: $message\n";
+				} else {
+					$errors .= "Problem removing $file: $message\n";
+				}
+			}
+			PDWiX::Directory->throw(
+				dir     => $dir,
+				message => "Failed to remove directory, errors:\n$errors"
+			);
+		} ## end if ( @{$err} )
+	} ## end if ( -d "$dir" )
+
+	return;
+} ## end sub remove_path
 
 
 

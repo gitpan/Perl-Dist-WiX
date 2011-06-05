@@ -8,7 +8,7 @@ Perl::Dist::WiX::Asset::Distribution - "Perl Distribution" asset for a Win32 Per
 
 =head1 VERSION
 
-This document describes Perl::Dist::WiX::Asset::Distribution version 1.500001.
+This document describes Perl::Dist::WiX::Asset::Distribution version 1.500002.
 
 =head1 SYNOPSIS
 
@@ -47,17 +47,17 @@ C<install_distribution> method (and other things that call it).
 
 =cut
 
+#<<<
 use 5.010;
 use Moose;
-use MooseX::Types::Moose qw( Str Bool ArrayRef Maybe );
-use File::Spec::Functions qw( catdir catfile );
-use Params::Util qw( _INSTANCE );
+use MooseX::Types::Moose   qw( Str Bool ArrayRef Maybe );
+use English                qw( -no_match_vars );
+use File::Spec::Functions  qw( catdir catfile );
+use Params::Util           qw( _INSTANCE );
+use URI                    qw();
+#>>>
 
-require File::Remove;
-require URI;
-
-our $VERSION = '1.500001';
-$VERSION =~ s/_//ms;
+our $VERSION = '1.500002';
 
 with 'Perl::Dist::WiX::Role::Asset';
 extends 'Perl::Dist::WiX::Asset::DistBase';
@@ -382,10 +382,13 @@ sub install {
 	}
 
 	# Download the file
-	my $tgz = $self->_mirror_url(
-		$self->_abs_uri( $self->_get_cpan() ),
-		$self->_get_modules_dir(),
-	);
+	my $url = $self->_abs_uri( $self->_get_cpan() );
+	my $tgz =
+	  eval { $self->_mirror_url( $url, $self->_get_modules_dir(), ) }
+	  || PDWiX::Caught->throw(
+		message => $EVAL_ERROR,
+		info    => 'Error trying to download distribution'
+	  );
 
 	# Does it exist? If not, throw an error here.
 	if ( not -f $tgz ) {
@@ -404,7 +407,7 @@ sub install {
 	# Extract the tarball
 	if ( -d $unpack_to ) {
 		$self->_trace_line( 2, "Removing previous $unpack_to\n" );
-		File::Remove::remove( \1, $unpack_to );
+		$self->remove_path( \1, $unpack_to );
 	}
 	$self->_extract( $tgz => $build_dir );
 	if ( not -d $unpack_to ) {
